@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Log</title>
+<style>
+:root{
+  --bg:#0f1115; --surface:#171a21; --surface2:#1d212b; --border:#262b36;
+  --text:#e8e8e8; --dim:#9099a8; --muted:#5c6470;
+  --accent:#5c8fe8; --yellow:#e8b93f; --green:#5cc88f; --red:#e05c5c; --purple:#a06bff;
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f4f5f7; --surface:#ffffff; --surface2:#f0f1f4; --border:#e2e4e9; --text:#1a1c22; --dim:#5c6470; --muted:#9099a8; }
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; padding:20px 14px 60px; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  display:flex; justify-content:center;
+}
+.wrap{width:100%; max-width:720px;}
+h1{font-size:1.3rem; margin:4px 0 2px; letter-spacing:0.02em;}
+.sub{font-size:0.68rem; color:var(--muted); font-family:ui-monospace,monospace; margin-bottom:16px;}
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:18px;}
+.stat{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 8px; text-align:center;}
+.stat .n{font-size:1.15rem; font-weight:700; font-variant-numeric:tabular-nums;}
+.stat .l{font-size:0.6rem; color:var(--dim); text-transform:uppercase; letter-spacing:0.04em; margin-top:2px;}
+.chip-row{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:22px;}
+.chip{
+  background:var(--surface); border:1px solid var(--border); color:var(--dim); border-radius:999px;
+  padding:5px 12px; font-size:0.72rem; font-weight:600; cursor:pointer;
+}
+.chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+.section-label{font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--dim); margin:22px 0 8px;}
+.section-label:first-of-type{margin-top:0;}
+.grid{display:flex; flex-direction:column; gap:8px;}
+.card{
+  display:flex; background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  overflow:hidden; align-items:stretch;
+}
+.thumb{
+  width:56px; min-width:56px; background:var(--surface2); display:flex; align-items:center; justify-content:center;
+  font-size:1.4rem; position:relative; overflow:hidden;
+}
+.thumb img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+.card-body{flex:1; padding:9px 12px; min-width:0; display:flex; flex-direction:column; gap:5px; justify-content:center;}
+.row1{display:flex; align-items:center; gap:7px; min-width:0;}
+.gtitle{font-weight:700; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
+.rating{font-size:0.68rem; color:var(--dim); font-variant-numeric:tabular-nums; font-family:ui-monospace,monospace;}
+.row2{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.badge{font-size:0.62rem; font-weight:700; padding:1px 6px; border-radius:999px; background:var(--surface2); color:var(--dim);}
+.pill{font-size:0.6rem; font-weight:700; padding:1px 6px; border-radius:999px;}
+.pill-accent{background:var(--accent); color:#fff;}
+.pill-purple{background:var(--purple); color:#fff;}
+.pill-dim{background:var(--surface2); color:var(--dim); border:1px solid var(--border);}
+.meta-text{font-size:0.62rem; color:var(--muted); font-variant-numeric:tabular-nums;}
+.ach-wrap{display:flex; align-items:center; gap:6px; margin-top:1px;}
+.ach-track{flex:1; height:4px; background:var(--surface2); border-radius:4px; overflow:hidden;}
+.ach-fill{height:100%; background:var(--accent); border-radius:4px;}
+.ach-pct{font-size:0.58rem; color:var(--muted); font-variant-numeric:tabular-nums; min-width:28px; text-align:right;}
+.note{font-size:0.68rem; color:var(--dim); font-style:italic;}
+.empty{color:var(--muted); font-size:0.82rem; padding:6px 0;}
+details.more{margin-top:2px;}
+details.more summary{cursor:pointer; color:var(--dim); font-size:0.72rem; padding:4px 0;}
+.sync-status{font-size:0.62rem; color:var(--muted); margin-left:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>GAME LOG</h1>
+  <div class="sub" id="synced">loading…</div>
+  <div class="stats" id="stats"></div>
+  <div class="chip-row" id="chips"></div>
+  <div id="sections"></div>
+</div>
+<script>
+const PLAT_EMOJI={steam:'\u{1F5A5}',steamdeck:'\u{1F3AE}',ps5:'\u{1F3AE}',switch:'\u{1F3AE}',switch2:'\u{1F3AE}',ayn:'\u{1F4F1}',retro:'\u{1F47E}',wiiu:'\u{1F3AE}'};
+const PLAT_NAME={steam:'Steam',steamdeck:'Steam Deck',ps5:'PS5',switch:'Switch',switch2:'Switch 2',ayn:'AYN Thor',retro:'Retro',wiiu:'Wii U'};
+const DIFF_LABELS={1:'Easy',2:'Normal',3:'Hard',4:'Expert',5:'Brutal'};
+const STATUS_LABEL={playing:'Now Playing',queue:'Up Next',soon:'Backlog',done:'Completed',dropped:'Dropped'};
+const STATUS_ORDER=['playing','queue','soon','done','dropped'];
+
+let GAMES=[], COVERS={}, filter='all';
+
+const esc=s=>{
+  if(s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+};
+
+function cover(g){
+  const key=(g.t||'').toLowerCase();
+  return COVERS[key]||null;
+}
+
+function achInfo(g){
+  if(g.achCount && Array.isArray(g.achCount) && g.achCount.length===2 && g.achCount[1]>0){
+    return {earned:g.achCount[0], total:g.achCount[1], pct:Math.round(g.achCount[0]/g.achCount[1]*100)};
+  }
+  if(g.achPct!=null) return {pct:g.achPct};
+  return null;
+}
+
+function cardHtml(g){
+  const url=cover(g);
+  const thumb=url
+    ? `<img src="${esc(url)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+    : (PLAT_EMOJI[g.p]||'\u{1F3AE}');
+  const plat=`<span class="badge">${esc(PLAT_NAME[g.p]||g.p||'?')}</span>`;
+  const year=g.y?`<span class="meta-text">${g.y}</span>`:'';
+  const hours=g.actualHours?`<span class="meta-text" style="color:var(--purple)">${g.actualHours}h</span>`:'';
+  const gotm=g.gotm?`<span class="pill pill-accent">${esc(g.gotm)}</span>`:'';
+  const mastery=g.mastery?`<span class="pill pill-purple">${esc(g.mastery)}</span>`:'';
+  const diff=g.diff?`<span class="pill pill-dim">${DIFF_LABELS[g.diff]||g.diff}</span>`:'';
+  const rating=g.r>0?`<span class="rating">${g.r}/10</span>`:'';
+  const note=g.note?`<div class="note">${esc(g.note)}</div>`:'';
+  const ach=achInfo(g);
+  const achHtml=ach?`
+    <div class="ach-wrap">
+      <div class="ach-track"><div class="ach-fill" style="width:${ach.pct}%"></div></div>
+      <span class="ach-pct">${ach.pct}%${ach.total?` (${ach.earned}/${ach.total})`:''}</span>
+    </div>`:'';
+  return `
+    <div class="card">
+      <div class="thumb">${thumb}</div>
+      <div class="card-body">
+        <div class="row1"><div class="gtitle" title="${esc(g.t)}">${esc(g.t)}</div>${rating}</div>
+        <div class="row2">${plat}${year}${hours}${gotm}${mastery}${diff}</div>
+        ${achHtml}
+        ${note}
+      </div>
+    </div>`;
+}
+
+function sectionHtml(status, games){
+  if(!games.length) return '';
+  const visible = status==='done' || status==='dropped' ? games.slice(0,5) : games;
+  const rest = games.length - visible.length;
+  const cards = visible.map(cardHtml).join('');
+  const more = rest>0
+    ? `<details class="more"><summary>+ ${rest} more</summary><div class="grid">${games.slice(visible.length).map(cardHtml).join('')}</div></details>`
+    : '';
+  return `<div class="section-label">${STATUS_LABEL[status]} (${games.length})</div><div class="grid">${cards}</div>${more}`;
+}
+
+function render(){
+  const byStatus={};
+  for(const s of STATUS_ORDER) byStatus[s]=[];
+  for(const g of GAMES){
+    const s=byStatus[g.s]?g.s:'soon';
+    byStatus[s].push(g);
+  }
+  byStatus.queue.sort((a,b)=>(b.queued||'').localeCompare(a.queued||''));
+  byStatus.playing.sort((a,b)=>(b.lastPlayed||'').localeCompare(a.lastPlayed||''));
+  byStatus.done.sort((a,b)=>(b.lastPlayed||'').localeCompare(a.lastPlayed||''));
+
+  const order = filter==='all' ? STATUS_ORDER : [filter];
+  const html = order.map(s=>sectionHtml(s, byStatus[s])).join('');
+  document.getElementById('sections').innerHTML = html || '<div class="empty">Nothing here.</div>';
+
+  const total=GAMES.length;
+  const stats=[
+    {n:byStatus.playing.length, l:'Playing'},
+    {n:byStatus.queue.length, l:'Up Next'},
+    {n:byStatus.done.length, l:'Done'},
+    {n:total, l:'Total'}
+  ];
+  document.getElementById('stats').innerHTML=stats.map(s=>`<div class="stat"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`).join('');
+
+  const chips=[{k:'all',l:'All'}, ...STATUS_ORDER.map(s=>({k:s,l:STATUS_LABEL[s]}))];
+  document.getElementById('chips').innerHTML=chips.map(c=>
+    `<button class="chip${filter===c.k?' active':''}" onclick="setFilter('${c.k}')">${c.l}</button>`
+  ).join('');
+}
+
+function setFilter(f){ filter=f; render(); }
+window.setFilter=setFilter;
+
+Promise.all([
+  fetch('games.json').then(r=>r.json()),
+  fetch('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({}))
+]).then(([games,covers])=>{
+  GAMES=games; COVERS=covers;
+  render();
+}).catch(err=>{
+  console.error('Failed to load game data', err);
+  document.getElementById('sections').innerHTML='<div class="empty">Couldn’t load game data — try refreshing.</div>';
+});
+
+fetch('last-synced.json').then(r=>r.ok?r.json():null).then(d=>{
+  const el=document.getElementById('synced');
+  if(d && d.syncedAt){
+    const days=Math.floor((Date.now()-new Date(d.syncedAt))/86400000);
+    el.textContent=`Steam & RA data synced ${days<=0?'today':days+'d ago'}`;
+  } else {
+    el.textContent='';
+  }
+}).catch(()=>{ document.getElementById('synced').textContent=''; });
+</script>
+</body>
+</html>
