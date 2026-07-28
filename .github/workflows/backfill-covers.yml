@@ -1,9 +1,12 @@
 name: Backfill Cover Art
 
-# Manual only, no schedule — box art doesn't change day to day, and re-checking
-# already-resolved or already-known-unmatched titles on a cron would just burn API quota
-# for nothing. Run this from the Actions tab whenever new games get added to games.json.
+# Weekly, not daily — box art doesn't change day to day, and re-checking already-resolved
+# or already-known-unmatched titles more often than that would just burn API quota for
+# nothing. This exists so a game added via add.html/the Worker gets real art within a week
+# with zero manual step; workflow_dispatch is still there for "I don't want to wait."
 on:
+  schedule:
+    - cron: '0 14 * * 0'   # Sundays ~2pm UTC — offset from sync-games.yml's 1pm daily run
   workflow_dispatch: {}
 
 permissions:
