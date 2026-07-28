@@ -356,8 +356,9 @@ function qC(g,n,showNum=true){
   return `<div class="card">
     ${thumbEl(g)}
     <div class="card-content">
-      <div class="row1">${num}${pb(g.p)}<span class="gtitle">${g.t}</span>${hltbEl(g)}</div>
+      <div class="row1">${num}${pb(g.p)}<span class="gtitle">${g.t}</span></div>
       <div class="row2">
+        ${hltbEl(g)}
         ${g.y?`<span class="yr">${g.y}</span>`:''}
         ${g.g?`<span class="genre-tag">${g.g}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
@@ -376,8 +377,9 @@ function aC(g){
   return `<div class="card faded">
     ${thumbEl(g)}
     <div class="card-content">
-      <div class="row1">${pb(g.p)}<span class="gtitle">${g.t}</span>${hltbEl(g)}</div>
+      <div class="row1">${pb(g.p)}<span class="gtitle">${g.t}</span></div>
       <div class="row2">
+        ${hltbEl(g)}
         ${g.cm!=null?`<span class="yr">${M[g.cm]} ${g.cy}</span>`:''}
         ${g.r?`<span class="rating">${g.r}/10</span>`:''}
         ${g.g?`<span class="genre-tag">${g.g}</span>`:''}
