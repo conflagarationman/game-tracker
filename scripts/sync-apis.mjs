@@ -122,7 +122,31 @@ function raDateStr(s) {
   return m ? m[1] : null;
 }
 
-export async function syncSteam(games, log) {
+// ASF idles owned games in the background to farm trading cards, which bumps Steam's own
+// playtime_forever/rtime_last_played exactly like real play would — so a tracked game that
+// still has unfarmed cards can falsely show as "played today" with inflated hours purely
+// from idling. The hub's /asf/recently-farmed endpoint greps ASF's own Docker logs for
+// "Now/Still farming: <appid>" lines, which is ground truth for which appids are currently
+// being idled. Achievement progress is unaffected by idling (ASF doesn't unlock those), so
+// only actualHours/lastPlayed need to be skipped for a farmed appid, not achievements.
+export async function getRecentlyFarmedAppids(log) {
+  const hubToken = process.env.HUB_STATUS_TOKEN;
+  if (!hubToken) {
+    log.push("ASF farmed-appids check: missing HUB_STATUS_TOKEN, skipped (playtime may include idle time)");
+    return new Set();
+  }
+  try {
+    const res = await fetch(`https://familyholocron.duckdns.org/asf/recently-farmed?token=${hubToken}`);
+    if (!res.ok) throw new Error(`-> ${res.status}`);
+    const data = await res.json();
+    return new Set(data.recently_farmed_appids || []);
+  } catch (e) {
+    log.push(`ASF farmed-appids check failed: ${e.message} (playtime may include idle time)`);
+    return new Set();
+  }
+}
+
+export async function syncSteam(games, log, farmedAppids = new Set()) {
   const steamId = process.env.STEAM_ID;
   if (!process.env.STEAM_API_KEY || !steamId) {
     log.push("Steam: missing STEAM_API_KEY/STEAM_ID, skipped");
@@ -139,11 +163,16 @@ export async function syncSteam(games, log) {
     const entry = games.find(g => g.t === trackerTitle);
     if (!entry) continue;
 
+    const isFarming = farmedAppids.has(sg.appid);
     const hours = Math.round((sg.playtime_forever / 60) * 10) / 10;
     const lastPlayed = toDateStr(sg.rtime_last_played);
     let changed = false;
-    if (hours && entry.actualHours !== hours) { entry.actualHours = hours; changed = true; }
-    if (lastPlayed && entry.lastPlayed !== lastPlayed) { entry.lastPlayed = lastPlayed; changed = true; }
+    if (isFarming) {
+      log.push(`Steam · ${trackerTitle}: skipped playtime/lastPlayed (ASF is idling appid ${sg.appid} for cards)`);
+    } else {
+      if (hours && entry.actualHours !== hours) { entry.actualHours = hours; changed = true; }
+      if (lastPlayed && entry.lastPlayed !== lastPlayed) { entry.lastPlayed = lastPlayed; changed = true; }
+    }
 
     const appid = STEAM_ACH_APPIDS[trackerTitle];
     if (appid) {
@@ -250,7 +279,8 @@ async function main() {
   const games = JSON.parse(await fs.readFile("games.json", "utf8"));
   const log = [];
 
-  await syncSteam(games, log);
+  const farmedAppids = await getRecentlyFarmedAppids(log);
+  await syncSteam(games, log, farmedAppids);
   await syncRA(games, log);
 
   await fs.writeFile("games.json", JSON.stringify(games, null, 2) + "\n");

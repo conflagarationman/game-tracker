@@ -4,7 +4,7 @@
 // the fake API responses and mutate `games` correctly. A commented-out placeholder loop
 // (which is what the first version of this idea shipped with, before it was caught and
 // rebuilt) would fail every test here immediately.
-import { syncSteam, syncRA, pushToHub } from "./sync-apis.mjs";
+import { syncSteam, syncRA, pushToHub, getRecentlyFarmedAppids } from "./sync-apis.mjs";
 import assert from "node:assert/strict";
 
 process.env.STEAM_API_KEY = "fake";
@@ -48,6 +48,48 @@ await test("syncSteam updates hours, lastPlayed, and achievements from stubbed A
   assert.equal(games[0].achPct, 67, "2 of 3 achieved -> 67%");
   assert.deepEqual(games[0].achCount, [2, 3]);
   assert.ok(log.some(l => l.includes("Brotato")), "should log the change");
+});
+
+await test("syncSteam skips actualHours/lastPlayed for an appid ASF is currently farming, but still updates achievements", async () => {
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("GetOwnedGames")) {
+      return new Response(JSON.stringify({
+        response: { games: [{ appid: 1942280, name: "Brotato", playtime_forever: 754, rtime_last_played: 1785000000 }] },
+      }), { status: 200 });
+    }
+    if (u.includes("GetPlayerAchievements")) {
+      return new Response(JSON.stringify({
+        playerstats: { success: true, achievements: [{ achieved: 1 }, { achieved: 1 }, { achieved: 0 }] },
+      }), { status: 200 });
+    }
+    throw new Error(`unexpected fetch ${u}`);
+  };
+  const games = [baseGame({ actualHours: 5, lastPlayed: "2026-01-01" })];
+  const log = [];
+  await syncSteam(games, log, new Set([1942280])); // Brotato's real appid, marked as currently farming
+  assert.equal(games[0].actualHours, 5, "idle-inflated playtime must not overwrite the prior real value");
+  assert.equal(games[0].lastPlayed, "2026-01-01", "idle session must not fake a lastPlayed bump");
+  assert.equal(games[0].achPct, 67, "achievements are unaffected by idling and should still sync");
+  assert.ok(log.some(l => l.includes("skipped playtime/lastPlayed")), "should log why it was skipped");
+});
+
+await test("getRecentlyFarmedAppids returns the appid set from the hub's stubbed response", async () => {
+  globalThis.fetch = async (url) => {
+    assert.ok(String(url).includes("/asf/recently-farmed?token=fake-hub-token"));
+    return new Response(JSON.stringify({ recently_farmed_appids: [346010, 1942280] }), { status: 200 });
+  };
+  const log = [];
+  const appids = await getRecentlyFarmedAppids(log);
+  assert.deepEqual([...appids].sort((a, b) => a - b), [346010, 1942280]);
+});
+
+await test("getRecentlyFarmedAppids fails safe to an empty set (not a throw) on a hub error", async () => {
+  globalThis.fetch = async () => new Response("nope", { status: 502 });
+  const log = [];
+  const appids = await getRecentlyFarmedAppids(log);
+  assert.equal(appids.size, 0);
+  assert.ok(log.some(l => l.includes("ASF farmed-appids check failed")));
 });
 
 await test("syncSteam leaves untracked games untouched", async () => {
