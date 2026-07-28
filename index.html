@@ -43,10 +43,25 @@ section:first-of-type .slabel{margin-top:0;}
 .thumb{width:88px;min-width:88px;height:66px;object-fit:cover;object-position:center;display:block;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
 .thumb-placeholder{width:88px;min-width:88px;height:66px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
 
-/* Now Playing gets a visual-hierarchy bump — bigger art than every other section, scoped
-   by container id so it also covers dormant now-playing cards, not just `.card.now`. */
-#now .thumb, #now .thumb-placeholder{width:120px;min-width:120px;height:90px;}
-#now .thumb-placeholder{font-size:2rem;}
+/* Now Playing: full-bleed hero cards instead of thumb+row cards — the section you look at
+   most gets the most visual weight. auto-fit collapses to a single column on phones with no
+   media query needed (220px min * 2 already exceeds a typical phone's content width). */
+.hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;}
+.hero-card{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:var(--surface);border:1px solid var(--border);}
+.hero-card.now{box-shadow:0 0 0 2px var(--playing) inset;}
+.hero-card.dormant{opacity:0.7;box-shadow:0 0 0 2px var(--dim) inset;}
+.hero-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;}
+.hero-bg-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:4rem;}
+.hero-gradient{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.6) 65%, rgba(0,0,0,0.92) 100%);pointer-events:none;}
+.hero-top{position:absolute;top:10px;right:10px;z-index:2;}
+.hero-bottom{position:absolute;left:0;right:0;bottom:0;padding:14px;z-index:2;display:flex;flex-direction:column;gap:6px;}
+.hero-title{font-size:1.05rem;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.7);line-height:1.2;}
+.hero-meta{display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;}
+.hero-hltb{display:flex;gap:0.5rem;}
+
+/* Up Next: same cards as before, just wrapped so they flow into columns on wider screens
+   instead of one long vertical list. Collapses to a single column on phones same as above. */
+.queue-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;}
 
 /* Card content */
 .card-content{flex:1;padding:0.65rem 0.75rem;display:flex;flex-direction:column;gap:5px;min-width:0;}
@@ -61,7 +76,8 @@ section:first-of-type .slabel{margin-top:0;}
   .thumb-placeholder{width:40px;min-width:40px;height:40px;font-size:1.1rem;}
   .gtitle{font-size:0.85rem;}
   .hltb{font-size:0.7rem;}
-  #now .thumb, #now .thumb-placeholder{width:96px;min-width:96px;height:72px;font-size:1.4rem;}
+  .hero-title{font-size:0.95rem;}
+  .hero-bg-fallback{font-size:3rem;}
 }
 
 /* HLTB + playtime */
@@ -155,11 +171,11 @@ section:first-of-type .slabel{margin-top:0;}
 <div class="stats-row" id="stats"></div>
 <section aria-labelledby="now-playing-heading">
   <h2 class="slabel" id="now-playing-heading">Now playing</h2>
-  <div class="game-list" id="now"></div>
+  <div class="hero-grid" id="now"></div>
 </section>
 <section aria-labelledby="up-next-heading">
   <h2 class="slabel" id="up-next-heading">Up next</h2>
-  <div class="game-list" id="queue"></div>
+  <div class="queue-grid" id="queue"></div>
 </section>
 <section aria-labelledby="soon-heading">
   <h2 class="slabel" id="soon-heading">Soon™</h2>
@@ -208,6 +224,21 @@ function thumbEl(g) {
             <div class="thumb-placeholder" style="background:${color}18;color:${color};display:none">${emoji}</div>`;
   }
   return `<div class="thumb-placeholder" style="background:${color}18;color:${color}">${emoji}</div>`;
+}
+
+// Same cover-art lookup as thumbEl, but full-bleed for the Now Playing hero cards. Games
+// without real cover art (most non-Steam platforms right now — see the covers.json gap)
+// get a colored gradient + big platform emoji instead of a broken image or an empty box,
+// so a missing cover still reads as "styled," not "broken."
+function heroArt(g) {
+  const url = getCover(g);
+  const color = PC[g.p] || '#555';
+  const emoji = PLAT_EMOJI[g.p] || '🎮';
+  const fallback = `<div class="hero-bg-fallback" style="background:linear-gradient(160deg, ${color}40, ${color}10);color:${color}${url ? ';display:none' : ''}">${emoji}</div>`;
+  if (url) {
+    return `<img class="hero-bg-img" src="${url}" alt="${g.t}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${fallback}`;
+  }
+  return fallback;
 }
 
 // ─── Helpers ──────────────────────────────────────────
@@ -290,11 +321,13 @@ function queuedEl(g){
 // ─── Card builders ─────────────────────────────────────
 function nowC(g){
   const dormant=isDormant(g);
-  return `<div class="card ${dormant?'dormant':'now'}">
-    ${thumbEl(g)}
-    <div class="card-content">
-      <div class="row1">${pb(g.p)}<span class="gtitle">${g.t}</span>${hltbEl(g)}</div>
-      <div class="row2">
+  return `<div class="hero-card ${dormant?'dormant':'now'}">
+    ${heroArt(g)}
+    <div class="hero-gradient"></div>
+    <div class="hero-top">${pb(g.p)}</div>
+    <div class="hero-bottom">
+      <div class="hero-title">${g.t}</div>
+      <div class="hero-meta">
         ${g.y?`<span class="yr">${g.y}</span>`:''}
         ${g.g?`<span class="genre-tag">${g.g}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
@@ -303,7 +336,8 @@ function nowC(g){
         ${g.casual?'<span class="casual-pill">casual play</span>':''}
         ${g.note?`<span class="note-pill">📌 ${g.note}</span>`:''}
       </div>
-      ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
+      ${hltbEl(g)?`<div class="hero-hltb">${hltbEl(g)}</div>`:''}
+      ${achBar(g)}
     </div>
   </div>`;
 }
