@@ -21,8 +21,8 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1rem;text-align:center;min-width:72px;flex:1;}
 .stat-n{font-size:1.5rem;font-weight:800;line-height:1;}
 .stat-l{font-size:0.62rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:0.08em;}
-.slabel{font-size:0.65rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.6rem;margin-top:1.5rem;}
-.slabel:first-of-type{margin-top:0;}
+.slabel{font-size:0.65rem;font-weight:400;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.6rem;margin-top:1.5rem;}
+section:first-of-type .slabel{margin-top:0;}
 .game-list{display:flex;flex-direction:column;gap:5px;}
 
 /* Cards */
@@ -35,6 +35,11 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 /* Thumbnail */
 .thumb{width:88px;min-width:88px;height:66px;object-fit:cover;object-position:center;display:block;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
 .thumb-placeholder{width:88px;min-width:88px;height:66px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
+
+/* Now Playing gets a visual-hierarchy bump — bigger art than every other section, scoped
+   by container id so it also covers dormant now-playing cards, not just `.card.now`. */
+#now .thumb, #now .thumb-placeholder{width:120px;min-width:120px;height:90px;}
+#now .thumb-placeholder{font-size:2rem;}
 
 /* Card content */
 .card-content{flex:1;padding:0.65rem 0.75rem;display:flex;flex-direction:column;gap:5px;min-width:0;}
@@ -49,6 +54,7 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
   .thumb-placeholder{width:40px;min-width:40px;height:40px;font-size:1.1rem;}
   .gtitle{font-size:0.85rem;}
   .hltb{font-size:0.7rem;}
+  #now .thumb, #now .thumb-placeholder{width:96px;min-width:96px;height:72px;font-size:1.4rem;}
 }
 
 /* HLTB + playtime */
@@ -105,6 +111,11 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 /* Collapsible */
 .cr{display:flex;align-items:center;gap:0.5rem;cursor:pointer;padding:0.85rem 0;color:var(--dim);font-size:0.68rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;border-top:1px solid var(--border);margin-top:1.5rem;user-select:none;touch-action:manipulation;}
 .cr:hover{color:var(--muted);}
+.cr:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+
+.search-box{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:0.85rem;padding:0.6rem 0.8rem;margin-bottom:0.75rem;}
+.search-box::placeholder{color:var(--dim);}
+.search-box:focus{outline:none;border-color:var(--accent);}
 
 /* Year log */
 .yg{margin-bottom:1.5rem;}
@@ -135,16 +146,30 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 <div class="header"><h1>GAME LOG</h1></div>
 <div class="updated" id="updated-stamp">loading…</div>
 <div class="stats-row" id="stats"></div>
-<div class="slabel">Now playing</div>
-<div class="game-list" id="now"></div>
-<div class="slabel">Up next</div>
-<div class="game-list" id="queue"></div>
-<div class="slabel">Soon™</div>
-<div class="game-list" id="soon"></div>
-<div class="cr" onclick="tog('ar')"><span id="ar-arr">▶</span><span id="ar-lbl">Archive (0)</span></div>
-<div id="ar-panel" style="display:none;margin-top:0.75rem;"></div>
-<div class="cr" onclick="tog('yl')"><span id="yl-arr">▶</span><span>Year log</span></div>
-<div id="yl-panel" style="display:none;margin-top:0.75rem;"></div>
+<section aria-labelledby="now-playing-heading">
+  <h2 class="slabel" id="now-playing-heading">Now playing</h2>
+  <div class="game-list" id="now"></div>
+</section>
+<section aria-labelledby="up-next-heading">
+  <h2 class="slabel" id="up-next-heading">Up next</h2>
+  <div class="game-list" id="queue"></div>
+</section>
+<section aria-labelledby="soon-heading">
+  <h2 class="slabel" id="soon-heading">Soon™</h2>
+  <div class="game-list" id="soon"></div>
+</section>
+
+<section aria-label="Archive">
+  <div class="cr" id="ar-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="ar-panel" onclick="tog('ar')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('ar');}"><span id="ar-arr" aria-hidden="true">▶</span><span id="ar-lbl">Archive (0)</span></div>
+  <div id="ar-panel" style="display:none;margin-top:0.75rem;">
+    <input type="text" id="ar-search" class="search-box" placeholder="Search archive by title…" aria-label="Search archive by title" oninput="renderPanels()">
+    <div id="ar-list"></div>
+  </div>
+</section>
+<section aria-label="Year log">
+  <div class="cr" id="yl-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="yl-panel" onclick="tog('yl')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('yl');}"><span id="yl-arr" aria-hidden="true">▶</span><span>Year log</span></div>
+  <div id="yl-panel" style="display:none;margin-top:0.75rem;"></div>
+</section>
 
 <script>
 // Data lives in games.json/covers.json, kept current by the daily GitHub Action
@@ -369,6 +394,7 @@ function tog(k){
   const isAr=k==='ar';
   document.getElementById(isAr?'ar-arr':'yl-arr').textContent=open[k]?'▼':'▶';
   document.getElementById(isAr?'ar-panel':'yl-panel').style.display=open[k]?'block':'none';
+  document.getElementById(isAr?'ar-toggle':'yl-toggle').setAttribute('aria-expanded', open[k]?'true':'false');
   renderPanels();
 }
 
@@ -376,9 +402,15 @@ function renderPanels(){
   const arch=G.filter(g=>g.s==='done'||g.s==='dropped').sort((a,b)=>(b.cy||0)-(a.cy||0)||((b.cm??-1)-(a.cm??-1)));
   document.getElementById('ar-lbl').textContent=`Archive (${arch.length})`;
   if(open.ar){
-    const bym={};
-    arch.forEach(g=>{const k=`${g.cy||'?'}__${g.cm??'?'}`;if(!bym[k])bym[k]={year:g.cy,month:g.cm,games:[]};bym[k].games.push(g);});
-    document.getElementById('ar-panel').innerHTML=Object.values(bym).sort((a,b)=>(b.year||0)-(a.year||0)||((b.month??-1)-(a.month??-1))).map(grp=>`<div class="mg"><div class="mh">${grp.month!=null?M[grp.month]+' '+grp.year:String(grp.year||'Unknown')}</div><div class="game-list">${grp.games.map(aC).join('')}</div></div>`).join('');
+    const q=(document.getElementById('ar-search').value||'').trim().toLowerCase();
+    const filtered=q?arch.filter(g=>g.t.toLowerCase().includes(q)):arch;
+    if(q && filtered.length===0){
+      document.getElementById('ar-list').innerHTML='<div class="empty">No archived games match that search.</div>';
+    } else {
+      const bym={};
+      filtered.forEach(g=>{const k=`${g.cy||'?'}__${g.cm??'?'}`;if(!bym[k])bym[k]={year:g.cy,month:g.cm,games:[]};bym[k].games.push(g);});
+      document.getElementById('ar-list').innerHTML=Object.values(bym).sort((a,b)=>(b.year||0)-(a.year||0)||((b.month??-1)-(a.month??-1))).map(grp=>`<div class="mg"><div class="mh">${grp.month!=null?M[grp.month]+' '+grp.year:String(grp.year||'Unknown')}</div><div class="game-list">${grp.games.map(aC).join('')}</div></div>`).join('');
+    }
   }
   if(open.yl){
     const fin=G.filter(g=>(g.s==='done'||g.s==='dropped')&&g.cy);
