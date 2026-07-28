@@ -1,0 +1,26 @@
+name = "game-tracker-admin"
+main = "index.mjs"
+compatibility_date = "2026-07-15"
+
+[vars]
+REPO = "conflagarationman/game-tracker"
+# Unlike steph-tv-tracker's worker, this commits straight to main — adding/editing a game
+# happens rarely enough that a Pages rebuild per edit isn't a real cost, and main is simpler:
+# nothing to reconcile before the edit is live.
+BRANCH = "main"
+ALLOWED_ORIGIN = "https://conflagarationman.github.io"
+
+# Secret *values* are never set here — they'd end up in the public repo. Set them with:
+#   wrangler secret put GITHUB_TOKEN    # fine-grained PAT, Contents: read+write, this repo only
+#   wrangler secret put SYNC_KEY        # any random string; also goes in add.html
+#
+# Naming them is safe (names aren't secrets) and gets a warning in local dev if one is
+# missing. It does NOT gate `wrangler deploy` — a deploy with a missing secret still
+# succeeds; a request that needs it then gets a clean 502 instead of a crash.
+[secrets]
+required = ["GITHUB_TOKEN", "SYNC_KEY"]
+
+# Keeps logs queryable for 7 days in the dashboard — what you want when an edit fails and
+# nobody's running `wrangler tail` at the time.
+[observability]
+enabled = true

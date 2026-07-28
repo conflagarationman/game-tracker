@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Add/Edit Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0e0e10;--surface:#17171a;--surface2:#1f1f24;
+  --border:#2a2a30;--border2:#3a3a42;--text:#f0f0f0;
+  --muted:#888890;--dim:#555560;--accent:#c8f542;--bad:#f54242;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:2rem 1rem;padding-bottom:max(2rem,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;}
+h1{font-size:1.6rem;font-weight:800;letter-spacing:-0.03em;color:var(--accent);margin-bottom:0.3rem;}
+.sub{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--dim);margin-bottom:1.5rem;}
+.sub a{color:var(--muted);}
+label{display:block;font-family:'DM Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:0.35rem;margin-top:1rem;}
+label:first-of-type{margin-top:0;}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:'Syne',sans-serif;font-size:0.9rem;padding:0.65rem 0.8rem;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+.row{display:flex;gap:0.6rem;}
+.row > div{flex:1;}
+.check{display:flex;align-items:center;gap:0.5rem;margin-top:1rem;}
+.check input{width:auto;}
+.check label{margin:0;}
+button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;
+  border-radius:8px;padding:0.75rem 1rem;cursor:pointer;border:1px solid transparent;}
+.btn-primary{background:var(--accent);color:#0e0e10;font-weight:700;width:100%;margin-top:1.5rem;}
+.btn-primary:disabled{opacity:0.5;cursor:default;}
+.btn-secondary{background:var(--surface);color:var(--text);border-color:var(--border);}
+.btn-danger{background:transparent;color:var(--bad);border-color:var(--bad);}
+.actions{display:flex;gap:0.6rem;margin-top:0.75rem;}
+.actions button{flex:1;}
+.msg{font-family:'DM Mono',monospace;font-size:0.75rem;padding:0.75rem;border-radius:8px;margin-top:1rem;display:none;}
+.msg.ok{background:#42f5a018;color:#42f5a0;border:1px solid #42f5a030;display:block;}
+.msg.err{background:#f5424218;color:var(--bad);border:1px solid #f5424230;display:block;}
+.msg a{color:inherit;}
+.setup{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;padding:1rem;line-height:1.6;}
+.setup code{color:var(--accent);}
+</style>
+</head>
+<body>
+<h1>Add / Edit Game</h1>
+<div class="sub"><a href="index.html">&larr; back to tracker</a></div>
+
+<div id="setup-notice" class="setup" style="display:none;">
+  This page isn't configured yet — the Worker URL/key below are still placeholders.
+  See <code>worker/README.md</code> for setup steps.
+</div>
+
+<div id="form-area" style="display:none;">
+  <label for="existing">Edit an existing game (optional)</label>
+  <select id="existing"><option value="">— Add a new game instead —</option></select>
+
+  <label for="t">Title</label>
+  <input type="text" id="t" placeholder="Game title">
+
+  <div class="row">
+    <div>
+      <label for="p">Platform</label>
+      <select id="p">
+        <option value="steam">Steam</option>
+        <option value="steamdeck">Steam Deck</option>
+        <option value="ps5">PS5</option>
+        <option value="switch">Switch</option>
+        <option value="switch2">Switch 2</option>
+        <option value="ayn">AYN Thor</option>
+        <option value="retro">Retro</option>
+        <option value="wiiu">Wii U</option>
+      </select>
+    </div>
+    <div>
+      <label for="s">Status</label>
+      <select id="s">
+        <option value="playing">Playing</option>
+        <option value="queue">Up next</option>
+        <option value="soon" selected>Soon™</option>
+        <option value="done">Done</option>
+        <option value="dropped">Dropped</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label for="g">Genre</label>
+      <input type="text" id="g" placeholder="e.g. Roguelike">
+    </div>
+    <div>
+      <label for="y">Release year</label>
+      <input type="number" id="y" placeholder="2026">
+    </div>
+  </div>
+
+  <label for="h">HLTB estimate</label>
+  <input type="text" id="h" placeholder="e.g. 20h">
+
+  <label for="note">Note</label>
+  <input type="text" id="note" placeholder="Optional note, shown as a pill">
+
+  <div class="row">
+    <div>
+      <label for="start">Start date</label>
+      <input type="date" id="start">
+    </div>
+    <div>
+      <label for="queued">Queued date</label>
+      <input type="date" id="queued">
+    </div>
+  </div>
+
+  <div class="check">
+    <input type="checkbox" id="casual">
+    <label for="casual" style="margin:0;text-transform:none;font-size:0.85rem;color:var(--text);font-family:'Syne',sans-serif;">Casual play (no achievement tracking)</label>
+  </div>
+
+  <button class="btn-primary" id="submit-btn">Add game</button>
+  <div class="actions" id="edit-actions" style="display:none;">
+    <button class="btn-secondary" id="cancel-btn" type="button">Cancel edit</button>
+    <button class="btn-danger" id="delete-btn" type="button">Delete this game</button>
+  </div>
+
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+// Fill these in once the Worker is deployed (see worker/README.md) — until then this page
+// shows a setup notice instead of a broken form. Same "ships harmlessly unconfigured"
+// pattern as steph-tv-tracker's SYNC constant in its own index.html.
+const WORKER = {
+  url: '', // e.g. 'https://game-tracker-admin.<subdomain>.workers.dev'
+  key: '', // the SYNC_KEY value
+};
+
+let games = [];
+let editingId = null;
+
+const $ = (id) => document.getElementById(id);
+
+function fillForm(g) {
+  $('t').value = g.t;
+  $('p').value = g.p;
+  $('s').value = g.s;
+  $('g').value = g.g || '';
+  $('y').value = g.y || '';
+  $('h').value = g.h || '';
+  $('note').value = g.note || '';
+  $('start').value = g.start || '';
+  $('queued').value = g.queued || '';
+  $('casual').checked = !!g.casual;
+}
+
+function clearForm() {
+  $('t').value = '';
+  $('p').value = 'steam';
+  $('s').value = 'soon';
+  $('g').value = '';
+  $('y').value = '';
+  $('h').value = '';
+  $('note').value = '';
+  $('start').value = '';
+  $('queued').value = '';
+  $('casual').checked = false;
+}
+
+function readForm() {
+  return {
+    t: $('t').value.trim(),
+    p: $('p').value,
+    s: $('s').value,
+    g: $('g').value.trim() || null,
+    y: $('y').value ? parseInt($('y').value, 10) : null,
+    h: $('h').value.trim() || null,
+    note: $('note').value.trim() || null,
+    start: $('start').value || null,
+    queued: $('queued').value || null,
+    casual: $('casual').checked,
+  };
+}
+
+function showMsg(text, ok) {
+  const el = $('msg');
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+  el.innerHTML = text;
+}
+
+async function callWorker(path, body) {
+  const res = await fetch(WORKER.url + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Sync-Key': WORKER.key },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
+  return data;
+}
+
+$('existing').addEventListener('change', () => {
+  const id = $('existing').value;
+  if (!id) {
+    editingId = null;
+    clearForm();
+    $('submit-btn').textContent = 'Add game';
+    $('edit-actions').style.display = 'none';
+    return;
+  }
+  editingId = parseInt(id, 10);
+  const g = games.find(x => x.id === editingId);
+  fillForm(g);
+  $('submit-btn').textContent = 'Save changes';
+  $('edit-actions').style.display = 'flex';
+});
+
+$('cancel-btn').addEventListener('click', () => {
+  $('existing').value = '';
+  $('existing').dispatchEvent(new Event('change'));
+});
+
+$('delete-btn').addEventListener('click', async () => {
+  if (!editingId) return;
+  const g = games.find(x => x.id === editingId);
+  if (!confirm(`Delete "${g.t}" from the tracker? This can't be undone from this page.`)) return;
+  $('submit-btn').disabled = true;
+  try {
+    await callWorker('/games/delete', { id: editingId });
+    showMsg(`Deleted "${g.t}". <a href="index.html">View tracker &rarr;</a>`, true);
+    $('existing').value = '';
+    $('existing').dispatchEvent(new Event('change'));
+    await loadGames();
+  } catch (e) {
+    showMsg('Error: ' + e.message, false);
+  } finally {
+    $('submit-btn').disabled = false;
+  }
+});
+
+$('submit-btn').addEventListener('click', async () => {
+  const input = readForm();
+  if (!input.t) { showMsg('Title is required.', false); return; }
+  $('submit-btn').disabled = true;
+  showMsg('Saving…', true);
+  try {
+    if (editingId) {
+      await callWorker('/games/edit', { id: editingId, ...input });
+      showMsg(`Saved "${input.t}". <a href="index.html">View tracker &rarr;</a>`, true);
+    } else {
+      await callWorker('/games/add', input);
+      showMsg(`Added "${input.t}". <a href="index.html">View tracker &rarr;</a>`, true);
+      clearForm();
+    }
+    await loadGames();
+  } catch (e) {
+    showMsg('Error: ' + e.message, false);
+  } finally {
+    $('submit-btn').disabled = false;
+  }
+});
+
+async function loadGames() {
+  const res = await fetch('games.json?_=' + Date.now());
+  games = await res.json();
+  const sel = $('existing');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Add a new game instead —</option>' +
+    [...games].sort((a, b) => a.t.localeCompare(b.t))
+      .map(g => `<option value="${g.id}">${g.t}</option>`).join('');
+  sel.value = current;
+}
+
+if (!WORKER.url || !WORKER.key) {
+  document.getElementById('setup-notice').style.display = 'block';
+} else {
+  document.getElementById('form-area').style.display = 'block';
+  clearForm();
+  loadGames().catch(e => showMsg('Failed to load games.json: ' + e.message, false));
+}
+</script>
+</body>
+</html>

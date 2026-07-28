@@ -1,0 +1,9 @@
+{
+  "name": "game-tracker-admin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node index.test.mjs",
+    "deploy": "wrangler deploy"
+  }
+}
