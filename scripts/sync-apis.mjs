@@ -21,48 +21,23 @@ import { pathToFileURL } from "node:url";
 const STEAM_BASE = "https://api.steampowered.com";
 const RA_BASE = "https://retroachievements.org/API";
 
-// Tracker title -> Steam store name (matches game_tracker_update.py's STEAM_TITLE_MAP).
-const STEAM_TITLE_MAP = {
-  "Brotato": "Brotato",
-  "Mina the Hollower": "Mina the Hollower",
-  "Red Dead Redemption 2": "Red Dead Redemption 2",
-  "ITTA": "ITTA",
-  "Nodebuster": "Nodebuster",
-  "Subnautica 2": "Subnautica 2",
-  "Bzzzt": "BZZZT",
-  "Vampire Crawlers": "Vampire Crawlers",
-  "Summerhouse": "SUMMERHOUSE",
-  "Steamworld Build": "SteamWorld Build",
-  "Palworld": "Palworld",
-  "Ori and the Blind Forest": "Ori and the Blind Forest: Definitive Edition",
-  "A Plague Tale: Requiem": "A Plague Tale: Requiem",
-  "Blasphemous": "Blasphemous",
-  "Born of Bread": "Born of Bread",
-  "To the Moon": "To the Moon",
-  "The Messenger": "The Messenger",
-  "Pentiment": "Pentiment",
-  "Another Crab's Treasure": "Another Crab's Treasure",
-  "Everhood": "Everhood",
-  "Thymesia": "Thymesia",
-  "Slay the Spire 2": "Slay the Spire 2",
-  "Far Far West": "Far Far West",
-  "Mail Time": "Mail Time",
-  "V Rising": "V Rising",
-  "The Invincible": "The Invincible",
-};
+// Steam sync used to require every game to be hand-added to a tracker-title -> Steam-name
+// map (and a separate map just for achievement appids) before it would sync at all. That
+// silently broke tracking for Halo: Campaign Evolved on its own release day — it was never
+// added to the map, so syncSteam never even looked at it, despite hours of real playtime.
+// Matching by normalized title against the actual owned-games list (same discipline as
+// backfill-covers.mjs's cover-art matching) means a new game just needs the right title and
+// platform in games.json — no code change needed to start syncing. The appid comes straight
+// off the matched owned-game record, so the separate achievement-appid map is gone too.
+function normalize(title) {
+  return title.toLowerCase().replace(/[:'".!™®]/g, "").replace(/\s+/g, " ").trim();
+}
 
-// Tracker title -> Steam appid, only for the games achievement progress is tracked for.
-const STEAM_ACH_APPIDS = {
-  "Brotato": 1942280,
-  "Mina the Hollower": 1875580,
-  "Red Dead Redemption 2": 1174180,
-  "ITTA": 775580,
-  "Palworld": 1623730,
-  "Nodebuster": 3107330,
-  "Bzzzt": 1293170,
-  "Vampire Crawlers": 3265700,
-  "Summerhouse": 2533960,
-  "Steamworld Build": 2134770,
+// A handful of tracker titles genuinely differ from their Steam store listing beyond
+// case/punctuation (a real subtitle, not just formatting) — normalize() alone can't bridge
+// these. Kept intentionally small: everything else matches automatically, no map upkeep.
+const STEAM_NAME_ALIASES = {
+  "Ori and the Blind Forest": "Ori and the Blind Forest: Definitive Edition",
 };
 
 // Tracker title -> RetroAchievements game title (matches game_tracker_update.py's RA_TITLE_MAP).
@@ -155,49 +130,52 @@ export async function syncSteam(games, log, farmedAppids = new Set()) {
   const owned = await steamGet("IPlayerService", "GetOwnedGames", 1, {
     steamid: steamId, include_appinfo: true, include_played_free_games: true,
   });
-  const byName = new Map((owned.response.games || []).map(g => [g.name, g]));
+  const byNormalizedName = new Map(
+    (owned.response.games || []).map(g => [normalize(g.name), g])
+  );
 
-  for (const [trackerTitle, steamName] of Object.entries(STEAM_TITLE_MAP)) {
-    const sg = byName.get(steamName);
+  for (const entry of games) {
+    if (entry.p !== "steam" && entry.p !== "steamdeck") continue; // only these run through Steam
+    const searchName = STEAM_NAME_ALIASES[entry.t] || entry.t;
+    const sg = byNormalizedName.get(normalize(searchName));
     if (!sg) continue;
-    const entry = games.find(g => g.t === trackerTitle);
-    if (!entry) continue;
 
     const isFarming = farmedAppids.has(sg.appid);
     const hours = Math.round((sg.playtime_forever / 60) * 10) / 10;
     const lastPlayed = toDateStr(sg.rtime_last_played);
     let changed = false;
     if (isFarming) {
-      log.push(`Steam · ${trackerTitle}: skipped playtime/lastPlayed (ASF is idling appid ${sg.appid} for cards)`);
+      log.push(`Steam · ${entry.t}: skipped playtime/lastPlayed (ASF is idling appid ${sg.appid} for cards)`);
     } else {
       if (hours && entry.actualHours !== hours) { entry.actualHours = hours; changed = true; }
       if (lastPlayed && entry.lastPlayed !== lastPlayed) { entry.lastPlayed = lastPlayed; changed = true; }
     }
 
-    const appid = STEAM_ACH_APPIDS[trackerTitle];
-    if (appid) {
-      try {
-        const achRes = await steamGet("ISteamUserStats", "GetPlayerAchievements", 1, {
-          steamid: steamId, appid, l: "en",
-        });
-        const stats = achRes.playerstats;
-        if (stats && stats.success && stats.achievements) {
-          const total = stats.achievements.length;
-          const earned = stats.achievements.filter(a => a.achieved === 1).length;
-          const pct = total ? Math.round((earned / total) * 100) : 0;
-          if (entry.achPct !== pct || JSON.stringify(entry.achCount) !== JSON.stringify([earned, total])) {
-            entry.achPct = pct;
-            entry.achCount = [earned, total];
-            changed = true;
-          }
+    // appid comes straight off the matched owned-game record now, so every matched game
+    // gets checked for achievements, not just the ones on a separately curated list. Games
+    // with no achievement schema (Steam responds 200 with success:false, not an error) just
+    // silently don't update achPct below — nothing to log, that's an expected, common case.
+    try {
+      const achRes = await steamGet("ISteamUserStats", "GetPlayerAchievements", 1, {
+        steamid: steamId, appid: sg.appid, l: "en",
+      });
+      const stats = achRes.playerstats;
+      if (stats && stats.success && stats.achievements) {
+        const total = stats.achievements.length;
+        const earned = stats.achievements.filter(a => a.achieved === 1).length;
+        const pct = total ? Math.round((earned / total) * 100) : 0;
+        if (entry.achPct !== pct || JSON.stringify(entry.achCount) !== JSON.stringify([earned, total])) {
+          entry.achPct = pct;
+          entry.achCount = [earned, total];
+          changed = true;
         }
-      } catch (e) {
-        log.push(`Steam achievements failed for "${trackerTitle}" (appid ${appid}): ${e.message}`);
       }
-      await new Promise(r => setTimeout(r, 200)); // be polite to Steam's API
+    } catch (e) {
+      log.push(`Steam achievements failed for "${entry.t}" (appid ${sg.appid}): ${e.message}`);
     }
+    await new Promise(r => setTimeout(r, 200)); // be polite to Steam's API
 
-    if (changed) log.push(`Steam · ${trackerTitle}: ${hours ?? "?"}h, achPct=${entry.achPct ?? "n/a"}`);
+    if (changed) log.push(`Steam · ${entry.t}: ${hours ?? "?"}h, achPct=${entry.achPct ?? "n/a"}`);
   }
 }
 

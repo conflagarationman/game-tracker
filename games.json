@@ -352,7 +352,7 @@
     "id": 410,
     "t": "Halo: Campaign Evolved",
     "p": "steam",
-    "s": "queue",
+    "s": "playing",
     "r": 0,
     "g": "FPS",
     "y": 2026,
@@ -368,7 +368,7 @@
     "lastPlayed": null,
     "casual": false,
     "note": "Releases Jul 28",
-    "start": null,
+    "start": "2026-07-28",
     "queued": "2026-07-14"
   },
   {

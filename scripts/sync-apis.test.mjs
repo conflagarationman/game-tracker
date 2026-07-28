@@ -92,11 +92,65 @@ await test("getRecentlyFarmedAppids fails safe to an empty set (not a throw) on 
   assert.ok(log.some(l => l.includes("ASF farmed-appids check failed")));
 });
 
-await test("syncSteam leaves untracked games untouched", async () => {
+await test("syncSteam leaves a game untouched when it's not in the owned-games response", async () => {
   globalThis.fetch = async () => new Response(JSON.stringify({ response: { games: [] } }), { status: 200 });
-  const games = [baseGame({ t: "Not In The Title Map", actualHours: 5 })];
+  const games = [baseGame({ t: "Not Actually Owned", actualHours: 5 })];
   await syncSteam(games, []);
-  assert.equal(games[0].actualHours, 5, "a game not in STEAM_TITLE_MAP must be left alone");
+  assert.equal(games[0].actualHours, 5, "no match in Steam's own library means nothing changes");
+});
+
+await test("syncSteam matches a brand-new game by title alone — no hand-added map entry needed (the Halo regression)", async () => {
+  // Regression test for the actual incident that prompted this rewrite: Halo: Campaign
+  // Evolved had real playtime on release day but never synced, because the old design
+  // required every game to be hand-added to a title map first. This game is deliberately
+  // NOT special-cased anywhere in sync-apis.mjs — matching purely by normalized title +
+  // platform is the whole point.
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("GetOwnedGames")) {
+      return new Response(JSON.stringify({
+        response: { games: [{ appid: 2806050, name: "Halo: Campaign Evolved", playtime_forever: 180, rtime_last_played: 1785000000 }] },
+      }), { status: 200 });
+    }
+    if (u.includes("GetPlayerAchievements")) {
+      return new Response(JSON.stringify({ playerstats: { success: false, error: "Requested app has no stats" } }), { status: 200 });
+    }
+    throw new Error(`unexpected fetch ${u}`);
+  };
+  const games = [baseGame({ t: "Halo: Campaign Evolved", p: "steam", s: "queue", actualHours: null })];
+  const log = [];
+  await syncSteam(games, log);
+  assert.equal(games[0].actualHours, 3, "180 minutes -> 3 hours, synced with zero code changes for this title");
+  assert.ok(games[0].lastPlayed);
+});
+
+await test("syncSteam ignores a same-titled game on a non-Steam platform", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("GetOwnedGames")) {
+      return new Response(JSON.stringify({
+        response: { games: [{ appid: 1, name: "Tetris", playtime_forever: 600, rtime_last_played: 1785000000 }] },
+      }), { status: 200 });
+    }
+    throw new Error("achievements should never be requested for a non-Steam-platform game");
+  };
+  const games = [baseGame({ t: "Tetris", p: "ayn", actualHours: null })]; // AYN Thor Tetris, not the Steam one
+  await syncSteam(games, []);
+  assert.equal(games[0].actualHours, null, "a retro/AYN-Thor game must never pick up Steam library data just because the title matches");
+});
+
+await test("syncSteam applies STEAM_NAME_ALIASES for the one known real subtitle mismatch", async () => {
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("GetOwnedGames")) {
+      return new Response(JSON.stringify({
+        response: { games: [{ appid: 5, name: "Ori and the Blind Forest: Definitive Edition", playtime_forever: 300, rtime_last_played: 1785000000 }] },
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ playerstats: { success: false } }), { status: 200 });
+  };
+  const games = [baseGame({ t: "Ori and the Blind Forest", p: "steam", actualHours: null })];
+  await syncSteam(games, []);
+  assert.equal(games[0].actualHours, 5, "should match via the alias despite the store listing's extra subtitle");
 });
 
 await test("syncSteam skips cleanly (no throw) when credentials are missing", async () => {
