@@ -14,7 +14,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:2rem 1rem;padding-bottom:max(2rem,env(safe-area-inset-bottom));}
-.header{display:flex;align-items:baseline;gap:1rem;margin-bottom:0.5rem;}
+.header{display:flex;align-items:baseline;gap:1rem;margin-bottom:0.5rem;position:sticky;top:0;z-index:10;background:var(--bg);padding:0.75rem 0;}
 h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .updated{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);margin-bottom:1.5rem;}
 .stats-row{display:flex;gap:0.5rem;margin-bottom:2rem;flex-wrap:wrap;}
@@ -31,6 +31,13 @@ section:first-of-type .slabel{margin-top:0;}
 .card.now{border-left:3px solid var(--playing);}
 .card.dormant{border-left:3px solid var(--dim);opacity:0.75;}
 .card.faded{opacity:0.55;}
+
+/* Hover-lift only for devices with real mouse hover — gated so touch/mobile never gets a
+   half-working hover state. Nothing is ever hidden behind hover; this is pure polish. */
+@media (hover:hover) and (pointer:fine){
+  .card{transition:border-color 0.15s, transform 0.15s ease, box-shadow 0.15s ease;}
+  .card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,0.35);}
+}
 
 /* Thumbnail */
 .thumb{width:88px;min-width:88px;height:66px;object-fit:cover;object-position:center;display:block;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
