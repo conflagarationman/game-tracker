@@ -19,7 +19,7 @@
       13
     ],
     "actualHours": 3.5,
-    "lastPlayed": "2026-06-26",
+    "lastPlayed": "2026-06-27",
     "casual": false,
     "note": null,
     "start": null,
@@ -293,10 +293,13 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
+    "achPct": 0,
+    "achCount": [
+      0,
+      37
+    ],
+    "actualHours": 0.8,
+    "lastPlayed": "2026-07-28",
     "casual": false,
     "note": null,
     "start": null,
@@ -362,10 +365,13 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
+    "achPct": 12,
+    "achCount": [
+      7,
+      58
+    ],
+    "actualHours": 5.8,
+    "lastPlayed": "2026-07-28",
     "casual": false,
     "note": "Releases Jul 28",
     "start": "2026-07-28",
@@ -408,10 +414,13 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
+    "achPct": 12,
+    "achCount": [
+      5,
+      41
+    ],
+    "actualHours": 1.6,
+    "lastPlayed": "2026-07-28",
     "casual": false,
     "note": null,
     "start": null,
@@ -431,10 +440,13 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
+    "achPct": 14,
+    "achCount": [
+      3,
+      22
+    ],
+    "actualHours": 0.2,
+    "lastPlayed": "2026-07-28",
     "casual": false,
     "note": null,
     "start": null,
@@ -552,9 +564,9 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": 57,
+    "achPct": 90,
     "achCount": [
-      12,
+      19,
       21
     ],
     "actualHours": 3.1,
@@ -1151,7 +1163,7 @@
       16
     ],
     "actualHours": 9.1,
-    "lastPlayed": "2026-02-22",
+    "lastPlayed": "2026-02-23",
     "casual": false,
     "note": null,
     "start": null,
@@ -1286,8 +1298,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 3,
+    "achCount": [
+      2,
+      78
+    ],
     "actualHours": 3.6,
     "lastPlayed": "2026-07-08",
     "casual": false,
@@ -1309,8 +1324,11 @@
     "gotm": null,
     "mastery": null,
     "diff": 3,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 13,
+    "achCount": [
+      5,
+      38
+    ],
     "actualHours": 4,
     "lastPlayed": "2026-07-04",
     "casual": false,
@@ -1577,8 +1595,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 21,
+    "achCount": [
+      12,
+      57
+    ],
     "actualHours": 4.7,
     "lastPlayed": "2026-04-20",
     "casual": false,
@@ -1600,8 +1621,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 0,
+    "achCount": [
+      0,
+      37
+    ],
     "actualHours": null,
     "lastPlayed": null,
     "casual": false,
@@ -1623,8 +1647,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 0,
+    "achCount": [
+      0,
+      1
+    ],
     "actualHours": 3.8,
     "lastPlayed": "2026-07-09",
     "casual": true,
@@ -1646,8 +1673,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 0,
+    "achCount": [
+      0,
+      41
+    ],
     "actualHours": 0.4,
     "lastPlayed": "2024-08-29",
     "casual": true,
@@ -1669,8 +1699,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 17,
+    "achCount": [
+      8,
+      48
+    ],
     "actualHours": 4.6,
     "lastPlayed": "2026-07-09",
     "casual": false,
@@ -1692,8 +1725,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 0,
+    "achCount": [
+      0,
+      35
+    ],
     "actualHours": 2.4,
     "lastPlayed": "2026-07-11",
     "casual": true,
@@ -1715,8 +1751,11 @@
     "gotm": null,
     "mastery": null,
     "diff": 3,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 2,
+    "achCount": [
+      1,
+      45
+    ],
     "actualHours": 3.6,
     "lastPlayed": "2026-07-19",
     "casual": false,
@@ -1738,8 +1777,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 0,
+    "achCount": [
+      0,
+      29
+    ],
     "actualHours": null,
     "lastPlayed": null,
     "casual": true,
@@ -1784,8 +1826,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 13,
+    "achCount": [
+      3,
+      23
+    ],
     "actualHours": 0.4,
     "lastPlayed": "2026-04-20",
     "casual": true,
@@ -1807,8 +1852,11 @@
     "gotm": null,
     "mastery": null,
     "diff": 3,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 8,
+    "achCount": [
+      3,
+      38
+    ],
     "actualHours": 2.7,
     "lastPlayed": "2026-07-19",
     "casual": false,
@@ -1830,8 +1878,11 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 8,
+    "achCount": [
+      3,
+      36
+    ],
     "actualHours": 1.2,
     "lastPlayed": "2025-03-18",
     "casual": false,
