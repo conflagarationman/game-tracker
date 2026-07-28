@@ -43,19 +43,29 @@ section:first-of-type .slabel{margin-top:0;}
 .thumb{width:88px;min-width:88px;height:66px;object-fit:cover;object-position:center;display:block;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
 .thumb-placeholder{width:88px;min-width:88px;height:66px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
 
-/* Now Playing: full-bleed hero cards instead of thumb+row cards — the section you look at
-   most gets the most visual weight. auto-fit collapses to a single column on phones with no
-   media query needed (220px min * 2 already exceeds a typical phone's content width). */
-.hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;}
-.hero-card{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:var(--surface);border:1px solid var(--border);}
+/* Now Playing: Steam Deck-style capsule cards — landscape art band (460:215, the real Steam
+   capsule ratio your existing Steam header images are already shaped for) on top, metadata
+   in a normal-flow panel below rather than overlaid on the image. An overlay would've meant
+   either cropping real data (genre/GOTM/mastery/diff/achievements) to fit a short strip, or
+   fighting for contrast against busy art — a separate panel avoids both for free.
+   auto-fit collapses to a single column on phones with no media query needed. */
+.hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;}
+.hero-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
 .hero-card.now{box-shadow:0 0 0 2px var(--playing) inset;}
 .hero-card.dormant{opacity:0.7;box-shadow:0 0 0 2px var(--dim) inset;}
+/* Crisp hover highlight, gated to real pointer devices only (see the .card rule above for
+   why) — the closest honest equivalent to Steam Deck's focus ring, which is actually
+   gamepad/keyboard focus, not mouse hover; these cards aren't a keyboard-navigable grid. */
+@media (hover:hover) and (pointer:fine){
+  .hero-card{transition:box-shadow 0.15s ease, transform 0.15s ease;}
+  .hero-card:hover{transform:scale(1.015);box-shadow:0 0 0 2px var(--text), 0 8px 20px rgba(0,0,0,0.4);}
+}
+.hero-art{position:relative;aspect-ratio:460/215;background:var(--surface2);}
 .hero-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;}
-.hero-bg-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:4rem;}
-.hero-gradient{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.6) 65%, rgba(0,0,0,0.92) 100%);pointer-events:none;}
-.hero-top{position:absolute;top:10px;right:10px;z-index:2;}
-.hero-bottom{position:absolute;left:0;right:0;bottom:0;padding:14px;z-index:2;display:flex;flex-direction:column;gap:6px;}
-.hero-title{font-size:1.05rem;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.7);line-height:1.2;}
+.hero-bg-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3rem;}
+.hero-top{position:absolute;top:8px;right:8px;z-index:2;}
+.hero-content{padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+.hero-title{font-size:0.95rem;font-weight:700;color:var(--text);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .hero-meta{display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;}
 .hero-hltb{display:flex;gap:0.5rem;}
 
@@ -76,8 +86,6 @@ section:first-of-type .slabel{margin-top:0;}
   .thumb-placeholder{width:40px;min-width:40px;height:40px;font-size:1.1rem;}
   .gtitle{font-size:0.85rem;}
   .hltb{font-size:0.7rem;}
-  .hero-title{font-size:0.95rem;}
-  .hero-bg-fallback{font-size:3rem;}
 }
 
 /* HLTB + playtime */
@@ -226,10 +234,10 @@ function thumbEl(g) {
   return `<div class="thumb-placeholder" style="background:${color}18;color:${color}">${emoji}</div>`;
 }
 
-// Same cover-art lookup as thumbEl, but full-bleed for the Now Playing hero cards. Games
-// without real cover art (most non-Steam platforms right now — see the covers.json gap)
-// get a colored gradient + big platform emoji instead of a broken image or an empty box,
-// so a missing cover still reads as "styled," not "broken."
+// Same cover-art lookup as thumbEl, but fills the Now Playing hero cards' capsule art band.
+// Games without real cover art (most non-Steam platforms right now — see the covers.json
+// gap) get a colored gradient + big platform emoji instead of a broken image or an empty
+// box, so a missing cover still reads as "styled," not "broken."
 function heroArt(g) {
   const url = getCover(g);
   const color = PC[g.p] || '#555';
@@ -322,10 +330,11 @@ function queuedEl(g){
 function nowC(g){
   const dormant=isDormant(g);
   return `<div class="hero-card ${dormant?'dormant':'now'}">
-    ${heroArt(g)}
-    <div class="hero-gradient"></div>
-    <div class="hero-top">${pb(g.p)}</div>
-    <div class="hero-bottom">
+    <div class="hero-art">
+      ${heroArt(g)}
+      <div class="hero-top">${pb(g.p)}</div>
+    </div>
+    <div class="hero-content">
       <div class="hero-title">${g.t}</div>
       <div class="hero-meta">
         ${g.y?`<span class="yr">${g.y}</span>`:''}
