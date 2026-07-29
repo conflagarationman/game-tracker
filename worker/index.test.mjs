@@ -212,6 +212,56 @@ await test("edit and delete never dispatch either workflow — only add does", a
   assert.equal(gh.dispatches.length, 0);
 });
 
+await test("POST /games/reorder reorders queue entries in place and leaves every other game put", async () => {
+  const gh = fakeGitHub({ games: [
+    baseGame({ id: 1, t: "Playing One", s: "playing" }),
+    baseGame({ id: 2, t: "Queue A", s: "queue" }),
+    baseGame({ id: 3, t: "Soon One", s: "soon" }),
+    baseGame({ id: 4, t: "Queue B", s: "queue" }),
+    baseGame({ id: 5, t: "Queue C", s: "queue" }),
+    baseGame({ id: 6, t: "Done One", s: "done" }),
+  ] });
+  const res = await post("/games/reorder", { ids: [5, 2, 4] });
+  assert.equal(res.status, 200);
+  const games = await res.json();
+  assert.deepEqual(games.map(g => g.t), [
+    "Playing One", "Queue C", "Soon One", "Queue A", "Queue B", "Done One",
+  ], "queue slots take the new order; non-queue rows never move");
+  assert.deepEqual(games.filter(g => g.s === "queue").map(g => g.id), [5, 2, 4]);
+  assert.ok(gh.commits[0].includes("Reorder up next"));
+});
+
+await test("POST /games/reorder 409s when the queue changed since the list was loaded", async () => {
+  const gh = fakeGitHub({ games: [
+    baseGame({ id: 1, s: "queue" }), baseGame({ id: 2, s: "queue" }), baseGame({ id: 3, s: "queue" }),
+  ] });
+  // Client thinks there are two queued games; the server has three.
+  const res = await post("/games/reorder", { ids: [2, 1] });
+  assert.equal(res.status, 409);
+  assert.match((await res.json()).error, /reload/);
+  assert.equal(gh.writes, 0, "a stale reorder must never be written");
+
+  // Right count, but one id isn't actually queued any more.
+  const res2 = await post("/games/reorder", { ids: [1, 2, 99] });
+  assert.equal(res2.status, 409);
+  assert.equal(gh.writes, 0);
+});
+
+await test("POST /games/reorder rejects a malformed or duplicate-bearing id list without writing", async () => {
+  const gh = fakeGitHub({ games: [baseGame({ id: 1, s: "queue" }), baseGame({ id: 2, s: "queue" })] });
+  assert.equal((await post("/games/reorder", { ids: "nope" })).status, 400);
+  assert.equal((await post("/games/reorder", { ids: [1, "2"] })).status, 400);
+  assert.equal((await post("/games/reorder", { ids: [1, 1] })).status, 400);
+  assert.equal(gh.writes, 0);
+});
+
+await test("reorder dispatches no workflow — nothing it changes is a synced field", async () => {
+  const gh = fakeGitHub({ games: [baseGame({ id: 1, s: "queue" }), baseGame({ id: 2, s: "queue" })] });
+  const res = await post("/games/reorder", { ids: [2, 1] });
+  assert.equal(res.status, 200);
+  assert.equal(gh.dispatches.length, 0, "only /games/add should ever dispatch");
+});
+
 await test("wrong sync key is rejected before touching GitHub", async () => {
   const gh = fakeGitHub({ games: [baseGame()] });
   const res = await post("/games/add", { t: "Nope", p: "steam", s: "queue" }, { "X-Sync-Key": "wrong" });

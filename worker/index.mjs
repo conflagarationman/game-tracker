@@ -19,6 +19,9 @@
 //                      their normal daily/weekly schedules.
 // POST /games/edit     body: {id, ...fields to change} -> patches the matching game.
 // POST /games/delete   body: {id} -> removes the matching game.
+// POST /games/reorder  body: {ids} -> reorders the queue ("Up next") entries in place; the id
+//                      set must match the current queue exactly or it 409s. No workflow
+//                      dispatch, since no synced field changes.
 //
 // Every write reads the current file fresh, applies the change, and writes back with a sha
 // check, retrying on conflict — safe against racing the daily sync-games.yml/
@@ -158,6 +161,42 @@ export async function editGame(env, id, patch) {
   }, `Edit game #${id}`);
 }
 
+// Up Next's 1..N numbering on the page is just games.json array order, so reordering that
+// array *is* the reorder — no new priority field, which is why this is possible at all
+// (index.html's drag code deferred in-section reordering on the grounds that it "would need
+// a new order/priority field this schema doesn't have"). The sync scripts all look games up
+// by id, so array position is invisible to them.
+//
+// Only the queue entries move: their existing array indices are collected and refilled in the
+// submitted order, leaving every other game exactly where it was. That keeps the commit diff
+// to the queue rows instead of rewriting the file's whole ordering.
+//
+// The submitted id set must match the current queue set exactly. A stale client — one that
+// loaded before a game was added to the queue, or before a drag moved one out of it — would
+// otherwise silently drop or resurrect entries; 409 tells the page to reload instead.
+export async function reorderQueue(env, ids) {
+  if (!Array.isArray(ids) || !ids.every(n => typeof n === "number")) {
+    throw httpError("ids must be an array of numbers", 400);
+  }
+  if (new Set(ids).size !== ids.length) throw httpError("ids must not contain duplicates", 400);
+  return mutateWithRetry(env, (games) => {
+    const positions = [];
+    games.forEach((g, i) => { if (g.s === "queue") positions.push(i); });
+    const current = positions.map(i => games[i].id);
+    const same = current.length === ids.length && current.every(id => ids.includes(id));
+    if (!same) {
+      throw httpError(
+        `up-next has changed since this list was loaded (server has ${current.length} queued, request had ${ids.length}) — reload and try again`,
+        409,
+      );
+    }
+    const byId = new Map(games.map(g => [g.id, g]));
+    const next = [...games];
+    positions.forEach((pos, n) => { next[pos] = byId.get(ids[n]); });
+    return next;
+  }, `Reorder up next (${ids.length} games)`);
+}
+
 export async function deleteGame(env, id) {
   if (typeof id !== "number") throw httpError("id must be a number", 400);
   return mutateWithRetry(env, (games) => {
@@ -247,6 +286,13 @@ export default {
       }
       if (url.pathname.endsWith("/games/delete")) {
         const games = await deleteGame(env, body.id);
+        return json(games, 200, origin);
+      }
+      // No triggerSyncWorkflows here, unlike /games/add: reordering changes no field that
+      // Steam/RA sync or the cover backfill reads, so dispatching them would burn two
+      // Actions runs to produce an identical file.
+      if (url.pathname.endsWith("/games/reorder")) {
+        const games = await reorderQueue(env, body.ids);
         return json(games, 200, origin);
       }
       return json({ error: "not found" }, 404, origin);

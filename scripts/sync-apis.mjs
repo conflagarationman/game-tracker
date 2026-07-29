@@ -238,9 +238,14 @@ export async function pushToHub(games, log) {
     .sort((a, b) => (b.lastPlayed || "").localeCompare(a.lastPlayed || ""))
     .map(g => ({ name: g.t, platform: g.p, genre: g.g, detail: detailFor(g) }));
 
+  // Array order, not queued-date order. The page numbers Up Next 1..N straight from
+  // games.json's array order, and that order is now explicitly maintained (add.html's reorder
+  // panel -> the Worker's /games/reorder). Sorting by `queued` here meant the hub card's #1
+  // and the page's #1 were routinely different games — the hub showed whatever was queued most
+  // recently, which is close to the opposite of a priority list. Also drops the `&& g.queued`
+  // filter: a queued game with no date is still in the queue and still has a position.
   const upNext = games
-    .filter(g => g.s === "queue" && g.queued)
-    .sort((a, b) => (b.queued || "").localeCompare(a.queued || ""))
+    .filter(g => g.s === "queue")
     .slice(0, 4)
     .map(g => ({ name: g.t, platform: g.p, gotm: g.gotm || undefined }));
 
