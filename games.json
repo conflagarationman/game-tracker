@@ -404,7 +404,7 @@
     "id": 502,
     "t": "Pathogenic",
     "p": "steam",
-    "s": "queue",
+    "s": "playing",
     "r": 0,
     "g": "Horror",
     "y": 2026,
@@ -423,7 +423,7 @@
     "lastPlayed": "2026-07-28",
     "casual": false,
     "note": null,
-    "start": null,
+    "start": "2026-07-28",
     "queued": "2026-07-27"
   },
   {
