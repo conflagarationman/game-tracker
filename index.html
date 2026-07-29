@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Game Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%8E%AE</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -16,8 +17,10 @@
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:2rem 1rem;padding-bottom:max(2rem,env(safe-area-inset-bottom));}
 .header{display:flex;align-items:baseline;gap:1rem;margin-bottom:0.5rem;position:sticky;top:0;z-index:10;background:var(--bg);padding:0.75rem 0;}
 h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
-.edit-toggle{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;}
+.edit-toggle{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;}
 .edit-toggle.active{background:var(--accent);color:#0e0e10;border-color:var(--accent);font-weight:700;}
+.add-link{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--accent);background:#c8f54218;color:var(--accent);text-decoration:none;font-weight:700;white-space:nowrap;}
+.add-link:hover{background:#c8f54230;}
 
 /* Edit mode: draggable cards in the three active-management sections only (never Archive/
    Year Log). touch-action:none is scoped to exactly these selectors, not applied globally,
@@ -188,7 +191,7 @@ section:first-of-type .slabel{margin-top:0;}
 </style>
 </head>
 <body>
-<div class="header"><h1>GAME LOG</h1><button id="edit-toggle" class="edit-toggle" style="display:none;" onclick="setEditMode(!editMode)">Edit mode: Off</button></div>
+<div class="header"><h1>GAME LOG</h1><a id="add-link" class="add-link" href="add.html" style="display:none;">+ Add game</a><button id="edit-toggle" class="edit-toggle" style="display:none;" onclick="setEditMode(!editMode)">Edit mode: Off</button></div>
 <div class="updated" id="updated-stamp">loading…</div>
 <div class="stats-row" id="stats"></div>
 <section aria-labelledby="now-playing-heading">
@@ -676,6 +679,7 @@ document.addEventListener('pointercancel', onPointerUp);
 
 if (WORKER.url && WORKER.key){
   document.getElementById('edit-toggle').style.display = '';
+  document.getElementById('add-link').style.display = '';
   let stored = '0';
   try { stored = localStorage.getItem('gt_edit_mode') || '0'; } catch(e){}
   setEditMode(stored === '1');
