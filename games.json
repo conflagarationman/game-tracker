@@ -133,7 +133,7 @@
     "id": 408,
     "t": "Zelda: Majora's Mask (2S2H)",
     "p": "ayn",
-    "s": "queue",
+    "s": "playing",
     "r": 0,
     "g": "Action-Adventure",
     "y": 2000,
@@ -149,7 +149,7 @@
     "lastPlayed": null,
     "casual": false,
     "note": "Tabled until OoT remake releases",
-    "start": null,
+    "start": "2026-07-28",
     "queued": "2026-07-26"
   },
   {
