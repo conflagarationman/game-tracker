@@ -21,11 +21,19 @@ const env = {
 
 const b64 = (s) => btoa(unescape(encodeURIComponent(s)));
 
-// Minimal in-memory stand-in for the contents API, including sha-based optimistic locking.
-function fakeGitHub({ games = [], failWrites = 0 } = {}) {
-  const state = { file: JSON.stringify(games), sha: "sha0", commits: [], writes: 0 };
+// Minimal in-memory stand-in for the contents API, including sha-based optimistic locking,
+// plus the Actions dispatch endpoint triggerSyncWorkflows calls after a successful add.
+function fakeGitHub({ games = [], failWrites = 0, failDispatch = false } = {}) {
+  const state = { file: JSON.stringify(games), sha: "sha0", commits: [], writes: 0, dispatches: [] };
   globalThis.fetch = async (url, init = {}) => {
     const method = init.method || "GET";
+    const u = String(url);
+    if (u.includes("/dispatches")) {
+      const workflow = u.match(/workflows\/([^/]+)\/dispatches/)[1];
+      const body = JSON.parse(init.body);
+      state.dispatches.push({ workflow, ref: body.ref });
+      return failDispatch ? new Response("boom", { status: 500 }) : new Response(null, { status: 204 });
+    }
     if (method === "GET") {
       return new Response(JSON.stringify({ content: b64(state.file), sha: state.sha }), { status: 200 });
     }
@@ -68,7 +76,7 @@ await test("POST /games/add appends a new game with a fresh id and filled-in def
   const gh = fakeGitHub({ games: [baseGame({ id: 5 })] });
   const res = await post("/games/add", { t: "New Game", p: "switch2", s: "soon", g: "RPG", y: 2026 });
   assert.equal(res.status, 200);
-  const games = await res.json();
+  const { games } = await res.json();
   assert.equal(games.length, 2);
   const added = games.find(g => g.t === "New Game");
   assert.equal(added.id, 6, "id should be one past the current max");
@@ -115,9 +123,38 @@ await test("a write retries and succeeds after a sha conflict from a concurrent 
   const gh = fakeGitHub({ games: [baseGame({ id: 1 })], failWrites: 1 });
   const res = await post("/games/add", { t: "Retried Game", p: "steam", s: "queue" });
   assert.equal(res.status, 200);
-  const games = await res.json();
+  const { games } = await res.json();
   assert.ok(games.some(g => g.t === "Retried Game"));
   assert.equal(gh.writes, 2, "first write should have been rejected, second should have succeeded");
+});
+
+await test("a successful add dispatches both sync-games.yml and backfill-covers.yml with ref:main", async () => {
+  const gh = fakeGitHub({ games: [baseGame({ id: 1 })] });
+  const res = await post("/games/add", { t: "Fresh Release", p: "steam", s: "queue" });
+  assert.equal(res.status, 200);
+  const { triggers } = await res.json();
+  assert.deepEqual(gh.dispatches.sort((a, b) => a.workflow.localeCompare(b.workflow)), [
+    { workflow: "backfill-covers.yml", ref: "main" },
+    { workflow: "sync-games.yml", ref: "main" },
+  ]);
+  assert.ok(triggers.every(t => t.ok), "both triggers should report ok:true in the response");
+});
+
+await test("add still succeeds (200) even when both workflow dispatches fail — best-effort, never blocks the add", async () => {
+  const gh = fakeGitHub({ games: [baseGame({ id: 1 })], failDispatch: true });
+  const res = await post("/games/add", { t: "Unlucky Release", p: "steam", s: "queue" });
+  assert.equal(res.status, 200, "a dispatch failure must never fail the add itself");
+  const { games, triggers } = await res.json();
+  assert.ok(games.some(g => g.t === "Unlucky Release"), "the game must still be committed");
+  assert.ok(triggers.every(t => t.ok === false), "both triggers should report the failure, not hide it");
+  assert.equal(gh.dispatches.length, 2, "both dispatches should still have been attempted");
+});
+
+await test("edit and delete never dispatch either workflow — only add does", async () => {
+  const gh = fakeGitHub({ games: [baseGame({ id: 1 }), baseGame({ id: 2, t: "Other" })] });
+  await post("/games/edit", { id: 1, s: "done" });
+  await post("/games/delete", { id: 2 });
+  assert.equal(gh.dispatches.length, 0);
 });
 
 await test("wrong sync key is rejected before touching GitHub", async () => {

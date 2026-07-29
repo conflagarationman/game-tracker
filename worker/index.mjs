@@ -13,13 +13,19 @@
 // edit isn't a real cost, and `main` is simpler: no branch to reconcile before it's visible.
 //
 // POST /games/add     body: {t, p, s, ...any other known field} -> appended with a fresh id
-//                      and defaults for anything not supplied.
+//                      and defaults for anything not supplied. Also immediately dispatches
+//                      sync-games.yml and backfill-covers.yml (best-effort, see
+//                      triggerSyncWorkflows below) instead of making the new game wait for
+//                      their normal daily/weekly schedules.
 // POST /games/edit     body: {id, ...fields to change} -> patches the matching game.
 // POST /games/delete   body: {id} -> removes the matching game.
 //
 // Every write reads the current file fresh, applies the change, and writes back with a sha
 // check, retrying on conflict — safe against racing the daily sync-games.yml/
 // backfill-covers.yml bots, which commit to this same file on this same branch.
+//
+// GITHUB_TOKEN needs Contents:read-and-write (for the writes above) AND
+// Actions:read-and-write (to dispatch those two workflows on add) — see worker/README.md.
 
 const FILE = "games.json";
 const UA = "game-tracker-admin";
@@ -136,6 +142,36 @@ export async function deleteGame(env, id) {
   }, `Delete game #${id}`);
 }
 
+// Fires the daily Steam/RA sync and the SteamGridDB cover backfill immediately after a new
+// game is added, instead of making it wait for their normal daily/weekly schedules. Reuses
+// gh() as-is — the Actions dispatch endpoint needs the exact same repo base URL and auth
+// header the Contents API calls already use. Both workflows have workflow_dispatch:{} with
+// no required inputs, so the body only needs a ref.
+//
+// Best-effort and never throws: the game is already committed by the time this runs, so a
+// dispatch failure (e.g. the token lacks Actions:write, or GitHub hiccups) must never fail
+// or roll back the add itself — it only means the new game waits for the normal schedule
+// instead of syncing immediately.
+async function triggerWorkflow(env, workflowFile) {
+  try {
+    const res = await gh(env, `actions/workflows/${workflowFile}/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref: env.BRANCH }),
+    });
+    if (!res.ok) return { workflow: workflowFile, ok: false, error: `${res.status}: ${await res.text()}` };
+    return { workflow: workflowFile, ok: true };
+  } catch (e) {
+    return { workflow: workflowFile, ok: false, error: String(e.message || e) };
+  }
+}
+
+export async function triggerSyncWorkflows(env) {
+  return Promise.all([
+    triggerWorkflow(env, "sync-games.yml"),
+    triggerWorkflow(env, "backfill-covers.yml"),
+  ]);
+}
+
 export default {
   async fetch(request, env) {
     const origin = env.ALLOWED_ORIGIN || "*";
@@ -176,7 +212,8 @@ export default {
 
       if (url.pathname.endsWith("/games/add")) {
         const games = await addGame(env, body);
-        return json(games, 200, origin);
+        const triggers = await triggerSyncWorkflows(env);
+        return json({ games, triggers }, 200, origin);
       }
       if (url.pathname.endsWith("/games/edit")) {
         const { id, ...patch } = body;

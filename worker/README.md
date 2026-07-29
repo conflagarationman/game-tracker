@@ -28,6 +28,12 @@ sees it. Same architecture as steph-tv-tracker's `worker/`.
   cost, and `main` means the edit is live immediately, nothing to merge first.
 - Every write is a commit, so the restore path for anything — bug, bad edit, vandalism —
   is `git revert` or `git checkout` at any point in history.
+- A successful **add** also dispatches `sync-games.yml` and `backfill-covers.yml`
+  immediately, instead of leaving the new game to wait for their daily/weekly schedules.
+  This is best-effort: if a dispatch fails (bad token scope, GitHub hiccup), the add still
+  succeeds — the response just carries `triggers: [{workflow, ok, error?}, ...]` so
+  `add.html` can show a soft warning instead of pretending both runs definitely fired.
+  `edit`/`delete` never trigger this, only `add`.
 
 ## Setup
 
@@ -35,7 +41,10 @@ sees it. Same architecture as steph-tv-tracker's `worker/`.
 tokens → **Fine-grained tokens** → Generate new:
 - Repository access: **Only select repositories** → `game-tracker`
 - Permissions → Repository permissions → **Contents: Read and write**
-- Nothing else. This token can only touch this one repo's files.
+- Permissions → Repository permissions → **Actions: Read and write** (needed to trigger
+  `sync-games.yml`/`backfill-covers.yml` on add — GitHub's fine-grained token UI has no
+  write-only tier, so pick "Read and write" here, not "Read-only", or dispatch will 403)
+- Nothing else. This token can only touch this one repo's files and workflow runs.
 
 **2. Deploy the Worker:**
 
@@ -49,13 +58,15 @@ npx wrangler deploy
 
 Note the deployed URL, e.g. `https://game-tracker-admin.<subdomain>.workers.dev`.
 
-**3. Point the page at it.** In `../add.html`, fill in `WORKER`:
+**3. Point the pages at it.** In `../worker-config.js` (shared by `add.html` and
+`index.html`'s edit mode, filled in once):
 
 ```js
 const WORKER = { url: 'https://game-tracker-admin.<subdomain>.workers.dev', key: '<the SYNC_KEY>' };
 ```
 
-Commit and push. The setup notice disappears and the form is live.
+Commit and push. `add.html`'s setup notice disappears and the form is live; `index.html`
+gets an Edit mode toggle for drag-and-drop.
 
 ## About the sync key
 
