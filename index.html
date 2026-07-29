@@ -30,16 +30,33 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .card-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:10px;}
 
 /* Edit mode: draggable cards in the three active-management sections only (never Archive/
-   Year Log). touch-action:none is scoped to exactly these selectors, not applied globally,
-   so page scroll is unaffected everywhere else, including these same cards when Edit mode
-   is off — see index.html's drag engine comment for the accepted tradeoff this implies. */
-body.edit-mode #now .hero-card,body.edit-mode #queue .card,body.edit-mode #soon .card{
-  touch-action:none;cursor:grab;
+   Year Log). Continuous pointer-drag — and the touch-action:none it needs to stop the
+   browser's own scroll gesture from fighting it — is a fine-pointer-only affordance now;
+   coarse pointers (touch) get the tap-to-move flow below instead, which needs no gesture
+   capture at all, so scrolling stays completely normal on phones in Edit mode. */
+@media (hover:hover) and (pointer:fine){
+  body.edit-mode #now .hero-card,body.edit-mode #queue .card,body.edit-mode #soon .card{
+    touch-action:none;cursor:grab;
+  }
 }
 .dragging{box-shadow:0 12px 32px rgba(0,0,0,0.5);}
-#now.drop-hover,#queue.drop-hover,#soon.drop-hover{
+#now.drop-hover,#queue.drop-hover,#soon.drop-hover,#now.move-target,#queue.move-target,#soon.move-target{
   outline:2px dashed var(--accent);outline-offset:6px;border-radius:8px;background:#c8f54212;
 }
+.move-picked{outline:2px solid var(--accent);outline-offset:2px;opacity:0.6;border-radius:10px;}
+
+/* Mobile tap-to-move bar: fixed to the bottom, matches the phone-first safe-area handling
+   already used on <body>. Sits above everything (z-index) since it's a modal-ish "you're in
+   the middle of an action" affordance, not passive chrome. */
+.move-bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:1001;display:flex;align-items:center;gap:0.75rem;
+  padding:0.85rem 1rem;padding-bottom:max(0.85rem,env(safe-area-inset-bottom));
+  background:var(--surface);border-top:1px solid var(--border2);box-shadow:0 -8px 24px rgba(0,0,0,0.4);
+}
+.move-bar-title{flex:1;min-width:0;font-size:0.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.move-bar-hint{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;}
+.move-bar button{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;
+  padding:0.5rem 0.9rem;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;}
 .updated{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);margin-bottom:1.5rem;}
 /* Amber once the sync is older than a scheduled run: the stamp used to show a plain date, so
    a sync that had been broken for weeks looked no different from one that ran this morning. */
@@ -223,6 +240,11 @@ section:first-of-type .slabel{margin-top:0;}
 </head>
 <body>
 <div class="header"><h1>GAME LOG</h1><a id="add-link" class="add-link" href="add.html" style="display:none;">+ Add game</a><button id="edit-toggle" class="edit-toggle" style="display:none;" onclick="setEditMode(!editMode)">Edit mode: Off</button></div>
+<div class="move-bar" id="move-bar" style="display:none;" role="status">
+  <span class="move-bar-title" id="move-bar-title"></span>
+  <span class="move-bar-hint">Tap a section, or</span>
+  <button type="button" onclick="cancelMoveMode()">Cancel</button>
+</div>
 <div class="updated" id="updated-stamp">loading…</div>
 <div class="banner" id="load-error" role="alert"></div>
 <div class="stats-row" id="stats"></div>
@@ -611,6 +633,31 @@ const DRAG_THRESHOLD = 6;
 let editMode = false;
 let drag = null;
 
+// Continuous pointer-drag needs a fine pointer with real hover to be usable at all — the
+// same capability test already used for hover-lift styling (see .card:hover above), not a
+// viewport-width guess. Coarse pointers (touch) get tap-to-move instead (further down):
+// pick up with one tap, commit with a second tap on a destination section. This is a new
+// way to trigger the exact same move — it shares sectionPatch() and moveGameToSection()
+// with the drag path below, not a second implementation of "move a game."
+const canHoverDrag = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+let moveMode = null; // { g, sourceId } while a tap-to-move is in progress
+
+// Cards are links now, and cards are also what you drag or tap-to-move — so the click a
+// browser fires after any pointer gesture has to be filtered, or every drag/tap-to-move
+// would navigate away to the edit form mid-move. Two cases, both capture-phase so they beat
+// the anchor's default:
+//   - Edit mode on: a press on a card means "pick this up", never "open it". Suppress always.
+//   - Edit mode off: suppress only if the pointer actually travelled past DRAG_THRESHOLD, so
+//     a scroll started on a card doesn't navigate on release, while a genuine tap still does.
+// Also doubles as tap-vs-scroll disambiguation for handleTapMove() below, on coarse pointers.
+let clickGuard = { suppress: false, downX: 0, downY: 0 };
+document.addEventListener('pointerdown', (e) => {
+  clickGuard = { suppress: false, downX: e.clientX, downY: e.clientY };
+}, true);
+document.addEventListener('pointerup', (e) => {
+  clickGuard.suppress = Math.hypot(e.clientX - clickGuard.downX, e.clientY - clickGuard.downY) >= DRAG_THRESHOLD;
+}, true);
+
 // Pure and stateless on purpose (no DOM, no globals besides their own args) so they're
 // unit-testable the same way the rest of this project's scripts are, unlike the pointer
 // choreography around them, which needs a real browser and is verified by hand instead.
@@ -632,6 +679,7 @@ function setEditMode(on){
   const btn = document.getElementById('edit-toggle');
   btn.textContent = on ? 'Edit mode: On' : 'Edit mode: Off';
   btn.classList.toggle('active', on);
+  if (!on) cancelMoveMode();
   try { localStorage.setItem('gt_edit_mode', on ? '1' : '0'); } catch(e){}
 }
 
@@ -678,6 +726,7 @@ function autoScrollTick(){
 
 function onPointerDown(e){
   if (!editMode || drag) return;                          // one drag at a time
+  if (!canHoverDrag) return;                               // coarse pointers use tap-to-move
   if (e.pointerType==='mouse' && e.button!==0) return;     // left-click only
   const cardEl = e.target.closest('.hero-card, .card');
   if (!cardEl || !cardEl.dataset.id) return;                // absent on Archive/Year Log cards
@@ -724,14 +773,11 @@ function onPointerMove(e){
   updateDragPosition(e.clientX, e.clientY);
 }
 
-async function onPointerUp(e){
-  if (!drag || e.pointerId !== drag.pointerId) return;
-  const { g, sourceId, hoverId, moved } = drag;
-  if (drag.hoverId) document.getElementById(drag.hoverId).classList.remove('drop-hover');
-  drag = null;
-  if (!moved) return;                                     // plain tap — never left flow
-  if (!hoverId || hoverId === sourceId){ render(); return; } // cancel/no-op: snap back
-  const patch = sectionPatch(hoverId, g);
+// Shared by the desktop drag-drop path and mobile tap-to-move — one optimistic-update-then-
+// rollback implementation for "move a game to a different section," regardless of which
+// gesture triggered it.
+async function moveGameToSection(g, sectionId){
+  const patch = sectionPatch(sectionId, g);
   const prev = { s: g.s, start: g.start, queued: g.queued };
   Object.assign(g, patch);
   render();                                                // optimistic
@@ -750,24 +796,69 @@ async function onPointerUp(e){
   }
 }
 
+async function onPointerUp(e){
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  const { g, sourceId, hoverId, moved } = drag;
+  if (drag.hoverId) document.getElementById(drag.hoverId).classList.remove('drop-hover');
+  drag = null;
+  if (!moved) return;                                     // plain tap — never left flow
+  if (!hoverId || hoverId === sourceId){ render(); return; } // cancel/no-op: snap back
+  await moveGameToSection(g, hoverId);
+}
+
 document.addEventListener('pointerdown', onPointerDown);
 document.addEventListener('pointermove', onPointerMove);
 document.addEventListener('pointerup', onPointerUp);
 document.addEventListener('pointercancel', onPointerUp);
 
-// Cards are links now, and cards are also what you drag — so the click that a browser fires
-// after a pointer gesture has to be filtered, or every drag would navigate away to the edit
-// form mid-move. Two cases, both capture-phase so they beat the anchor's default:
-//   - Edit mode on: a press on a card means "pick this up", never "open it". Suppress always.
-//   - Edit mode off: suppress only if the pointer actually travelled past DRAG_THRESHOLD, so
-//     a scroll started on a card doesn't navigate on release, while a genuine tap still does.
-let clickGuard = { suppress: false, downX: 0, downY: 0 };
-document.addEventListener('pointerdown', (e) => {
-  clickGuard = { suppress: false, downX: e.clientX, downY: e.clientY };
-}, true);
-document.addEventListener('pointerup', (e) => {
-  clickGuard.suppress = Math.hypot(e.clientX - clickGuard.downX, e.clientY - clickGuard.downY) >= DRAG_THRESHOLD;
-}, true);
+// --- Mobile tap-to-move (coarse pointers only — see canHoverDrag) ---------------------
+// Two taps instead of one continuous gesture: pick up, then tap a destination section.
+// Deliberately not a port of the drag engine — touch dragging has real, separate problems
+// (a dragged card occludes exactly the drop target underneath the finger; no auto-scroll
+// gesture can coexist with a finger already committed to dragging) that a second interaction
+// model sidesteps rather than fights. No touch-action:none is needed anywhere in this flow,
+// so normal page scroll in Edit mode is fully unaffected on phones, unlike the drag path.
+function cancelMoveMode(){
+  if (!moveMode) return;
+  const el = document.querySelector(`[data-id="${moveMode.g.id}"]`);
+  if (el) el.classList.remove('move-picked');
+  ['now','queue','soon'].forEach(id => document.getElementById(id).classList.remove('move-target'));
+  moveMode = null;
+  document.getElementById('move-bar').style.display = 'none';
+}
+
+async function commitMove(sectionId){
+  const { g, sourceId } = moveMode;
+  cancelMoveMode();
+  if (sectionId === sourceId) return;                     // tapping your own section: no-op
+  await moveGameToSection(g, sectionId);
+}
+
+function beginMoveMode(g, sourceId, cardEl){
+  moveMode = { g, sourceId };
+  cardEl.classList.add('move-picked');
+  ['now','queue','soon'].filter(id => id !== sourceId)
+    .forEach(id => document.getElementById(id).classList.add('move-target'));
+  document.getElementById('move-bar-title').textContent = `Moving "${g.t}"`;
+  document.getElementById('move-bar').style.display = 'flex';
+}
+
+function handleTapMove(e){
+  if (!editMode || canHoverDrag) return;
+  if (clickGuard.suppress) return;                        // the pointer travelled — a scroll, not a tap
+  const sectionEl = e.target.closest('#now, #queue, #soon');
+  if (moveMode){
+    if (sectionEl) commitMove(sectionEl.id);
+    return;                                                // tap outside any section: leave move mode open
+  }
+  const cardEl = e.target.closest('.hero-card, .card');
+  if (!cardEl || !cardEl.dataset.id || !sectionEl) return;
+  const g = G.find(x => x.id === Number(cardEl.dataset.id));
+  if (!g) return;
+  beginMoveMode(g, sectionEl.id, cardEl);
+}
+document.addEventListener('pointerup', handleTapMove);
+
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.card-link')) return;
   if (editMode || clickGuard.suppress) e.preventDefault();
