@@ -257,7 +257,7 @@
     "id": 218,
     "t": "Deep Rock Galactic: Rogue Core",
     "p": "steam",
-    "s": "queue",
+    "s": "playing",
     "r": 0,
     "g": "Roguelike",
     "y": 2026,
@@ -276,7 +276,7 @@
     "lastPlayed": "2026-05-21",
     "casual": false,
     "note": "Early Access",
-    "start": null,
+    "start": "2026-07-28",
     "queued": "2026-06-16"
   },
   {
