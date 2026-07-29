@@ -298,7 +298,7 @@
       0,
       37
     ],
-    "actualHours": 1.1,
+    "actualHours": 2.2,
     "lastPlayed": "2026-07-29",
     "casual": false,
     "note": null,
@@ -370,7 +370,7 @@
       8,
       58
     ],
-    "actualHours": 7.5,
+    "actualHours": 8,
     "lastPlayed": "2026-07-29",
     "casual": false,
     "note": "Releases Jul 28",
@@ -1857,7 +1857,7 @@
       3,
       38
     ],
-    "actualHours": 2.7,
+    "actualHours": 4.4,
     "lastPlayed": "2026-07-19",
     "casual": false,
     "note": null,
@@ -2434,13 +2434,13 @@
     "gotm": null,
     "mastery": null,
     "diff": null,
-    "achPct": 69,
+    "achPct": 76,
     "achCount": [
-      52,
+      57,
       75
     ],
-    "actualHours": 106.4,
-    "lastPlayed": "2026-07-26",
+    "actualHours": 107.3,
+    "lastPlayed": "2026-07-29",
     "casual": false,
     "note": "1.0 launched Jul 10 — back in",
     "start": "2026-07-11",
