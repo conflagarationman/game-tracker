@@ -1455,7 +1455,7 @@
     "id": 71,
     "t": "Castlevania: Symphony of the Night",
     "p": "ayn",
-    "s": "playing",
+    "s": "queue",
     "r": 0,
     "g": "Metroidvania",
     "y": 1997,
@@ -1475,7 +1475,7 @@
     "casual": false,
     "note": null,
     "start": "2026-06-15",
-    "queued": null
+    "queued": "2026-07-28"
   },
   {
     "id": 72,
