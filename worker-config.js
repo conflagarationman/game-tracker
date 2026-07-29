@@ -8,6 +8,6 @@
 // The real safety net is git history: every write is a commit, so anything unwanted is one
 // `git revert` away.
 const WORKER = {
-  url: '', // e.g. 'https://game-tracker-admin.<subdomain>.workers.dev'
-  key: '', // the SYNC_KEY value you set with `wrangler secret put SYNC_KEY`
+  url: 'https://game-tracker-admin.jonny-wilczynski.workers.dev',
+  key: '0d463ff6987e6bb655092bfd89a8f4d3',
 };
