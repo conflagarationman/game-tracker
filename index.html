@@ -41,6 +41,26 @@ body.edit-mode #now .hero-card,body.edit-mode #queue .card,body.edit-mode #soon 
   outline:2px dashed var(--accent);outline-offset:6px;border-radius:8px;background:#c8f54212;
 }
 .updated{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);margin-bottom:1.5rem;}
+/* Amber once the sync is older than a scheduled run: the stamp used to show a plain date, so
+   a sync that had been broken for weeks looked no different from one that ran this morning. */
+.updated.stale{color:#f5a042;}
+
+/* Page-level load failure, so an error can't be mistaken for an empty tracker. */
+.banner{display:none;align-items:center;gap:0.75rem;flex-wrap:wrap;background:#f5424218;
+  border:1px solid #f5424230;color:#f54242;border-radius:8px;padding:0.75rem 0.9rem;
+  font-family:'DM Mono',monospace;font-size:0.72rem;margin-bottom:1.5rem;}
+.banner-btn{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;
+  letter-spacing:0.08em;padding:0.35rem 0.7rem;border-radius:6px;cursor:pointer;
+  background:transparent;color:#f54242;border:1px solid #f5424260;}
+
+/* Loading placeholders. The shimmer is gated on prefers-reduced-motion; the boxes themselves
+   still convey "content is coming" without it. */
+.skel{background:var(--surface);border:1px solid var(--border);border-radius:10px;}
+@media (prefers-reduced-motion:no-preference){
+  .skel{background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%);
+    background-size:200% 100%;animation:skel 1.4s ease-in-out infinite;}
+  @keyframes skel{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+}
 .stats-row{display:flex;gap:0.5rem;margin-bottom:2rem;flex-wrap:wrap;}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1rem;text-align:center;min-width:72px;flex:1;}
 .stat-n{font-size:1.5rem;font-weight:800;line-height:1;}
@@ -204,6 +224,7 @@ section:first-of-type .slabel{margin-top:0;}
 <body>
 <div class="header"><h1>GAME LOG</h1><a id="add-link" class="add-link" href="add.html" style="display:none;">+ Add game</a><button id="edit-toggle" class="edit-toggle" style="display:none;" onclick="setEditMode(!editMode)">Edit mode: Off</button></div>
 <div class="updated" id="updated-stamp">loading…</div>
+<div class="banner" id="load-error" role="alert"></div>
 <div class="stats-row" id="stats"></div>
 <section aria-labelledby="now-playing-heading">
   <h2 class="slabel" id="now-playing-heading">Now playing</h2>
@@ -562,7 +583,7 @@ function render(){
     <div class="stat"><div class="stat-n" style="color:#42c8f5;font-size:1.1rem">${Math.round(backlogHrs)}h</div><div class="stat-l">Backlog hrs</div></div>
     <div class="stat"><div class="stat-n" style="color:#42f5a0">${done.length}</div><div class="stat-l">Done</div></div>
     <div class="stat"><div class="stat-n" style="color:#ffb84a">${mastTotal}</div><div class="stat-l">Mastered</div></div>
-    <div class="stat"><div class="stat-n" style="color:#c8f542">${avg}</div><div class="stat-l">Avg rating</div></div>
+    <div class="stat"><div class="stat-n" style="color:#c8f542">${avg}</div><div class="stat-l">Avg${rated.length?` · ${rated.length} rated`:' rating'}</div></div>
   `;
   document.getElementById('now').innerHTML=playing.length?playing.map(nowC).join(''):'<div class="empty">Nothing playing.</div>';
   document.getElementById('queue').innerHTML=queue.length?queue.map((g,i)=>qC(g,i+1,true)).join(''):'<div class="empty">Nothing up next.</div>';
@@ -769,6 +790,16 @@ try {
 } catch(e){}
 ['ar','yl','so'].forEach(paintPanel);
 
+// Placeholder cards while the two fetches resolve. Without these the entire page — stats,
+// every section — is blank on arrival, which reads as "no games" rather than "still loading".
+function showSkeletons(){
+  const card=(h)=>`<div class="skel" style="height:${h}"></div>`;
+  document.getElementById('stats').innerHTML=Array.from({length:6},()=>card('62px')).join('');
+  document.getElementById('now').innerHTML=Array.from({length:2},()=>card('210px')).join('');
+  document.getElementById('queue').innerHTML=Array.from({length:4},()=>card('84px')).join('');
+}
+showSkeletons();
+
 Promise.all([
   fetch('games.json').then(r=>r.json()),
   fetch('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
@@ -779,16 +810,41 @@ Promise.all([
   render();
 }).catch(err=>{
   console.error('Failed to load game data', err);
-  document.getElementById('now').innerHTML='<div class="empty">Couldn’t load game data — try refreshing.</div>';
+  // Page-level, not tucked into #now: previously the stats row and every other section were
+  // left as-is on a failed load, so a fetch error looked identical to an empty tracker.
+  const banner=document.getElementById('load-error');
+  banner.innerHTML=`Couldn’t load game data (${esc(err.message||'network error')}). <button class="banner-btn" onclick="location.reload()">Retry</button>`;
+  banner.style.display='flex';
+  document.getElementById('stats').innerHTML='';
+  document.getElementById('now').innerHTML='';
+  document.getElementById('queue').innerHTML='';
 });
+
+// The sync job runs daily at 13:00 UTC. A static date reads as fine forever if that job
+// breaks — secrets expiring, a workflow failure — so this reports age relative to now and
+// turns amber past two days, i.e. after at least one scheduled run has visibly not happened.
+const STALE_HOURS = 48;
+function syncStampText(syncedAt, now){
+  const then=new Date(syncedAt);
+  if(isNaN(then)) return null;
+  const mins=Math.round((now-then)/60000);
+  const rel = mins < 1 ? 'just now'
+    : mins < 60 ? `${mins} minute${mins===1?'':'s'} ago`
+    : mins < 60*24 ? `${Math.round(mins/60)} hour${Math.round(mins/60)===1?'':'s'} ago`
+    : `${Math.round(mins/1440)} day${Math.round(mins/1440)===1?'':'s'} ago`;
+  const hours=mins/60;
+  const abs=then.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  return { stale: hours>STALE_HOURS, rel, abs, hours };
+}
 
 fetch('last-synced.json').then(r=>r.ok?r.json():null).then(d=>{
   const el=document.getElementById('updated-stamp');
-  if(d && d.syncedAt){
-    el.textContent=`🔄 Last updated: ${new Date(d.syncedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} — Steam & RA data synced`;
-  } else {
-    el.textContent='';
-  }
+  const s=d&&d.syncedAt?syncStampText(d.syncedAt,new Date()):null;
+  if(!s){ el.textContent=''; return; }
+  el.classList.toggle('stale',s.stale);
+  el.textContent=s.stale
+    ? `⚠ Steam & RA data last synced ${s.rel} (${s.abs}) — the daily sync may be failing`
+    : `🔄 Steam & RA data synced ${s.rel} (${s.abs})`;
 }).catch(()=>{ document.getElementById('updated-stamp').textContent=''; });
 </script>
 </body>
