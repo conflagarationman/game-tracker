@@ -566,6 +566,33 @@ function beginVisualDrag(){
     position:'fixed', zIndex:'1000', width:width+'px', height:height+'px',
     left:left+'px', top:top+'px', margin:'0', transition:'none', pointerEvents:'none',
   });
+  autoScrollTick();
+}
+
+// Auto-scroll while dragging near the top/bottom edge of the viewport. Without this, a
+// real drag from Now Playing to Up Next/Soon (or back) can be flat-out impossible: those
+// sections are routinely below the fold from each other at a normal window height (Now
+// Playing's hero cards alone can run past 800px), and elementFromPoint — what drop-target
+// detection is built on — can only ever see what's actually rendered in the viewport. There
+// is no mouse position that represents "off-screen," so without scrolling the page itself,
+// some drags have literally no reachable drop target, not just an inconvenient one.
+const SCROLL_EDGE = 72;   // px from the top/bottom edge that starts auto-scroll
+const SCROLL_SPEED = 14;  // px per frame at the very edge, scaled down near the zone's outer edge
+function autoScrollTick(){
+  if (!drag || !drag.moved) return;
+  const y = drag.lastClientY ?? 0;
+  let dy = 0;
+  if (y < SCROLL_EDGE) dy = -SCROLL_SPEED * (1 - y / SCROLL_EDGE);
+  else if (y > window.innerHeight - SCROLL_EDGE) dy = SCROLL_SPEED * (1 - (window.innerHeight - y) / SCROLL_EDGE);
+  if (dy){
+    window.scrollBy(0, dy);
+    // Fixed-position elements don't move on their own when the page scrolls, and neither
+    // does the drop-target check unless something re-runs it — without this, holding still
+    // while the page auto-scrolls would leave both stuck referencing where things were
+    // before the scroll started.
+    updateDragPosition(drag.lastClientX ?? 0, drag.lastClientY);
+  }
+  requestAnimationFrame(autoScrollTick);
 }
 
 function onPointerDown(e){
@@ -586,23 +613,34 @@ function onPointerDown(e){
   cardEl.setPointerCapture(e.pointerId);
 }
 
-function onPointerMove(e){
-  if (!drag || e.pointerId !== drag.pointerId) return;
-  const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
-  if (!drag.moved){
-    if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    drag.moved = true;
-    beginVisualDrag();
-  }
-  drag.el.style.left = (e.clientX - drag.offsetX) + 'px';
-  drag.el.style.top  = (e.clientY - drag.offsetY) + 'px';
-  const hover = cardSectionAt(e.clientX, e.clientY);
+// Shared by onPointerMove and the auto-scroll loop — the drop-target highlight has to keep
+// re-evaluating even when the pointer itself isn't moving, since holding still in the edge
+// zone is exactly what triggers the page to scroll and reveal a new section underneath it.
+// If only pointermove drove this, releasing without one final wiggle after an auto-scroll
+// would drop against a stale, pre-scroll hover state.
+function updateDragPosition(x, y){
+  drag.el.style.left = (x - drag.offsetX) + 'px';
+  drag.el.style.top  = (y - drag.offsetY) + 'px';
+  const hover = cardSectionAt(x, y);
   const hoverId = hover ? hover.id : null;
   if (hoverId !== drag.hoverId){
     if (drag.hoverId) document.getElementById(drag.hoverId).classList.remove('drop-hover');
     if (hoverId) document.getElementById(hoverId).classList.add('drop-hover');
     drag.hoverId = hoverId;
   }
+}
+
+function onPointerMove(e){
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  drag.lastClientX = e.clientX;
+  drag.lastClientY = e.clientY;
+  const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+  if (!drag.moved){
+    if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    drag.moved = true;
+    beginVisualDrag();
+  }
+  updateDragPosition(e.clientX, e.clientY);
 }
 
 async function onPointerUp(e){
