@@ -486,7 +486,13 @@ function renderPanels(){
     const fin=G.filter(g=>(g.s==='done'||g.s==='dropped')&&g.cy);
     const by={};fin.forEach(g=>{(by[g.cy]=by[g.cy]||[]).push(g);});
     const yrs=Object.keys(by).sort((a,b)=>b-a);
-    document.getElementById('yl-panel').innerHTML=yrs.length?yrs.map(yr=>{const list=by[yr];return `<div class="yg"><div class="yhead">${yr}<span class="ysub">${list.filter(g=>g.s==='done').length} completed</span></div>${ystats(list)}<div class="game-list">${list.map(aC).join('')}</div></div>`;}).join(''):'<div class="empty">No completed games yet.</div>';
+    // A finished game with no cy can't be filed under any year, so it's absent from
+    // everything above — which silently makes these totals disagree with the "Done" stat in
+    // the header. Saying so, with a count and where to fix it, beats letting the two numbers
+    // quietly contradict each other.
+    const undated=G.filter(g=>(g.s==='done'||g.s==='dropped')&&!g.cy).length;
+    const note=undated?`<div class="empty">+ ${undated} finished ${undated===1?'game has':'games have'} no completion date, so ${undated===1?'it isn’t':'they aren’t'} counted here — add one via <a href="add.html" style="color:var(--muted)">Add / Edit</a> (marked “needs date”).</div>`:'';
+    document.getElementById('yl-panel').innerHTML=(yrs.length?yrs.map(yr=>{const list=by[yr];return `<div class="yg"><div class="yhead">${yr}<span class="ysub">${list.filter(g=>g.s==='done').length} completed</span></div>${ystats(list)}<div class="game-list">${list.map(aC).join('')}</div></div>`;}).join(''):'<div class="empty">No completed games yet.</div>')+note;
   }
 }
 

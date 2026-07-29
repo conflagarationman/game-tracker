@@ -32,6 +32,9 @@ const UA = "game-tracker-admin";
 
 const VALID_PLATFORMS = new Set(["steam", "steamdeck", "ps5", "switch", "switch2", "ayn", "retro", "wiiu"]);
 const VALID_STATUSES = new Set(["playing", "queue", "soon", "done", "dropped"]);
+// Mirrors the badge map in index.html's masteryBadge() — an unknown value there renders as
+// nothing at all, so a typo would silently vanish from the card rather than show up wrong.
+const VALID_MASTERY = new Set(["in-progress", "mastered", "platinum", "100pct"]);
 
 const DEFAULT_GAME = {
   r: 0, h: null, cy: null, cm: null, gotm: null, mastery: null, diff: null,
@@ -102,12 +105,32 @@ async function mutateWithRetry(env, mutate, message, attempts = 4) {
   throw new Error(`write failed after ${attempts} attempts — ${last}`);
 }
 
+// Range/enum checks for the optional numeric and enum fields, shared by add and edit. Every
+// one of these may legitimately be null ("unset"), so null/undefined always passes — this
+// only rejects values that are *present but wrong*, which is the case that would otherwise
+// fail silently rather than loudly: index.html renders an out-of-range diff/mastery as no
+// badge at all, and a cm outside 0-11 indexes past the end of its month-name array.
+export function validateGameFields(input) {
+  const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  if (input.cm != null && !int(input.cm, 0, 11)) return "completion month (cm) must be an integer 0-11";
+  if (input.cy != null && !int(input.cy, 1970, 2100)) return "completion year (cy) must be an integer 1970-2100";
+  if (input.y != null && !int(input.y, 1970, 2100)) return "release year (y) must be an integer 1970-2100";
+  if (input.diff != null && !int(input.diff, 1, 5)) return "difficulty (diff) must be an integer 1-5";
+  if (input.r != null && !(typeof input.r === "number" && input.r >= 0 && input.r <= 10)) {
+    return "rating (r) must be a number 0-10";
+  }
+  if (input.mastery != null && !VALID_MASTERY.has(input.mastery)) {
+    return `mastery must be one of: ${[...VALID_MASTERY].join(", ")}`;
+  }
+  return null;
+}
+
 export function validateNewGame(input) {
   if (!input || typeof input !== "object") return "body must be an object";
   if (!input.t || typeof input.t !== "string" || !input.t.trim()) return "title (t) is required";
   if (!VALID_PLATFORMS.has(input.p)) return `platform (p) must be one of: ${[...VALID_PLATFORMS].join(", ")}`;
   if (!VALID_STATUSES.has(input.s)) return `status (s) must be one of: ${[...VALID_STATUSES].join(", ")}`;
-  return null;
+  return validateGameFields(input);
 }
 
 export async function addGame(env, input) {
@@ -124,6 +147,8 @@ export async function editGame(env, id, patch) {
   if (typeof id !== "number") throw httpError("id must be a number", 400);
   if (patch.p !== undefined && !VALID_PLATFORMS.has(patch.p)) throw httpError("invalid platform", 400);
   if (patch.s !== undefined && !VALID_STATUSES.has(patch.s)) throw httpError("invalid status", 400);
+  const fieldErr = validateGameFields(patch);
+  if (fieldErr) throw httpError(fieldErr, 400);
   return mutateWithRetry(env, (games) => {
     const idx = games.findIndex(g => g.id === id);
     if (idx === -1) throw httpError(`no game with id ${id}`, 404);
