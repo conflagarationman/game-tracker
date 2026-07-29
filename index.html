@@ -22,6 +22,13 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .add-link{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--accent);background:#c8f54218;color:var(--accent);text-decoration:none;font-weight:700;white-space:nowrap;}
 .add-link:hover{background:#c8f54230;}
 
+/* Cards link to their own edit form. draggable=false + user-drag:none because anchors are
+   natively draggable, which would otherwise fight Edit mode's pointer-drag for the same
+   gesture. The link is a plain wrapper — all card visuals stay on the card inside it, so
+   hover and drop-target styling are untouched. */
+.card-link{display:block;text-decoration:none;color:inherit;-webkit-user-drag:none;}
+.card-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:10px;}
+
 /* Edit mode: draggable cards in the three active-management sections only (never Archive/
    Year Log). touch-action:none is scoped to exactly these selectors, not applied globally,
    so page scroll is unaffected everywhere else, including these same cards when Edit mode
@@ -82,7 +89,11 @@ section:first-of-type .slabel{margin-top:0;}
 .hero-bg-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3rem;}
 .hero-top{position:absolute;top:8px;right:8px;z-index:2;}
 .hero-content{padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
-.hero-title{font-size:0.95rem;font-weight:700;color:var(--text);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Two lines rather than one ellipsised line: hero cards have the vertical room, and a
+   single nowrap line was truncating real titles ("Castlevania: Symphony of the Night").
+   Titles carry a title="" tooltip too, for anything still long enough to clip at two lines. */
+.hero-title{font-size:0.95rem;font-weight:700;color:var(--text);line-height:1.25;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .hero-meta{display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;}
 .hero-hltb{display:flex;gap:0.5rem;}
 
@@ -202,9 +213,11 @@ section:first-of-type .slabel{margin-top:0;}
   <h2 class="slabel" id="up-next-heading">Up next</h2>
   <div class="queue-grid" id="queue"></div>
 </section>
-<section aria-labelledby="soon-heading">
-  <h2 class="slabel" id="soon-heading">Soon™</h2>
-  <div class="game-list" id="soon"></div>
+<section aria-label="Soon">
+  <div class="cr" id="so-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="so-panel" onclick="tog('so')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('so');}"><span id="so-arr" aria-hidden="true">▶</span><span id="so-lbl">Soon™ (0)</span></div>
+  <div id="so-panel" style="display:none;margin-top:0.75rem;">
+    <div class="queue-grid" id="soon"></div>
+  </div>
 </section>
 
 <section aria-label="Archive">
@@ -235,7 +248,20 @@ const PC={steam:'#00e5ff',steamdeck:'#a06bff',ps5:'#ff6b4a',switch:'#ff4a6b',swi
 const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DIFF_LABELS={1:'Easy',2:'Normal',3:'Hard',4:'Expert',5:'Brutal'};
 let NOW = new Date();
-let open={ar:false,yl:false};
+let open={ar:false,yl:false,so:false};
+// Whether the Worker is configured. Cards only become links to their edit form when it is,
+// for the same reason the "+ Add game" link is hidden otherwise: add.html can't do anything
+// but show its setup notice, so the link would be a dead end.
+const CAN_EDIT = !!(typeof WORKER !== 'undefined' && WORKER.url && WORKER.key);
+
+// Titles, genres and notes are free text entered through add.html and interpolated into
+// markup below — including into attributes now that cards carry title="" tooltips and link
+// hrefs. games.json already contains "Suikoden I & II HD", whose bare ampersand is only
+// tolerated by browser error recovery, and a title containing a double quote would break out
+// of an attribute outright. One helper, applied at every interpolation of user text.
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 function getCover(g) {
   return COVERS[g.t.toLowerCase()] || null;
@@ -246,7 +272,7 @@ function thumbEl(g) {
   const color = PC[g.p] || '#555';
   const emoji = PLAT_EMOJI[g.p] || '🎮';
   if (url) {
-    return `<img class="thumb" src="${url}" alt="${g.t}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    return `<img class="thumb" src="${url}" alt="${esc(g.t)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
             <div class="thumb-placeholder" style="background:${color}18;color:${color};display:none">${emoji}</div>`;
   }
   return `<div class="thumb-placeholder" style="background:${color}18;color:${color}">${emoji}</div>`;
@@ -262,7 +288,7 @@ function heroArt(g) {
   const emoji = PLAT_EMOJI[g.p] || '🎮';
   const fallback = `<div class="hero-bg-fallback" style="background:linear-gradient(160deg, ${color}40, ${color}10);color:${color}${url ? ';display:none' : ''}">${emoji}</div>`;
   if (url) {
-    return `<img class="hero-bg-img" src="${url}" alt="${g.t}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${fallback}`;
+    return `<img class="hero-bg-img" src="${url}" alt="${esc(g.t)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${fallback}`;
   }
   return fallback;
 }
@@ -302,7 +328,7 @@ function masteryBadge(m){
 }
 
 function diffBadge(d){ return d?`<span class="diff diff-${d}">${DIFF_LABELS[d]}</span>`:''; }
-function gotmBadge(g){ return g?`<span class="gotm">GOTM ${g}</span>`:''; }
+function gotmBadge(g){ return g?`<span class="gotm">GOTM ${esc(g)}</span>`:''; }
 
 function parseHltb(h){
   if(!h) return null;
@@ -345,70 +371,79 @@ function queuedEl(g){
 }
 
 // ─── Card builders ─────────────────────────────────────
+// Wraps a card so clicking it opens that game's edit form. Gated on the Worker being
+// configured, for the same reason the "+ Add game" link is: without it add.html can only show
+// its setup notice, so linking there would be a dead end. Archive cards get this too — it's
+// the route for filling in the completion dates the Year Log note points at.
+function cardLink(g, inner){
+  if(!CAN_EDIT) return inner;
+  return `<a class="card-link" href="add.html?id=${g.id}" draggable="false">${inner}</a>`;
+}
+
 function nowC(g){
   const dormant=isDormant(g);
-  return `<div class="hero-card ${dormant?'dormant':'now'}" data-id="${g.id}">
+  return cardLink(g, `<div class="hero-card ${dormant?'dormant':'now'}" data-id="${g.id}">
     <div class="hero-art">
       ${heroArt(g)}
       <div class="hero-top">${pb(g.p)}</div>
     </div>
     <div class="hero-content">
-      <div class="hero-title">${g.t}</div>
+      <div class="hero-title" title="${esc(g.t)}">${esc(g.t)}</div>
       <div class="hero-meta">
         ${g.y?`<span class="yr">${g.y}</span>`:''}
-        ${g.g?`<span class="genre-tag">${g.g}</span>`:''}
+        ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
         ${startEl(g)}
         ${dormant?'<span class="dormant-pill">💤 dormant</span>':lastPlayedEl(g)}
         ${g.casual?'<span class="casual-pill">casual play</span>':''}
-        ${g.note?`<span class="note-pill">📌 ${g.note}</span>`:''}
+        ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${hltbEl(g)?`<div class="hero-hltb">${hltbEl(g)}</div>`:''}
       ${achBar(g)}
     </div>
-  </div>`;
+  </div>`);
 }
 
 function qC(g,n,showNum=true){
   const num=showNum?`<span class="qnum">${n}</span>`:'';
-  return `<div class="card" data-id="${g.id}">
+  return cardLink(g, `<div class="card" data-id="${g.id}">
     ${thumbEl(g)}
     <div class="card-content">
-      <div class="row1">${num}${pb(g.p)}<span class="gtitle">${g.t}</span></div>
+      <div class="row1">${num}${pb(g.p)}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
       <div class="row2">
         ${hltbEl(g)}
         ${g.y?`<span class="yr">${g.y}</span>`:''}
-        ${g.g?`<span class="genre-tag">${g.g}</span>`:''}
+        ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
         ${queuedEl(g)}
         ${g.casual?'<span class="casual-pill">casual play</span>':''}
-        ${g.note?`<span class="note-pill">📌 ${g.note}</span>`:''}
+        ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
     </div>
-  </div>`;
+  </div>`);
 }
 
 function aC(g){
   const gap=(g.y&&g.cy)?(g.cy-g.y):null;
   const dropped=g.s==='dropped';
-  return `<div class="card faded">
+  return cardLink(g, `<div class="card faded">
     ${thumbEl(g)}
     <div class="card-content">
-      <div class="row1">${pb(g.p)}<span class="gtitle">${g.t}</span></div>
+      <div class="row1">${pb(g.p)}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
       <div class="row2">
         ${hltbEl(g)}
         ${g.cm!=null?`<span class="yr">${M[g.cm]} ${g.cy}</span>`:''}
         ${g.r?`<span class="rating">${g.r}/10</span>`:''}
-        ${g.g?`<span class="genre-tag">${g.g}</span>`:''}
+        ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gap!=null?`<span class="yr">${gap===0?'same yr':gap+'yr gap'}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
-        ${g.note?`<span class="note-pill">📌 ${g.note}</span>`:''}
+        ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
         ${dropped?'<span class="dropped-pill">dropped</span>':''}
       </div>
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
     </div>
-  </div>`;
+  </div>`);
 }
 
 // ─── Year stats ────────────────────────────────────────
@@ -439,7 +474,7 @@ function ystats(list){
   if(Object.keys(pc).length){h+=`<div class="bsec"><div class="blbl">Platform</div>${Object.entries(pc).sort((a,b)=>b[1]-a[1]).map(([p,c])=>`<div class="brow"><span class="bname">${PL[p]||p}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mp*100)}%;background:${PC[p]||'#888'};"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
   const gc={};done.forEach(g=>{if(g.g)gc[g.g]=(gc[g.g]||0)+1;});
   const mg2=Math.max(...Object.values(gc),1);
-  if(Object.keys(gc).length){h+=`<div class="bsec"><div class="blbl">Genre</div>${Object.entries(gc).sort((a,b)=>b[1]-a[1]).map(([gn,c])=>`<div class="brow"><span class="bname">${gn}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mg2*100)}%;background:#c8f542;opacity:0.6;"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
+  if(Object.keys(gc).length){h+=`<div class="bsec"><div class="blbl">Genre</div>${Object.entries(gc).sort((a,b)=>b[1]-a[1]).map(([gn,c])=>`<div class="brow"><span class="bname" title="${esc(gn)}">${esc(gn)}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mg2*100)}%;background:#c8f542;opacity:0.6;"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
   const bm={};done.forEach(g=>{if(g.cm!=null)bm[g.cm]=(bm[g.cm]||0)+1;});
   const mm=Math.max(...Object.values(bm),1);
   if(Object.keys(bm).length){h+=`<div class="bsec"><div class="blbl">Month</div>${Object.entries(bm).sort((a,b)=>a[0]-b[0]).map(([mo,c])=>`<div class="brow"><span class="bname">${M[mo]}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mm*100)}%;background:#42c8f5;opacity:0.6;"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
@@ -449,22 +484,37 @@ function ystats(list){
   const longest=done.filter(g=>g.actualHours||parseHltb(g.h)).reduce((a,b)=>((a?.actualHours||parseHltb(a?.h)||0)>=(b?.actualHours||parseHltb(b?.h)||0))?a:b,null);
   const hardest=done.filter(g=>g.diff).reduce((a,b)=>(a?.diff||0)>=(b?.diff||0)?a:b,null);
   const hls=[];
-  if(br) hls.push(`<div class="hl"><div class="hl-l">Best rated</div><div class="hl-v">${br.t}</div><div class="hl-s">${br.r}/10</div></div>`);
-  if(old) hls.push(`<div class="hl"><div class="hl-l">Most vintage</div><div class="hl-v">${old.t}</div><div class="hl-s">Released ${old.y}</div></div>`);
-  if(longest) hls.push(`<div class="hl"><div class="hl-l">Longest played</div><div class="hl-v">${longest.t}</div><div class="hl-s">${longest.actualHours||parseHltb(longest.h)}h</div></div>`);
-  if(hardest) hls.push(`<div class="hl"><div class="hl-l">Hardest mastered</div><div class="hl-v">${hardest.t}</div><div class="hl-s">${DIFF_LABELS[hardest.diff]}</div></div>`);
-  if(big&&(big.cy-big.y)>0) hls.push(`<div class="hl"><div class="hl-l">Biggest backlog gap</div><div class="hl-v">${big.t}</div><div class="hl-s">${big.cy-big.y}yr</div></div>`);
+  if(br) hls.push(`<div class="hl"><div class="hl-l">Best rated</div><div class="hl-v" title="${esc(br.t)}">${esc(br.t)}</div><div class="hl-s">${br.r}/10</div></div>`);
+  if(old) hls.push(`<div class="hl"><div class="hl-l">Most vintage</div><div class="hl-v" title="${esc(old.t)}">${esc(old.t)}</div><div class="hl-s">Released ${old.y}</div></div>`);
+  if(longest) hls.push(`<div class="hl"><div class="hl-l">Longest played</div><div class="hl-v" title="${esc(longest.t)}">${esc(longest.t)}</div><div class="hl-s">${longest.actualHours||parseHltb(longest.h)}h</div></div>`);
+  if(hardest) hls.push(`<div class="hl"><div class="hl-l">Hardest mastered</div><div class="hl-v" title="${esc(hardest.t)}">${esc(hardest.t)}</div><div class="hl-s">${DIFF_LABELS[hardest.diff]}</div></div>`);
+  if(big&&(big.cy-big.y)>0) hls.push(`<div class="hl"><div class="hl-l">Biggest backlog gap</div><div class="hl-v" title="${esc(big.t)}">${esc(big.t)}</div><div class="hl-s">${big.cy-big.y}yr</div></div>`);
   if(hls.length) h+=`<div class="hlg">${hls.join('')}</div>`;
   return h;
 }
 
 // ─── Panels ────────────────────────────────────────────
+// Keyed off the id prefix (ar/yl/so) rather than the previous two-way isAr ternary, which
+// couldn't express a third panel. All three already follow the same <k>-arr/-panel/-toggle
+// naming, so this is a straight generalisation.
+function paintPanel(k){
+  document.getElementById(`${k}-arr`).textContent=open[k]?'▼':'▶';
+  document.getElementById(`${k}-panel`).style.display=open[k]?'block':'none';
+  document.getElementById(`${k}-toggle`).setAttribute('aria-expanded', open[k]?'true':'false');
+}
+
+// Which panels are open survives a reload. Soon™ now defaults closed (42 cards otherwise sit
+// between Up Next and everything below it), and having that choice reset on every refresh
+// would be its own annoyance — same localStorage-with-try/catch approach as the edit-mode
+// toggle below.
+function savePanelState(){
+  try { localStorage.setItem('gt_panels', JSON.stringify(open)); } catch(e){}
+}
+
 function tog(k){
   open[k]=!open[k];
-  const isAr=k==='ar';
-  document.getElementById(isAr?'ar-arr':'yl-arr').textContent=open[k]?'▼':'▶';
-  document.getElementById(isAr?'ar-panel':'yl-panel').style.display=open[k]?'block':'none';
-  document.getElementById(isAr?'ar-toggle':'yl-toggle').setAttribute('aria-expanded', open[k]?'true':'false');
+  paintPanel(k);
+  savePanelState();
   renderPanels();
 }
 
@@ -516,6 +566,7 @@ function render(){
   `;
   document.getElementById('now').innerHTML=playing.length?playing.map(nowC).join(''):'<div class="empty">Nothing playing.</div>';
   document.getElementById('queue').innerHTML=queue.length?queue.map((g,i)=>qC(g,i+1,true)).join(''):'<div class="empty">Nothing up next.</div>';
+  document.getElementById('so-lbl').textContent=`Soon™ (${soon.length})`;
   document.getElementById('soon').innerHTML=soon.length?soon.map(g=>qC(g,0,false)).join(''):'<div class="empty">Nothing here yet.</div>';
   renderPanels();
 }
@@ -683,6 +734,24 @@ document.addEventListener('pointermove', onPointerMove);
 document.addEventListener('pointerup', onPointerUp);
 document.addEventListener('pointercancel', onPointerUp);
 
+// Cards are links now, and cards are also what you drag — so the click that a browser fires
+// after a pointer gesture has to be filtered, or every drag would navigate away to the edit
+// form mid-move. Two cases, both capture-phase so they beat the anchor's default:
+//   - Edit mode on: a press on a card means "pick this up", never "open it". Suppress always.
+//   - Edit mode off: suppress only if the pointer actually travelled past DRAG_THRESHOLD, so
+//     a scroll started on a card doesn't navigate on release, while a genuine tap still does.
+let clickGuard = { suppress: false, downX: 0, downY: 0 };
+document.addEventListener('pointerdown', (e) => {
+  clickGuard = { suppress: false, downX: e.clientX, downY: e.clientY };
+}, true);
+document.addEventListener('pointerup', (e) => {
+  clickGuard.suppress = Math.hypot(e.clientX - clickGuard.downX, e.clientY - clickGuard.downY) >= DRAG_THRESHOLD;
+}, true);
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.card-link')) return;
+  if (editMode || clickGuard.suppress) e.preventDefault();
+}, true);
+
 if (WORKER.url && WORKER.key){
   document.getElementById('edit-toggle').style.display = '';
   document.getElementById('add-link').style.display = '';
@@ -692,6 +761,14 @@ if (WORKER.url && WORKER.key){
 }
 
 // ─── Bootstrap ─────────────────────────────────────────
+// Restored before the first render so a panel that was left open doesn't flash shut and then
+// reopen once data arrives.
+try {
+  const stored=JSON.parse(localStorage.getItem('gt_panels')||'null');
+  if(stored) for(const k of ['ar','yl','so']) if(typeof stored[k]==='boolean') open[k]=stored[k];
+} catch(e){}
+['ar','yl','so'].forEach(paintPanel);
+
 Promise.all([
   fetch('games.json').then(r=>r.json()),
   fetch('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),

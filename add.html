@@ -630,12 +630,35 @@ $('ro-save').addEventListener('click', async () => {
   }
 });
 
+// Deep link: add.html?id=<id> preselects that game and fills the form, so the tracker's cards
+// can link straight to editing one instead of leaving you to find it among 113 dropdown
+// entries. Dispatching 'change' rather than calling fillForm directly reuses the existing
+// handler, so the editingId/button-label/edit-actions state can't drift out of sync with it.
+function applyDeepLink() {
+  const raw = new URLSearchParams(location.search).get('id');
+  if (!raw) return;
+  const id = parseInt(raw, 10);
+  if (!Number.isInteger(id)) return;
+  const sel = $('existing');
+  // A stale or hand-typed id shouldn't silently land on the wrong game: assigning an
+  // unmatched value to a <select> leaves it blank, which the change handler reads as
+  // "add new", so say what happened instead of quietly showing an empty add form.
+  if (!games.some(g => g.id === id)) {
+    showMsg(`No game with id ${id} — it may have been deleted. Pick one below, or add a new game.`, false);
+    return;
+  }
+  sel.value = String(id);
+  sel.dispatchEvent(new Event('change'));
+}
+
 if (!WORKER.url || !WORKER.key) {
   document.getElementById('setup-notice').style.display = 'block';
 } else {
   document.getElementById('form-area').style.display = 'block';
   clearForm();
-  loadGames().catch(e => showMsg('Failed to load games.json: ' + e.message, false));
+  loadGames()
+    .then(applyDeepLink)
+    .catch(e => showMsg('Failed to load games.json: ' + e.message, false));
 }
 </script>
 </body>
