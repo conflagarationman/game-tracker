@@ -528,7 +528,7 @@
     "id": 2,
     "t": "Red Dead Redemption 2",
     "p": "steam",
-    "s": "playing",
+    "s": "queue",
     "r": 0,
     "g": "Action-Adventure",
     "y": 2018,
@@ -548,7 +548,7 @@
     "casual": true,
     "note": "Summer list - MUST PLAY",
     "start": "2026-07-06",
-    "queued": null
+    "queued": "2026-07-28"
   },
   {
     "id": 500,
