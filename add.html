@@ -19,7 +19,7 @@ h1{font-size:1.6rem;font-weight:800;letter-spacing:-0.03em;color:var(--accent);m
 .sub a{color:var(--muted);}
 label{display:block;font-family:'DM Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:0.35rem;margin-top:1rem;}
 label:first-of-type{margin-top:0;}
-input[type=text],input[type=number],input[type=date],select,textarea{
+input[type=text],input[type=number],input[type=date],input[type=month],select,textarea{
   width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:'Syne',sans-serif;font-size:0.9rem;padding:0.65rem 0.8rem;
 }
@@ -44,6 +44,49 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
 .setup{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);background:var(--surface);
   border:1px solid var(--border);border-radius:8px;padding:1rem;line-height:1.6;}
 .setup code{color:var(--accent);}
+
+/* Completion fields only apply once a game is finished, so they're tucked into a visually
+   grouped block that only appears for done/dropped rather than padding the form for the
+   other three statuses. Note this covers cy/cm, rating and mastery only — difficulty and
+   GOTM stay in the main form above, because games.json already uses both on backlog
+   entries (5 queue/soon games carry a diff, 5 carry a gotm), so hiding them behind a
+   done-only block would make existing data uneditable. */
+.fieldset{border:1px solid var(--border);border-radius:8px;padding:0.9rem;margin-top:1.25rem;background:#ffffff04;}
+.fieldset > label:first-of-type{margin-top:0;}
+.fieldset-lbl{font-family:'DM Mono',monospace;font-size:0.6rem;text-transform:uppercase;
+  letter-spacing:0.12em;color:var(--accent);margin-bottom:0.2rem;}
+.hint{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);margin-top:0.3rem;}
+
+/* Reorder Up Next. The ↑/↓ buttons are the primary control, not a fallback: they are the
+   only ones that work with a keyboard, and on a phone they beat dragging inside a scrolling
+   page. Pointer-events drag sits on top for mouse users who expect it. */
+.ro-sec{margin-top:2.5rem;border-top:1px solid var(--border);padding-top:1.25rem;}
+.ro-head{display:flex;align-items:baseline;gap:0.6rem;margin-bottom:0.2rem;}
+.ro-head h2{font-size:0.95rem;font-weight:800;color:var(--accent);letter-spacing:-0.02em;}
+.ro-count{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);}
+.ro-list{display:flex;flex-direction:column;gap:4px;margin-top:0.75rem;}
+.ro-row{display:flex;align-items:center;gap:0.5rem;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:0.4rem 0.5rem;touch-action:pan-y;}
+.ro-num{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--dim);min-width:1.4em;text-align:right;flex-shrink:0;}
+.ro-title{flex:1;font-size:0.82rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ro-plat{font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;}
+.ro-btns{display:flex;gap:3px;flex-shrink:0;}
+/* Explicit 40px box rather than padding-derived sizing: these are the primary reorder control
+   on touch, and font-metric padding alone came out 26x23, under the 44px touch guideline and
+   only just over WCAG 2.5.8's 24px floor. 40 keeps a 17-row list from getting unwieldy while
+   still being a comfortable thumb target. */
+.ro-btns button{min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;
+  padding:0;font-size:0.8rem;background:var(--surface2);color:var(--text);
+  border:1px solid var(--border);line-height:1;border-radius:6px;}
+.ro-btns button:disabled{opacity:0.3;cursor:default;}
+.ro-btns button:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.ro-grip{flex-shrink:0;color:var(--dim);font-size:0.9rem;padding:0.2rem 0.3rem;cursor:grab;touch-action:none;
+  user-select:none;-webkit-user-select:none;}
+.ro-row.ro-dragging{opacity:0.45;border-color:var(--accent);}
+.ro-row.ro-target{box-shadow:0 0 0 2px var(--accent) inset;}
+.ro-actions{display:flex;gap:0.6rem;margin-top:0.85rem;}
+.ro-actions button{flex:1;}
+@media (prefers-reduced-motion:no-preference){.ro-row{transition:box-shadow 0.12s ease,border-color 0.12s ease;}}
 </style>
 </head>
 <body>
@@ -102,6 +145,24 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
   <label for="h">HLTB estimate</label>
   <input type="text" id="h" placeholder="e.g. 20h">
 
+  <div class="row">
+    <div>
+      <label for="diff">Difficulty</label>
+      <select id="diff">
+        <option value="">— none —</option>
+        <option value="1">1 · Easy</option>
+        <option value="2">2 · Normal</option>
+        <option value="3">3 · Hard</option>
+        <option value="4">4 · Expert</option>
+        <option value="5">5 · Brutal</option>
+      </select>
+    </div>
+    <div>
+      <label for="gotm">GOTM</label>
+      <input type="text" id="gotm" placeholder="e.g. Jul 2026">
+    </div>
+  </div>
+
   <label for="note">Note</label>
   <input type="text" id="note" placeholder="Optional note, shown as a pill">
 
@@ -121,6 +182,30 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
     <label for="casual" style="margin:0;text-transform:none;font-size:0.85rem;color:var(--text);font-family:'Syne',sans-serif;">Casual play (no achievement tracking)</label>
   </div>
 
+  <div class="fieldset" id="completion-block" style="display:none;">
+    <div class="fieldset-lbl">Completion</div>
+    <div class="row">
+      <div>
+        <label for="completed">Completed</label>
+        <input type="month" id="completed">
+      </div>
+      <div>
+        <label for="r">Rating (0–10)</label>
+        <input type="number" id="r" min="0" max="10" step="1" placeholder="—">
+      </div>
+    </div>
+    <label for="mastery">Mastery</label>
+    <select id="mastery">
+      <option value="">— none —</option>
+      <option value="in-progress">RA ★ in progress</option>
+      <option value="mastered">RA ✓ Mastered</option>
+      <option value="platinum">🏆 Platinum</option>
+      <option value="100pct">✓ 100%</option>
+    </select>
+    <div class="hint">Without a completed month, a finished game is left out of the Year Log
+      and filed under “Unknown” in the Archive.</div>
+  </div>
+
   <button class="btn-primary" id="submit-btn">Add game</button>
   <div class="actions" id="edit-actions" style="display:none;">
     <button class="btn-secondary" id="cancel-btn" type="button">Cancel edit</button>
@@ -128,6 +213,20 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
   </div>
 
   <div class="msg" id="msg"></div>
+
+  <section class="ro-sec" id="ro-sec" style="display:none;" aria-labelledby="ro-heading">
+    <div class="ro-head">
+      <h2 id="ro-heading">Reorder Up Next</h2>
+      <span class="ro-count" id="ro-count"></span>
+    </div>
+    <div class="hint">This order is what the tracker numbers 1–N and what the Home Hub card shows.</div>
+    <div class="ro-list" id="ro-list"></div>
+    <div class="ro-actions">
+      <button class="btn-secondary" id="ro-reset" type="button" disabled>Reset</button>
+      <button class="btn-primary" id="ro-save" style="margin-top:0;" disabled>Save order</button>
+    </div>
+    <div class="msg" id="ro-msg"></div>
+  </section>
 </div>
 
 <script src="worker-config.js"></script>
@@ -141,6 +240,47 @@ let editingId = null;
 
 const $ = (id) => document.getElementById(id);
 
+// games.json stores the completion month as separate cy (year) + cm (0-indexed month, to
+// index index.html's M[] array directly), but <input type="month"> speaks "YYYY-MM" with a
+// 1-indexed month. These two convert at the form boundary so the off-by-one lives in exactly
+// one place instead of being re-derived at each call site.
+function toMonthInput(cy, cm) {
+  if (cy == null || cm == null) return '';
+  return `${cy}-${String(cm + 1).padStart(2, '0')}`;
+}
+
+function fromMonthInput(value) {
+  const m = /^(\d{4})-(\d{2})$/.exec(value || '');
+  if (!m) return { cy: null, cm: null };
+  return { cy: parseInt(m[1], 10), cm: parseInt(m[2], 10) - 1 };
+}
+
+const isFinished = (s) => s === 'done' || s === 'dropped';
+
+// Completion fields are shown only for done/dropped, but they are always read and always
+// sent (see readForm) — hiding is decluttering, not exclusion. That matters: if a hidden
+// field were dropped from the payload, editing a finished game's platform would silently
+// erase its rating and completion date.
+function syncCompletionVisibility() {
+  $('completion-block').style.display = isFinished($('s').value) ? 'block' : 'none';
+}
+
+// Deliberately separate from syncCompletionVisibility, and deliberately only fired on a
+// *transition* into done/dropped from something else. Defaulting to the current month is
+// right when you've just finished a game, and wrong every other time: doing it on form load
+// would stamp today onto the 13 already-undated completions the moment you opened one to
+// look at it, and doing it on a done->dropped switch would invent a date just as falsely.
+let lastStatus = null;
+function onStatusChange() {
+  const now = $('s').value;
+  if (isFinished(now) && !isFinished(lastStatus) && !$('completed').value) {
+    const d = new Date();
+    $('completed').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  lastStatus = now;
+  syncCompletionVisibility();
+}
+
 function fillForm(g) {
   $('t').value = g.t;
   $('p').value = g.p;
@@ -148,10 +288,17 @@ function fillForm(g) {
   $('g').value = g.g || '';
   $('y').value = g.y || '';
   $('h').value = g.h || '';
+  $('diff').value = g.diff || '';
+  $('gotm').value = g.gotm || '';
   $('note').value = g.note || '';
   $('start').value = g.start || '';
   $('queued').value = g.queued || '';
   $('casual').checked = !!g.casual;
+  $('completed').value = toMonthInput(g.cy, g.cm);
+  $('r').value = g.r ? String(g.r) : '';
+  $('mastery').value = g.mastery || '';
+  lastStatus = g.s;
+  syncCompletionVisibility();
 }
 
 function clearForm() {
@@ -161,13 +308,21 @@ function clearForm() {
   $('g').value = '';
   $('y').value = '';
   $('h').value = '';
+  $('diff').value = '';
+  $('gotm').value = '';
   $('note').value = '';
   $('start').value = '';
   $('queued').value = '';
   $('casual').checked = false;
+  $('completed').value = '';
+  $('r').value = '';
+  $('mastery').value = '';
+  lastStatus = 'soon';
+  syncCompletionVisibility();
 }
 
 function readForm() {
+  const { cy, cm } = fromMonthInput($('completed').value);
   return {
     t: $('t').value.trim(),
     p: $('p').value,
@@ -175,10 +330,17 @@ function readForm() {
     g: $('g').value.trim() || null,
     y: $('y').value ? parseInt($('y').value, 10) : null,
     h: $('h').value.trim() || null,
+    diff: $('diff').value ? parseInt($('diff').value, 10) : null,
+    gotm: $('gotm').value.trim() || null,
     note: $('note').value.trim() || null,
     start: $('start').value || null,
     queued: $('queued').value || null,
     casual: $('casual').checked,
+    cy, cm,
+    // r defaults to 0 rather than null: that's what DEFAULT_GAME uses and what
+    // index.html's `g.r > 0` rated-filter expects.
+    r: $('r').value ? parseInt($('r').value, 10) : 0,
+    mastery: $('mastery').value || null,
   };
 }
 
@@ -198,6 +360,8 @@ async function callWorker(path, body) {
   if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
   return data;
 }
+
+$('s').addEventListener('change', onStatusChange);
 
 $('existing').addEventListener('change', () => {
   const id = $('existing').value;
@@ -238,9 +402,29 @@ $('delete-btn').addEventListener('click', async () => {
   }
 });
 
+// Cleared whenever the title changes, so the confirm-once guard below can't be satisfied by
+// a stale acknowledgement of a different title.
+let dupeAcked = '';
+$('t').addEventListener('input', () => { dupeAcked = ''; });
+
 $('submit-btn').addEventListener('click', async () => {
   const input = readForm();
   if (!input.t) { showMsg('Title is required.', false); return; }
+
+  // Adding a title that already exists is almost always a mistake rather than an intent, and
+  // it's a quietly expensive one: covers.json is keyed by lowercase title, so the duplicate
+  // silently inherits the original's art and the two are near-indistinguishable on the page.
+  // Warn once and let a second click through, rather than blocking outright — genuine
+  // same-title entries do exist (e.g. a remake tracked separately from its original).
+  if (!editingId) {
+    const clash = games.find(g => g.t.toLowerCase() === input.t.toLowerCase());
+    if (clash && dupeAcked !== input.t.toLowerCase()) {
+      dupeAcked = input.t.toLowerCase();
+      showMsg(`“${clash.t}” is already tracked (${clash.p}, ${clash.s}). Click again to add a second entry anyway.`, false);
+      return;
+    }
+  }
+
   $('submit-btn').disabled = true;
   showMsg('Saving…', true);
   try {
@@ -270,10 +454,201 @@ async function loadGames() {
   games = await res.json();
   const sel = $('existing');
   const current = sel.value;
+  // Flagging finished-but-undated games right in the dropdown is the only practical way to
+  // find them: there are 113 entries and nothing else distinguishes the 13 that are missing a
+  // completion month and therefore missing from the Year Log entirely.
+  const needsDate = (g) => (g.s === 'done' || g.s === 'dropped') && g.cy == null;
   sel.innerHTML = '<option value="">— Add a new game instead —</option>' +
     [...games].sort((a, b) => a.t.localeCompare(b.t))
-      .map(g => `<option value="${g.id}">${g.t}</option>`).join('');
+      .map(g => `<option value="${g.id}">${g.t}${needsDate(g) ? ' — needs date' : ''}</option>`).join('');
   sel.value = current;
+  // Rebuilt from the fresh copy every time, because any add/edit/delete can change which
+  // games are in the queue at all. An unsaved reorder is discarded here on purpose: it was
+  // built against a membership list that may no longer be accurate.
+  roLoad();
+}
+
+// ─── Reorder Up Next ──────────────────────────────────────────────────────────
+// Up Next's numbering on the tracker is games.json array order, so the order held here is
+// the real thing, not a display preference. Kept as its own list rather than folded into the
+// edit form because it's a different shape of action: the form edits one game, this edits the
+// relationship between several.
+const PLAT_LABEL = {
+  steam: 'Steam', steamdeck: 'Steam Deck', ps5: 'PS5', switch: 'Switch',
+  switch2: 'Switch 2', ayn: 'AYN Thor', retro: 'Retro', wiiu: 'Wii U',
+};
+
+let roOrder = [];        // queue games, in the order shown
+let roSaved = [];        // ids as last loaded from the server, for dirty-checking and Reset
+let roDrag = null;
+
+const roIds = () => roOrder.map(g => g.id);
+const roDirty = () => roIds().join(',') !== roSaved.join(',');
+
+function roShowMsg(text, ok) {
+  const el = $('ro-msg');
+  if (!text) { el.className = 'msg'; el.innerHTML = ''; return; }
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+  el.innerHTML = text;
+}
+
+// Escapes what goes into the row markup. Titles are free text from this very form, and one
+// already in games.json ("Suikoden I & II HD") contains a bare ampersand.
+function roEsc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function roRender() {
+  const n = roOrder.length;
+  $('ro-sec').style.display = n >= 2 ? 'block' : 'none';
+  $('ro-count').textContent = n ? `${n} queued` : '';
+  $('ro-list').innerHTML = roOrder.map((g, i) => `
+    <div class="ro-row" data-id="${g.id}">
+      <span class="ro-grip" data-grip="1" aria-hidden="true" title="Drag to reorder">⠿</span>
+      <span class="ro-num">${i + 1}</span>
+      <span class="ro-title" title="${roEsc(g.t)}">${roEsc(g.t)}</span>
+      <span class="ro-plat">${roEsc(PLAT_LABEL[g.p] || g.p)}</span>
+      <span class="ro-btns">
+        <button type="button" data-move="up" data-id="${g.id}" ${i === 0 ? 'disabled' : ''}
+          aria-label="Move ${roEsc(g.t)} up to position ${i}">↑</button>
+        <button type="button" data-move="down" data-id="${g.id}" ${i === n - 1 ? 'disabled' : ''}
+          aria-label="Move ${roEsc(g.t)} down to position ${i + 2}">↓</button>
+      </span>
+    </div>`).join('');
+  $('ro-save').disabled = !roDirty();
+  $('ro-reset').disabled = !roDirty();
+}
+
+function roLoad() {
+  roOrder = games.filter(g => g.s === 'queue');
+  roSaved = roOrder.map(g => g.id);
+  roShowMsg('');
+  roRender();
+}
+
+function roMove(from, to) {
+  if (to < 0 || to >= roOrder.length || from === to) return;
+  const [item] = roOrder.splice(from, 1);
+  roOrder.splice(to, 0, item);
+  roRender();
+  // Keep focus on the button that was just pressed so repeated taps keep working; re-render
+  // replaced the node it was attached to.
+  return item.id;
+}
+
+$('ro-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-move]');
+  if (!btn) return;
+  const dir = btn.dataset.move;
+  const id = Number(btn.dataset.id);
+  const from = roOrder.findIndex(g => g.id === id);
+  roMove(from, from + (dir === 'up' ? -1 : 1));
+
+  // Re-rendering replaced the button that was just pressed, so focus has to be put back
+  // explicitly or it falls to <body> and a keyboard user loses their place in the list.
+  // When the move lands the game at an end, that direction's button is now disabled and
+  // can't hold focus — fall back to the opposite one on the same row so focus stays on the
+  // game being moved rather than vanishing.
+  const row = $('ro-list').querySelector(`.ro-row[data-id="${id}"]`);
+  if (!row) return;
+  const same = row.querySelector(`button[data-move="${dir}"]`);
+  const other = row.querySelector(`button[data-move="${dir === 'up' ? 'down' : 'up'}"]`);
+  (same && !same.disabled ? same : other)?.focus();
+});
+
+// Pointer-events drag, matching index.html's choice for the same reason: native HTML5
+// drag-and-drop does not fire reliably on touch. The list is deliberately NOT re-rendered
+// mid-drag — the row order only changes on release — so pointer capture can't be torn out
+// from under the gesture by a re-render.
+$('ro-list').addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('[data-grip]')) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const row = e.target.closest('.ro-row');
+  if (!row) return;
+  e.preventDefault();
+  roDrag = { id: Number(row.dataset.id), pointerId: e.pointerId, row, targetIndex: null };
+  row.classList.add('ro-dragging');
+  row.setPointerCapture(e.pointerId);
+});
+
+$('ro-list').addEventListener('pointermove', (e) => {
+  if (!roDrag || e.pointerId !== roDrag.pointerId) return;
+  const rows = [...$('ro-list').querySelectorAll('.ro-row')];
+  // Index of the row whose vertical midpoint the pointer has passed — the standard
+  // "which slot am I hovering" test, and it needs no re-render to stay accurate.
+  let idx = rows.findIndex(r => {
+    const b = r.getBoundingClientRect();
+    return e.clientY < b.top + b.height / 2;
+  });
+  if (idx === -1) idx = rows.length - 1;
+  if (idx !== roDrag.targetIndex) {
+    rows.forEach(r => r.classList.remove('ro-target'));
+    if (rows[idx] !== roDrag.row) rows[idx].classList.add('ro-target');
+    roDrag.targetIndex = idx;
+  }
+});
+
+function roEndDrag(e) {
+  if (!roDrag || e.pointerId !== roDrag.pointerId) return;
+  const { id, targetIndex } = roDrag;
+  roDrag.row.classList.remove('ro-dragging');
+  [...$('ro-list').querySelectorAll('.ro-row')].forEach(r => r.classList.remove('ro-target'));
+  roDrag = null;
+  if (targetIndex == null) return;
+  roMove(roOrder.findIndex(g => g.id === id), targetIndex);
+}
+$('ro-list').addEventListener('pointerup', roEndDrag);
+$('ro-list').addEventListener('pointercancel', roEndDrag);
+
+$('ro-reset').addEventListener('click', () => {
+  const byId = new Map(games.map(g => [g.id, g]));
+  roOrder = roSaved.map(id => byId.get(id)).filter(Boolean);
+  roShowMsg('');
+  roRender();
+});
+
+$('ro-save').addEventListener('click', async () => {
+  $('ro-save').disabled = true;
+  roShowMsg('Saving order…', true);
+  try {
+    await callWorker('/games/reorder', { ids: roIds() });
+    await loadGames();
+    roLoad();
+    roShowMsg('Order saved. <a href="index.html">View tracker &rarr;</a>', true);
+  } catch (err) {
+    // A 409 means the queue changed underneath this list (a drag on the tracker, another
+    // tab, a delete). Reloading is the honest recovery — silently retrying with these ids
+    // would overwrite whatever that other change was.
+    if (/reload/i.test(err.message)) {
+      await loadGames();
+      roLoad();
+      roShowMsg('Up Next changed somewhere else, so this list was out of date — reloaded it. Re-apply your order and save again.', false);
+    } else {
+      roShowMsg('Error: ' + err.message, false);
+      $('ro-save').disabled = false;
+    }
+  }
+});
+
+// Deep link: add.html?id=<id> preselects that game and fills the form, so the tracker's cards
+// can link straight to editing one instead of leaving you to find it among 113 dropdown
+// entries. Dispatching 'change' rather than calling fillForm directly reuses the existing
+// handler, so the editingId/button-label/edit-actions state can't drift out of sync with it.
+function applyDeepLink() {
+  const raw = new URLSearchParams(location.search).get('id');
+  if (!raw) return;
+  const id = parseInt(raw, 10);
+  if (!Number.isInteger(id)) return;
+  const sel = $('existing');
+  // A stale or hand-typed id shouldn't silently land on the wrong game: assigning an
+  // unmatched value to a <select> leaves it blank, which the change handler reads as
+  // "add new", so say what happened instead of quietly showing an empty add form.
+  if (!games.some(g => g.id === id)) {
+    showMsg(`No game with id ${id} — it may have been deleted. Pick one below, or add a new game.`, false);
+    return;
+  }
+  sel.value = String(id);
+  sel.dispatchEvent(new Event('change'));
 }
 
 if (!WORKER.url || !WORKER.key) {
@@ -281,7 +656,9 @@ if (!WORKER.url || !WORKER.key) {
 } else {
   document.getElementById('form-area').style.display = 'block';
   clearForm();
-  loadGames().catch(e => showMsg('Failed to load games.json: ' + e.message, false));
+  loadGames()
+    .then(applyDeepLink)
+    .catch(e => showMsg('Failed to load games.json: ' + e.message, false));
 }
 </script>
 </body>

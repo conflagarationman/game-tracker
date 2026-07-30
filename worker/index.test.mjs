@@ -1,7 +1,7 @@
 // Exercises the Worker against a stubbed GitHub contents API, so the read-modify-write path
 // and its conflict retry are covered without needing a token or a network — same pattern as
 // steph-tv-tracker's worker/index.test.mjs.
-import worker, { validateNewGame } from "./index.mjs";
+import worker, { validateNewGame, validateGameFields } from "./index.mjs";
 import assert from "node:assert/strict";
 
 let pass = 0, fail = 0;
@@ -70,6 +70,61 @@ await test("validateNewGame requires title, a known platform, and a known status
   assert.ok(validateNewGame({ t: "Foo", p: "xbox", s: "queue" }));
   assert.ok(validateNewGame({ t: "Foo", p: "steam", s: "bogus" }));
   assert.equal(validateNewGame({ t: "Foo", p: "steam", s: "queue" }), null);
+});
+
+await test("validateGameFields passes on unset (null) optional fields — null means 'not set', not invalid", () => {
+  assert.equal(validateGameFields({}), null);
+  assert.equal(validateGameFields({ cy: null, cm: null, r: null, diff: null, mastery: null, y: null }), null);
+});
+
+await test("validateGameFields rejects out-of-range cm, cy, y, diff, r and unknown mastery", () => {
+  assert.match(validateGameFields({ cm: 12 }), /cm/, "cm is 0-indexed, so 12 is past December");
+  assert.match(validateGameFields({ cm: -1 }), /cm/);
+  assert.match(validateGameFields({ cm: 1.5 }), /cm/, "a fractional month would break M[] lookup");
+  assert.match(validateGameFields({ cy: 1800 }), /cy/);
+  assert.match(validateGameFields({ y: 3000 }), /y/);
+  assert.match(validateGameFields({ diff: 0 }), /diff/, "diff is 1-5, and 0 renders as no badge");
+  assert.match(validateGameFields({ diff: 6 }), /diff/);
+  assert.match(validateGameFields({ r: 11 }), /rating/);
+  assert.match(validateGameFields({ r: -1 }), /rating/);
+  assert.match(validateGameFields({ mastery: "gold-star" }), /mastery/);
+  // The values index.html's masteryBadge() actually knows how to render.
+  for (const m of ["in-progress", "mastered", "platinum", "100pct"]) {
+    assert.equal(validateGameFields({ mastery: m }), null, `${m} should be accepted`);
+  }
+  assert.equal(validateGameFields({ cm: 0, cy: 2026, diff: 5, r: 10, y: 1986 }), null, "boundaries are valid");
+});
+
+await test("POST /games/add persists completion fields, and /games/edit round-trips them unchanged", async () => {
+  fakeGitHub({ games: [baseGame({ id: 5 })] });
+  const res = await post("/games/add", {
+    t: "Finished Thing", p: "ps5", s: "done", cy: 2026, cm: 6, r: 9, mastery: "platinum", diff: 4, gotm: "Jul 2026",
+  });
+  assert.equal(res.status, 200);
+  const { games } = await res.json();
+  const added = games.find(g => g.t === "Finished Thing");
+  assert.deepEqual(
+    { cy: added.cy, cm: added.cm, r: added.r, mastery: added.mastery, diff: added.diff, gotm: added.gotm },
+    { cy: 2026, cm: 6, r: 9, mastery: "platinum", diff: 4, gotm: "Jul 2026" },
+  );
+
+  // Editing an unrelated field must not disturb the completion data — this is the case that
+  // would silently wipe a rating if the form ever dropped hidden fields from its payload.
+  const res2 = await post("/games/edit", { id: added.id, p: "switch2" });
+  const games2 = await res2.json();
+  const edited = games2.find(g => g.id === added.id);
+  assert.equal(edited.p, "switch2");
+  assert.equal(edited.r, 9, "rating must survive an unrelated edit");
+  assert.equal(edited.cm, 6, "completion month must survive an unrelated edit");
+});
+
+await test("both add and edit reject an out-of-range completion month without writing", async () => {
+  const gh = fakeGitHub({ games: [baseGame({ id: 1 })] });
+  const addRes = await post("/games/add", { t: "Bad Month", p: "steam", s: "done", cy: 2026, cm: 12 });
+  assert.equal(addRes.status, 400);
+  const editRes = await post("/games/edit", { id: 1, cm: 99 });
+  assert.equal(editRes.status, 400);
+  assert.equal(gh.writes, 0, "neither malformed request may touch the file");
 });
 
 await test("POST /games/add appends a new game with a fresh id and filled-in defaults", async () => {
@@ -155,6 +210,56 @@ await test("edit and delete never dispatch either workflow — only add does", a
   await post("/games/edit", { id: 1, s: "done" });
   await post("/games/delete", { id: 2 });
   assert.equal(gh.dispatches.length, 0);
+});
+
+await test("POST /games/reorder reorders queue entries in place and leaves every other game put", async () => {
+  const gh = fakeGitHub({ games: [
+    baseGame({ id: 1, t: "Playing One", s: "playing" }),
+    baseGame({ id: 2, t: "Queue A", s: "queue" }),
+    baseGame({ id: 3, t: "Soon One", s: "soon" }),
+    baseGame({ id: 4, t: "Queue B", s: "queue" }),
+    baseGame({ id: 5, t: "Queue C", s: "queue" }),
+    baseGame({ id: 6, t: "Done One", s: "done" }),
+  ] });
+  const res = await post("/games/reorder", { ids: [5, 2, 4] });
+  assert.equal(res.status, 200);
+  const games = await res.json();
+  assert.deepEqual(games.map(g => g.t), [
+    "Playing One", "Queue C", "Soon One", "Queue A", "Queue B", "Done One",
+  ], "queue slots take the new order; non-queue rows never move");
+  assert.deepEqual(games.filter(g => g.s === "queue").map(g => g.id), [5, 2, 4]);
+  assert.ok(gh.commits[0].includes("Reorder up next"));
+});
+
+await test("POST /games/reorder 409s when the queue changed since the list was loaded", async () => {
+  const gh = fakeGitHub({ games: [
+    baseGame({ id: 1, s: "queue" }), baseGame({ id: 2, s: "queue" }), baseGame({ id: 3, s: "queue" }),
+  ] });
+  // Client thinks there are two queued games; the server has three.
+  const res = await post("/games/reorder", { ids: [2, 1] });
+  assert.equal(res.status, 409);
+  assert.match((await res.json()).error, /reload/);
+  assert.equal(gh.writes, 0, "a stale reorder must never be written");
+
+  // Right count, but one id isn't actually queued any more.
+  const res2 = await post("/games/reorder", { ids: [1, 2, 99] });
+  assert.equal(res2.status, 409);
+  assert.equal(gh.writes, 0);
+});
+
+await test("POST /games/reorder rejects a malformed or duplicate-bearing id list without writing", async () => {
+  const gh = fakeGitHub({ games: [baseGame({ id: 1, s: "queue" }), baseGame({ id: 2, s: "queue" })] });
+  assert.equal((await post("/games/reorder", { ids: "nope" })).status, 400);
+  assert.equal((await post("/games/reorder", { ids: [1, "2"] })).status, 400);
+  assert.equal((await post("/games/reorder", { ids: [1, 1] })).status, 400);
+  assert.equal(gh.writes, 0);
+});
+
+await test("reorder dispatches no workflow — nothing it changes is a synced field", async () => {
+  const gh = fakeGitHub({ games: [baseGame({ id: 1, s: "queue" }), baseGame({ id: 2, s: "queue" })] });
+  const res = await post("/games/reorder", { ids: [2, 1] });
+  assert.equal(res.status, 200);
+  assert.equal(gh.dispatches.length, 0, "only /games/add should ever dispatch");
 });
 
 await test("wrong sync key is rejected before touching GitHub", async () => {

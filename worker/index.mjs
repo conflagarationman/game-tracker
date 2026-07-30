@@ -19,6 +19,9 @@
 //                      their normal daily/weekly schedules.
 // POST /games/edit     body: {id, ...fields to change} -> patches the matching game.
 // POST /games/delete   body: {id} -> removes the matching game.
+// POST /games/reorder  body: {ids} -> reorders the queue ("Up next") entries in place; the id
+//                      set must match the current queue exactly or it 409s. No workflow
+//                      dispatch, since no synced field changes.
 //
 // Every write reads the current file fresh, applies the change, and writes back with a sha
 // check, retrying on conflict — safe against racing the daily sync-games.yml/
@@ -32,6 +35,9 @@ const UA = "game-tracker-admin";
 
 const VALID_PLATFORMS = new Set(["steam", "steamdeck", "ps5", "switch", "switch2", "ayn", "retro", "wiiu"]);
 const VALID_STATUSES = new Set(["playing", "queue", "soon", "done", "dropped"]);
+// Mirrors the badge map in index.html's masteryBadge() — an unknown value there renders as
+// nothing at all, so a typo would silently vanish from the card rather than show up wrong.
+const VALID_MASTERY = new Set(["in-progress", "mastered", "platinum", "100pct"]);
 
 const DEFAULT_GAME = {
   r: 0, h: null, cy: null, cm: null, gotm: null, mastery: null, diff: null,
@@ -102,12 +108,32 @@ async function mutateWithRetry(env, mutate, message, attempts = 4) {
   throw new Error(`write failed after ${attempts} attempts — ${last}`);
 }
 
+// Range/enum checks for the optional numeric and enum fields, shared by add and edit. Every
+// one of these may legitimately be null ("unset"), so null/undefined always passes — this
+// only rejects values that are *present but wrong*, which is the case that would otherwise
+// fail silently rather than loudly: index.html renders an out-of-range diff/mastery as no
+// badge at all, and a cm outside 0-11 indexes past the end of its month-name array.
+export function validateGameFields(input) {
+  const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  if (input.cm != null && !int(input.cm, 0, 11)) return "completion month (cm) must be an integer 0-11";
+  if (input.cy != null && !int(input.cy, 1970, 2100)) return "completion year (cy) must be an integer 1970-2100";
+  if (input.y != null && !int(input.y, 1970, 2100)) return "release year (y) must be an integer 1970-2100";
+  if (input.diff != null && !int(input.diff, 1, 5)) return "difficulty (diff) must be an integer 1-5";
+  if (input.r != null && !(typeof input.r === "number" && input.r >= 0 && input.r <= 10)) {
+    return "rating (r) must be a number 0-10";
+  }
+  if (input.mastery != null && !VALID_MASTERY.has(input.mastery)) {
+    return `mastery must be one of: ${[...VALID_MASTERY].join(", ")}`;
+  }
+  return null;
+}
+
 export function validateNewGame(input) {
   if (!input || typeof input !== "object") return "body must be an object";
   if (!input.t || typeof input.t !== "string" || !input.t.trim()) return "title (t) is required";
   if (!VALID_PLATFORMS.has(input.p)) return `platform (p) must be one of: ${[...VALID_PLATFORMS].join(", ")}`;
   if (!VALID_STATUSES.has(input.s)) return `status (s) must be one of: ${[...VALID_STATUSES].join(", ")}`;
-  return null;
+  return validateGameFields(input);
 }
 
 export async function addGame(env, input) {
@@ -124,6 +150,8 @@ export async function editGame(env, id, patch) {
   if (typeof id !== "number") throw httpError("id must be a number", 400);
   if (patch.p !== undefined && !VALID_PLATFORMS.has(patch.p)) throw httpError("invalid platform", 400);
   if (patch.s !== undefined && !VALID_STATUSES.has(patch.s)) throw httpError("invalid status", 400);
+  const fieldErr = validateGameFields(patch);
+  if (fieldErr) throw httpError(fieldErr, 400);
   return mutateWithRetry(env, (games) => {
     const idx = games.findIndex(g => g.id === id);
     if (idx === -1) throw httpError(`no game with id ${id}`, 404);
@@ -131,6 +159,42 @@ export async function editGame(env, id, patch) {
     next[idx] = { ...next[idx], ...patch };
     return next;
   }, `Edit game #${id}`);
+}
+
+// Up Next's 1..N numbering on the page is just games.json array order, so reordering that
+// array *is* the reorder — no new priority field, which is why this is possible at all
+// (index.html's drag code deferred in-section reordering on the grounds that it "would need
+// a new order/priority field this schema doesn't have"). The sync scripts all look games up
+// by id, so array position is invisible to them.
+//
+// Only the queue entries move: their existing array indices are collected and refilled in the
+// submitted order, leaving every other game exactly where it was. That keeps the commit diff
+// to the queue rows instead of rewriting the file's whole ordering.
+//
+// The submitted id set must match the current queue set exactly. A stale client — one that
+// loaded before a game was added to the queue, or before a drag moved one out of it — would
+// otherwise silently drop or resurrect entries; 409 tells the page to reload instead.
+export async function reorderQueue(env, ids) {
+  if (!Array.isArray(ids) || !ids.every(n => typeof n === "number")) {
+    throw httpError("ids must be an array of numbers", 400);
+  }
+  if (new Set(ids).size !== ids.length) throw httpError("ids must not contain duplicates", 400);
+  return mutateWithRetry(env, (games) => {
+    const positions = [];
+    games.forEach((g, i) => { if (g.s === "queue") positions.push(i); });
+    const current = positions.map(i => games[i].id);
+    const same = current.length === ids.length && current.every(id => ids.includes(id));
+    if (!same) {
+      throw httpError(
+        `up-next has changed since this list was loaded (server has ${current.length} queued, request had ${ids.length}) — reload and try again`,
+        409,
+      );
+    }
+    const byId = new Map(games.map(g => [g.id, g]));
+    const next = [...games];
+    positions.forEach((pos, n) => { next[pos] = byId.get(ids[n]); });
+    return next;
+  }, `Reorder up next (${ids.length} games)`);
 }
 
 export async function deleteGame(env, id) {
@@ -222,6 +286,13 @@ export default {
       }
       if (url.pathname.endsWith("/games/delete")) {
         const games = await deleteGame(env, body.id);
+        return json(games, 200, origin);
+      }
+      // No triggerSyncWorkflows here, unlike /games/add: reordering changes no field that
+      // Steam/RA sync or the cover backfill reads, so dispatching them would burn two
+      // Actions runs to produce an identical file.
+      if (url.pathname.endsWith("/games/reorder")) {
+        const games = await reorderQueue(env, body.ids);
         return json(games, 200, origin);
       }
       return json({ error: "not found" }, 404, origin);

@@ -176,29 +176,39 @@ await test("syncRA updates achievement counts from stubbed API, picks the higher
   assert.equal(games[0].achPct, 80);
 });
 
-await test("pushToHub derives now_playing sorted by lastPlayed and up_next top-4 by queued date", async () => {
+await test("pushToHub sorts now_playing by lastPlayed but takes up_next in array order, matching the page", async () => {
   let captured = null;
   globalThis.fetch = async (url, init) => {
     captured = { url: String(url), body: JSON.parse(init.body) };
     return new Response("{}", { status: 200 });
   };
+  // Queued dates here are deliberately shuffled relative to array order: the point is that
+  // they no longer influence the result. index.html numbers Up Next 1..N from array position,
+  // and that position is what add.html's reorder panel maintains, so the hub must read the
+  // same signal or the two surfaces disagree about what's #1 (which they used to).
   const games = [
     baseGame({ id: 1, t: "Older", s: "playing", lastPlayed: "2026-01-01" }),
     baseGame({ id: 2, t: "Newer", s: "playing", lastPlayed: "2026-06-01" }),
-    baseGame({ id: 3, t: "Q-oldest-dropped-by-cap", s: "queue", queued: "2026-01-01" }),
-    baseGame({ id: 4, t: "Q-newest", s: "queue", queued: "2026-06-01" }),
-    baseGame({ id: 5, t: "Q-2nd", s: "queue", queued: "2026-05-01" }),
-    baseGame({ id: 6, t: "Q-3rd", s: "queue", queued: "2026-04-01" }),
-    baseGame({ id: 7, t: "Q-4th", s: "queue", queued: "2026-03-01" }),
-    baseGame({ id: 8, t: "NoQueueDate", s: "queue", queued: null }),
-    baseGame({ id: 9, t: "Backlog", s: "soon" }),
+    baseGame({ id: 3, t: "Q-first", s: "queue", queued: "2026-01-01" }),
+    baseGame({ id: 4, t: "Q-second", s: "queue", queued: "2026-06-01" }),
+    baseGame({ id: 5, t: "NoQueueDate-still-counts", s: "queue", queued: null }),
+    baseGame({ id: 6, t: "Q-fourth", s: "queue", queued: "2026-04-01" }),
+    baseGame({ id: 7, t: "Q-fifth-dropped-by-cap", s: "queue", queued: "2026-12-01" }),
+    baseGame({ id: 8, t: "Backlog", s: "soon" }),
   ];
   await pushToHub(games, []);
   assert.ok(captured.url.includes("/game-tracker/update?token=fake-hub-token"));
   assert.deepEqual(captured.body.now_playing.map(g => g.name), ["Newer", "Older"], "newest lastPlayed first");
-  assert.equal(captured.body.up_next.length, 4, "capped to top 4");
-  assert.deepEqual(captured.body.up_next.map(g => g.name), ["Q-newest", "Q-2nd", "Q-3rd", "Q-4th"], "newest-queued 4 survive, oldest dropped by the cap");
-  assert.ok(!captured.body.up_next.some(g => g.name === "NoQueueDate"), "no queued date excludes it");
+  assert.equal(captured.body.up_next.length, 4, "capped to the first 4");
+  assert.deepEqual(
+    captured.body.up_next.map(g => g.name),
+    ["Q-first", "Q-second", "NoQueueDate-still-counts", "Q-fourth"],
+    "first four queue entries in array order, regardless of queued date",
+  );
+  assert.ok(
+    !captured.body.up_next.some(g => g.name === "Q-fifth-dropped-by-cap"),
+    "the newest queued date does not jump the cap any more",
+  );
 });
 
 await test("pushToHub throws on a non-OK response so a failed push isn't silently swallowed", async () => {
