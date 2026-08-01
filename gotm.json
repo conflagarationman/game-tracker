@@ -1,0 +1,236 @@
+{
+  "fetchedAt": "2026-08-01T15:53:17.431Z",
+  "sourceUrl": "https://www.reddit.com/r/SBCGaming/s/JiFHV5URaj",
+  "generatedFor": "2026-08",
+  "seeded": true,
+  "seededNote": "Transcribed from the August 2026 post because Reddit blocks unauthenticated reads. Replaced wholesale by the first successful fetch-gotm.mjs run.",
+  "current": {
+    "month": "2026-08",
+    "game": "Marvel vs. Capcom 2",
+    "platform": "Dreamcast",
+    "url": "https://www.reddit.com/r/SBCGaming/s/JiFHV5URaj"
+  },
+  "picks": [
+    {
+      "month": "2024-12",
+      "tag": "Dec 2024",
+      "game": "Super Mario World",
+      "platform": null,
+      "url": null,
+      "monthsLeft": -8,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-01",
+      "tag": "Jan 2025",
+      "game": "Metroid Fusion",
+      "platform": null,
+      "url": null,
+      "monthsLeft": -7,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-02",
+      "tag": "Feb 2025",
+      "game": "Metal Gear Solid",
+      "platform": null,
+      "url": null,
+      "monthsLeft": -6,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-03",
+      "tag": "Mar 2025",
+      "game": "Streets of Rage 2",
+      "platform": null,
+      "url": null,
+      "monthsLeft": -5,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-04",
+      "tag": "Apr 2025",
+      "game": "Chrono Trigger",
+      "platform": null,
+      "url": null,
+      "monthsLeft": -4,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-05",
+      "tag": "May 2025",
+      "game": "Mega Man X",
+      "platform": null,
+      "url": null,
+      "monthsLeft": -3,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-06",
+      "tag": "Jun 2025",
+      "game": "Kirby's Dream Land 2",
+      "platform": null,
+      "url": null,
+      "monthsLeft": -2,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-07",
+      "tag": "Jul 2025",
+      "game": "Devil's Crush",
+      "platform": null,
+      "url": null,
+      "monthsLeft": -1,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-08",
+      "tag": "Aug 2025",
+      "game": "Twisted Metal 2",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 0,
+      "retired": true,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-09",
+      "tag": "Sep 2025",
+      "game": "Age of Zombies",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 1,
+      "retired": false,
+      "lastChance": true,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-10",
+      "tag": "Oct 2025",
+      "game": "Castlevania: Symphony of the Night",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 2,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-11",
+      "tag": "Nov 2025",
+      "game": "Alien Hominid",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 3,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2025-12",
+      "tag": "Dec 2025",
+      "game": "The Legend of Zelda: A Link to the Past",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 4,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2026-01",
+      "tag": "Jan 2026",
+      "game": "Ducktales",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 5,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2026-02",
+      "tag": "Feb 2026",
+      "game": "999",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 6,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2026-03",
+      "tag": "Mar 2026",
+      "game": "Sonic the Hedgehog 2",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 7,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2026-04",
+      "tag": "Apr 2026",
+      "game": "Advance Wars",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 8,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2026-05",
+      "tag": "May 2026",
+      "game": "Celeste",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 9,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2026-06",
+      "tag": "Jun 2026",
+      "game": "Tomb Raider",
+      "platform": null,
+      "url": null,
+      "monthsLeft": 10,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2026-08",
+      "tag": "Aug 2026",
+      "game": "Marvel vs. Capcom 2",
+      "platform": "Dreamcast",
+      "url": "https://www.reddit.com/r/SBCGaming/s/JiFHV5URaj",
+      "monthsLeft": 12,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": true
+    }
+  ],
+  "error": null
+}

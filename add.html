@@ -159,8 +159,13 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
     </div>
     <div>
       <label for="gotm">GOTM</label>
-      <input type="text" id="gotm" placeholder="e.g. Jul 2026">
+      <select id="gotm"><option value="">— none —</option></select>
     </div>
+  </div>
+
+  <div class="check" id="gotm-flair-wrap" style="display:none;">
+    <input type="checkbox" id="gotmFlair">
+    <label for="gotmFlair" style="margin:0;text-transform:none;font-size:0.85rem;color:var(--text);font-family:'Syne',sans-serif;">Club flair earned (criteria met &amp; proof posted)</label>
   </div>
 
   <label for="note">Note</label>
@@ -255,6 +260,47 @@ function fromMonthInput(value) {
   return { cy: parseInt(m[1], 10), cm: parseInt(m[2], 10) - 1 };
 }
 
+// The GOTM tag is a select, not free text: it is the join key between a tracked game and the
+// club's pick list, so a typo ("July 2026") or a month that was never a pick would silently
+// match nothing rather than failing loudly. Options come from gotm.json, which the daily fetch
+// keeps current, and each shows the club's own game name so a mis-tag is visible as you pick it.
+let CLUB_PICKS = [];
+
+function setGotmValue(value) {
+  const sel = $('gotm');
+  // A tag whose pick isn't in the list (older than the fetched history, or gotm.json missing)
+  // still has to be selectable, or opening that game and saving would silently clear its tag.
+  if (value && !CLUB_PICKS.some(p => p.tag === value)) {
+    sel.insertAdjacentHTML('beforeend', `<option value="${value}">${value} — (not in fetched club list)</option>`);
+  }
+  sel.value = value;
+}
+
+// Flair only means anything for a game that is actually a club pick.
+function syncFlairVisibility() {
+  $('gotm-flair-wrap').style.display = $('gotm').value ? 'flex' : 'none';
+}
+
+async function loadClubPicks() {
+  try {
+    const res = await fetch('gotm.json?_=' + Date.now());
+    if (!res.ok) return;
+    const data = await res.json();
+    CLUB_PICKS = (data.picks || []).filter(p => p.tag).sort((a, b) => b.month.localeCompare(a.month));
+  } catch (e) { /* the select still works, just without club names */ }
+  const keep = $('gotm').value;
+  $('gotm').innerHTML = '<option value="">— none —</option>' +
+    CLUB_PICKS.map(p => {
+      const left = p.retired ? 'expired' : p.monthsLeft === 1 ? 'last chance' : `${p.monthsLeft}mo left`;
+      return `<option value="${p.tag}">${p.tag} — ${escAttr(p.game)} (${left})</option>`;
+    }).join('');
+  setGotmValue(keep);
+}
+
+function escAttr(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 const isFinished = (s) => s === 'done' || s === 'dropped';
 
 // Completion fields are shown only for done/dropped, but they are always read and always
@@ -289,7 +335,9 @@ function fillForm(g) {
   $('y').value = g.y || '';
   $('h').value = g.h || '';
   $('diff').value = g.diff || '';
-  $('gotm').value = g.gotm || '';
+  setGotmValue(g.gotm || '');
+  $('gotmFlair').checked = !!g.gotmFlair;
+  syncFlairVisibility();
   $('note').value = g.note || '';
   $('start').value = g.start || '';
   $('queued').value = g.queued || '';
@@ -309,7 +357,9 @@ function clearForm() {
   $('y').value = '';
   $('h').value = '';
   $('diff').value = '';
-  $('gotm').value = '';
+  setGotmValue('');
+  $('gotmFlair').checked = false;
+  syncFlairVisibility();
   $('note').value = '';
   $('start').value = '';
   $('queued').value = '';
@@ -331,7 +381,9 @@ function readForm() {
     y: $('y').value ? parseInt($('y').value, 10) : null,
     h: $('h').value.trim() || null,
     diff: $('diff').value ? parseInt($('diff').value, 10) : null,
-    gotm: $('gotm').value.trim() || null,
+    gotm: $('gotm').value || null,
+    // Only meaningful alongside a gotm tag; forcing false without one keeps the pair coherent.
+    gotmFlair: $('gotm').value ? $('gotmFlair').checked : false,
     note: $('note').value.trim() || null,
     start: $('start').value || null,
     queued: $('queued').value || null,
@@ -362,6 +414,7 @@ async function callWorker(path, body) {
 }
 
 $('s').addEventListener('change', onStatusChange);
+$('gotm').addEventListener('change', syncFlairVisibility);
 
 $('existing').addEventListener('change', () => {
   const id = $('existing').value;
@@ -635,7 +688,21 @@ $('ro-save').addEventListener('click', async () => {
 // entries. Dispatching 'change' rather than calling fillForm directly reuses the existing
 // handler, so the editingId/button-label/edit-actions state can't drift out of sync with it.
 function applyDeepLink() {
-  const raw = new URLSearchParams(location.search).get('id');
+  const params = new URLSearchParams(location.search);
+
+  // ?t= (+ optional ?gotm=) prefills a NEW game — the tracker's GOTM strip links here for club
+  // picks that aren't in the library yet, rather than adding them to the backlog on your behalf.
+  const title = params.get('t');
+  if (title && !params.get('id')) {
+    $('t').value = title;
+    const tag = params.get('gotm');
+    if (tag) { setGotmValue(tag); syncFlairVisibility(); }
+    const clash = games.find(g => g.t.toLowerCase() === title.toLowerCase());
+    if (clash) showMsg(`“${clash.t}” is already tracked (${clash.p}, ${clash.s}) — edit it below instead of adding a second entry.`, false);
+    return;
+  }
+
+  const raw = params.get('id');
   if (!raw) return;
   const id = parseInt(raw, 10);
   if (!Number.isInteger(id)) return;
@@ -656,7 +723,8 @@ if (!WORKER.url || !WORKER.key) {
 } else {
   document.getElementById('form-area').style.display = 'block';
   clearForm();
-  loadGames()
+  loadClubPicks()
+    .then(loadGames)
     .then(applyDeepLink)
     .catch(e => showMsg('Failed to load games.json: ' + e.message, false));
 }
