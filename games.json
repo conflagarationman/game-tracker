@@ -396,7 +396,7 @@
     "id": 501,
     "t": "Splatoon Raiders",
     "p": "switch2",
-    "s": "queue",
+    "s": "playing",
     "r": 0,
     "g": "Shooter",
     "y": 2026,
@@ -413,7 +413,7 @@
     "lastPlayed": null,
     "casual": false,
     "note": null,
-    "start": null,
+    "start": "2026-08-01",
     "queued": "2026-07-26"
   },
   {
