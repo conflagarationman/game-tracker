@@ -1021,10 +1021,19 @@ function showSkeletons(){
 }
 showSkeletons();
 
+// GitHub Pages serves these with a cache lifetime, so a plain fetch can hand back the copy
+// from before your last edit. That looked exactly like a write silently failing: adding a
+// club pick committed correctly, but on refresh the GOTM strip still offered "+ add to
+// tracker", because the page was reading a games.json that predated the add. add.html has
+// always cache-busted its own read for this reason; this side never did.
+// A unique query string rather than {cache:'no-cache'}: the latter only forces revalidation
+// against the origin, and Pages sits behind a CDN that can still answer from its own copy.
+const fresh = (file) => fetch(`${file}?_=${Date.now()}`);
+
 Promise.all([
-  fetch('games.json').then(r=>r.json()),
-  fetch('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
-  fetch('gotm.json').then(r=>r.ok?r.json():null).catch(()=>null),
+  fresh('games.json').then(r=>r.json()),
+  fresh('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  fresh('gotm.json').then(r=>r.ok?r.json():null).catch(()=>null),
 ]).then(([games,covers,gotm])=>{
   G=games;
   COVERS=covers;
@@ -1060,7 +1069,9 @@ function syncStampText(syncedAt, now){
   return { stale: hours>STALE_HOURS, rel, abs, hours };
 }
 
-fetch('last-synced.json').then(r=>r.ok?r.json():null).then(d=>{
+// Cache-busted like the rest, and this one especially: a cached copy would let the staleness
+// warning report an age that isn't real, which defeats the entire point of having it.
+fresh('last-synced.json').then(r=>r.ok?r.json():null).then(d=>{
   const el=document.getElementById('updated-stamp');
   const s=d&&d.syncedAt?syncStampText(d.syncedAt,new Date()):null;
   if(!s){ el.textContent=''; return; }
