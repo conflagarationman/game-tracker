@@ -70,6 +70,36 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
   letter-spacing:0.08em;padding:0.35rem 0.7rem;border-radius:6px;cursor:pointer;
   background:transparent;color:#f54242;border:1px solid #f5424260;}
 
+/* GOTM club strip. Club picks stay claimable for 12 months and then expire, so the ordering
+   that matters is time remaining, not recency — this is a deadline list, not a feed. */
+.gotm-sec{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:0.85rem 0.9rem;margin-bottom:1.5rem;}
+.gotm-head{display:flex;align-items:baseline;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.15rem;}
+.gotm-head h2{font-size:0.72rem;font-family:'DM Mono',monospace;text-transform:uppercase;
+  letter-spacing:0.12em;color:var(--accent);font-weight:700;}
+.gotm-sub{font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--dim);}
+.gotm-sub a{color:var(--muted);}
+.gotm-rows{display:flex;flex-direction:column;gap:4px;margin-top:0.6rem;}
+.gotm-row{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;
+  padding:0.4rem 0.5rem;border-radius:7px;background:var(--surface2);
+  border-left:3px solid var(--dim);}
+.gotm-row.urgent{border-left-color:#f54242;background:#f5424212;}
+.gotm-row.soonish{border-left-color:#f5a042;background:#f5a04210;}
+.gotm-row.current{border-left-color:var(--accent);}
+.gotm-left{font-family:'DM Mono',monospace;font-size:0.62rem;font-weight:700;min-width:4.4em;flex-shrink:0;}
+.gotm-row.urgent .gotm-left{color:#f54242;}
+.gotm-row.soonish .gotm-left{color:#f5a042;}
+.gotm-row:not(.urgent):not(.soonish) .gotm-left{color:var(--muted);}
+.gotm-name{flex:1;font-size:0.8rem;font-weight:600;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.gotm-name a{color:inherit;text-decoration:none;}
+.gotm-name a:hover{text-decoration:underline;}
+.gotm-state{font-family:'DM Mono',monospace;font-size:0.58rem;padding:2px 7px;border-radius:99px;
+  white-space:nowrap;background:#ffffff08;color:var(--muted);border:1px solid #ffffff12;}
+.gotm-state.act{background:#c8f54218;color:var(--accent);border-color:#c8f54230;}
+.gotm-foot{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--dim);margin-top:0.55rem;line-height:1.5;}
+.gotm-warn{color:#f5a042;}
+
 /* Loading placeholders. The shimmer is gated on prefers-reduced-motion; the boxes themselves
    still convey "content is coming" without it. */
 .skel{background:var(--surface);border:1px solid var(--border);border-radius:10px;}
@@ -248,6 +278,7 @@ section:first-of-type .slabel{margin-top:0;}
 <div class="updated" id="updated-stamp">loading…</div>
 <div class="banner" id="load-error" role="alert"></div>
 <div class="stats-row" id="stats"></div>
+<section class="gotm-sec" id="gotm-sec" style="display:none;" aria-labelledby="gotm-heading"></section>
 <section aria-labelledby="now-playing-heading">
   <h2 class="slabel" id="now-playing-heading">Now playing</h2>
   <div class="hero-grid" id="now"></div>
@@ -589,6 +620,90 @@ function renderPanels(){
   }
 }
 
+// ─── GOTM club ─────────────────────────────────────────
+// gotm.json is bot-written by scripts/fetch-gotm.mjs and mirrors r/SBCGaming's club. Two rules
+// from the club drive everything here:
+//  1. A pick stays claimable for 12 months, then retires. So this is a deadline list sorted by
+//     time remaining — an expired pick is not "late", it's unobtainable, and nagging about it
+//     is pure noise.
+//  2. Each month sets its own completion criteria on its own post, and they differ wildly. The
+//     tracker cannot know them, so every row links to its post rather than asserting anything.
+// Consequently `s:"done"` does NOT clear a pick — only gotmFlair does. Finishing the game and
+// meeting that month's requirement are different things.
+let GOTM = null;
+
+// The gotm tag is the join, never the title: club and tracker names drift ("Tomb Raider" vs
+// "Tomb Raider I Remastered"), and fuzzy matching pairs the club's "Super Mario World" with
+// this library's "Super Mario World 2: Yoshi's Island", a different game.
+function gameForPick(pick){
+  return G.find(g => g.gotm === pick.tag) || null;
+}
+
+function gotmRow(pick){
+  const g = gameForPick(pick);
+  const left = pick.monthsLeft;
+  const cls = left <= 2 ? 'urgent' : left <= 4 ? 'soonish' : (pick.isCurrent ? 'current' : '');
+  const leftLbl = left === 1 ? 'LAST' : `${left}mo`;
+  let state, stateCls = '';
+  if(!g){
+    state = CAN_EDIT
+      ? `<a href="add.html?t=${encodeURIComponent(pick.game)}&gotm=${encodeURIComponent(pick.tag)}">+ add to tracker</a>`
+      : 'not tracked';
+    stateCls = 'act';
+  } else if(g.s === 'done'){
+    state = 'played · verify flair'; stateCls = 'act';
+  } else {
+    state = g.s === 'playing' ? 'playing' : g.s === 'queue' ? 'up next' : g.s === 'soon' ? 'soon' : g.s;
+  }
+  const name = pick.url
+    ? `<a href="${esc(pick.url)}" target="_blank" rel="noopener noreferrer">${esc(pick.game)}</a>`
+    : esc(pick.game);
+  return `<div class="gotm-row ${cls}">
+    <span class="gotm-left">${leftLbl}</span>
+    <span class="gotm-name" title="${esc(pick.game)}${g&&g.t!==pick.game?' — tracked as '+esc(g.t):''}">${name}</span>
+    <span class="gotm-state ${stateCls}">${state}</span>
+  </div>`;
+}
+
+function renderGotm(){
+  const sec = document.getElementById('gotm-sec');
+  if(!GOTM || !Array.isArray(GOTM.picks) || !GOTM.picks.length){ sec.style.display='none'; return; }
+
+  // Anything already claimed drops out entirely — that's what gotmFlair is for.
+  const outstanding = GOTM.picks
+    .filter(p => !p.retired)
+    .filter(p => { const g = gameForPick(p); return !(g && g.gotmFlair); })
+    .sort((a,b) => a.monthsLeft - b.monthsLeft);
+
+  // Expired-and-unclaimed gets one muted line, never a row: the deadline has passed, so there
+  // is nothing to act on.
+  const missed = GOTM.picks
+    .filter(p => p.retired)
+    .filter(p => { const g = gameForPick(p); return g && !g.gotmFlair && g.s !== 'done'; });
+
+  const cur = GOTM.picks.find(p => p.isCurrent);
+  const src = GOTM.sourceUrl ? `<a href="${esc(GOTM.sourceUrl)}" target="_blank" rel="noopener noreferrer">r/SBCGaming</a>` : 'r/SBCGaming';
+  const staleBits = [];
+  if(GOTM.error) staleBits.push(`<span class="gotm-warn">⚠ Club list couldn’t be refreshed (${esc(GOTM.error)}) — showing the last known copy.</span>`);
+  if(GOTM.seeded) staleBits.push('Seeded by hand from the August 2026 post; the first successful fetch replaces it.');
+  if(cur && !outstanding.some(p => p.isCurrent)) staleBits.push(`This month’s pick (${esc(cur.game)}) is already claimed.`);
+  staleBits.push('Completion rules differ every month — check each pick’s own post.');
+
+  sec.innerHTML = `
+    <div class="gotm-head">
+      <h2 id="gotm-heading">Game of the Month</h2>
+      <span class="gotm-sub">${outstanding.length} claimable · 12-month window · ${src}</span>
+    </div>
+    ${outstanding.length
+      ? `<div class="gotm-rows">${outstanding.map(gotmRow).join('')}</div>`
+      : '<div class="empty">Nothing outstanding — every live pick is claimed.</div>'}
+    <div class="gotm-foot">
+      ${missed.length?`Expired unclaimed: ${missed.map(p=>esc(p.game)).join(', ')}.<br>`:''}
+      ${staleBits.join('<br>')}
+    </div>`;
+  sec.style.display = 'block';
+}
+
 // ─── Main render ───────────────────────────────────────
 function render(){
   const playing=G.filter(g=>g.s==='playing');
@@ -611,6 +726,7 @@ function render(){
   document.getElementById('queue').innerHTML=queue.length?queue.map((g,i)=>qC(g,i+1,true)).join(''):'<div class="empty">Nothing up next.</div>';
   document.getElementById('so-lbl').textContent=`Soon™ (${soon.length})`;
   document.getElementById('soon').innerHTML=soon.length?soon.map(g=>qC(g,0,false)).join(''):'<div class="empty">Nothing here yet.</div>';
+  renderGotm();
   renderPanels();
 }
 
@@ -894,9 +1010,11 @@ showSkeletons();
 Promise.all([
   fetch('games.json').then(r=>r.json()),
   fetch('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
-]).then(([games,covers])=>{
+  fetch('gotm.json').then(r=>r.ok?r.json():null).catch(()=>null),
+]).then(([games,covers,gotm])=>{
   G=games;
   COVERS=covers;
+  GOTM=gotm;
   NOW=new Date();
   render();
 }).catch(err=>{

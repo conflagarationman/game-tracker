@@ -19,6 +19,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 |---|---|---|
 | `games.json` | you, via `add.html` → Worker; **and** the sync bot | The whole library. Human-owned fields and bot-owned fields share each record — see below. |
 | `covers.json` | bot only (`backfill-covers.yml`, Sundays) | Cover art URLs, **keyed by lowercase title**. |
+| `gotm.json` | bot only (`fetch-gotm.mjs`, daily) | Mirror of the r/SBCGaming club's pick list. Overwritten wholesale — never put human state here. |
 | `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page. |
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
@@ -45,6 +46,7 @@ One flat array. Every record carries every key, with `null` for unset.
   "cy": null,             // completion year
   "cm": null,             // completion month, ZERO-INDEXED (0 = January)
   "gotm": null,           // r/SBCGaming Game of the Month tag, "Mon YYYY" — see below
+  "gotmFlair": false,     // club flair actually earned. NOT implied by s:"done" — see below
   "mastery": null,        // in-progress | mastered | platinum | 100pct
   "diff": null,           // 1-5 (Easy..Brutal)
   "achPct": null,         // bot-owned
@@ -96,9 +98,9 @@ interpreting it:
   They are not derivable from the game or from this repo — the month's own post is the only
   authority, so anything built here should link to it rather than assert what counts.
 - **Finishing a game is not the same as meeting that month's criteria.** `s: "done"` says you
-  played it. It does not say the club requirement was met. There is currently **no field that
-  records the latter**, which means the distinction cannot be answered from this repo — ask,
-  don't infer. A `gotmFlair` boolean is planned to close this gap.
+  played it; **`gotmFlair: true` says the club requirement was met and proof was posted.** They
+  are independent, and only `gotmFlair` clears a pick from the tracker's GOTM strip. A finished
+  pick without flair shows as "played · verify flair" rather than disappearing.
 - Club titles and tracker titles drift ("The Legend of Zelda: A Link to the Past" vs
   "Zelda: A Link to the Past"; "999" vs "999: Nine Hours, Nine Persons"). **The `gotm` tag is
   the reliable join, not the title.** Fuzzy title matching against the club's list is unsafe:
@@ -116,8 +118,13 @@ interpreting it:
 - `backfill-covers.yml` — Sundays. Fills gaps in `covers.json` from SteamGridDB. It declines
   uncertain matches rather than guessing, so some titles stay uncovered on purpose; the pages
   fall back to a coloured platform glyph.
-- Adding a game through `add.html` triggers both workflows immediately, best-effort — a failed
-  trigger never fails the add, it just means waiting for the normal schedule.
+- `fetch-gotm.mjs` — daily, alongside the Steam sync. Rebuilds `gotm.json` from the club's
+  newest post. It needs `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`, because unauthenticated
+  Reddit refuses cloud IP ranges, which is where Actions runners live. A failed or unparseable
+  fetch keeps the last known picks, records the error, and then fails the step on purpose — a
+  red run is the notification that the club list has gone stale.
+- Adding a game through `add.html` triggers the sync and cover workflows immediately,
+  best-effort — a failed trigger never fails the add, it just means waiting for the schedule.
 
 ## Tests
 
@@ -127,8 +134,14 @@ and exits non-zero on failure.
 ```
 node scripts/sync-apis.test.mjs        # 12
 node scripts/backfill-covers.test.mjs  #  6
-cd worker && node index.test.mjs       # 21
+node scripts/fetch-gotm.test.mjs       # 13
+cd worker && node index.test.mjs       # 23
 ```
+
+`fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the
+12-month rule, applied from scratch, reproduces every RETIRED / LAST CHANCE marker the host
+wrote by hand — so the derived eligibility is checked against the club's own bookkeeping
+rather than against itself.
 
 The Worker tests run against a stubbed GitHub contents API, including its sha-conflict retry,
 so they need no token and no network.

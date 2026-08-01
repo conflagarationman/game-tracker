@@ -95,6 +95,34 @@ await test("validateGameFields rejects out-of-range cm, cy, y, diff, r and unkno
   assert.equal(validateGameFields({ cm: 0, cy: 2026, diff: 5, r: 10, y: 1986 }), null, "boundaries are valid");
 });
 
+await test("validateGameFields guards the gotm tag format and gotmFlair's type", () => {
+  assert.equal(validateGameFields({ gotm: "Jul 2026" }), null);
+  assert.match(validateGameFields({ gotm: "July 2026" }), /gotm/, "full month name would match no club pick");
+  assert.match(validateGameFields({ gotm: "Jul 26" }), /gotm/);
+  assert.match(validateGameFields({ gotm: "2026-07" }), /gotm/);
+  assert.equal(validateGameFields({ gotm: null }), null, "untagged is valid");
+  assert.equal(validateGameFields({ gotmFlair: true }), null);
+  assert.equal(validateGameFields({ gotmFlair: false }), null);
+  assert.match(validateGameFields({ gotmFlair: "yes" }), /gotmFlair/);
+  assert.match(validateGameFields({ gotmFlair: 1 }), /gotmFlair/);
+});
+
+await test("gotmFlair defaults to false on add and survives an unrelated edit", async () => {
+  fakeGitHub({ games: [baseGame({ id: 1 })] });
+  const res = await post("/games/add", { t: "Club Pick", p: "ayn", s: "soon", gotm: "Aug 2026" });
+  const { games } = await res.json();
+  const added = games.find(g => g.t === "Club Pick");
+  assert.equal(added.gotmFlair, false, "a new game has not earned flair");
+
+  // Flair earned is human-owned state; it must not be disturbed by edits to anything else,
+  // the same way the completion fields aren't.
+  await post("/games/edit", { id: added.id, gotmFlair: true });
+  const res2 = await post("/games/edit", { id: added.id, s: "done" });
+  const edited = (await res2.json()).find(g => g.id === added.id);
+  assert.equal(edited.gotmFlair, true, "flair must survive a later status change");
+  assert.equal(edited.gotm, "Aug 2026");
+});
+
 await test("POST /games/add persists completion fields, and /games/edit round-trips them unchanged", async () => {
   fakeGitHub({ games: [baseGame({ id: 5 })] });
   const res = await post("/games/add", {
