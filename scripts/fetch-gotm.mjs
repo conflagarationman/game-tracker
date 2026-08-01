@@ -19,7 +19,16 @@ import { pathToFileURL } from "node:url";
 
 const FILE = "gotm.json";
 const SUBREDDIT = "SBCGaming";
-const UA = "game-tracker-gotm/1.0";
+
+// Reddit asks for a descriptive User-Agent in the form <platform>:<app id>:<version> (by
+// /u/<user>), and throttles or outright blocks generic ones more aggressively — which would
+// look like a credentials problem when it isn't. REDDIT_USERNAME is optional and is only used
+// to complete that string; the request authenticates purely on client id/secret.
+function userAgent() {
+  const who = process.env.REDDIT_USERNAME;
+  return `script:game-tracker-gotm:v1.0${who ? ` (by /u/${who})` : ""}`;
+}
+
 
 const MONTHS = ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"];
@@ -152,7 +161,7 @@ async function redditToken(fetchImpl = fetch) {
     headers: {
       Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": UA,
+      "User-Agent": userAgent(),
     },
     body: "grant_type=client_credentials",
   });
@@ -171,7 +180,7 @@ export async function fetchLatestGotmPost(fetchImpl = fetch) {
   url.searchParams.set("restrict_sr", "true");
   url.searchParams.set("sort", "new");
   url.searchParams.set("limit", "25");
-  const res = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}`, "User-Agent": UA } });
+  const res = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}`, "User-Agent": userAgent() } });
   if (!res.ok) throw new Error(`reddit search -> ${res.status}`);
   const data = await res.json();
   const posts = (data?.data?.children || []).map(c => c.data).filter(Boolean);

@@ -38,6 +38,8 @@ jobs:
         env:
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          # Optional. Only completes Reddit's preferred User-Agent string; not a credential.
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
         run: node scripts/fetch-gotm.mjs
 
       - name: Commit results if anything changed
