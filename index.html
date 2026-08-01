@@ -94,9 +94,23 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
   text-overflow:ellipsis;white-space:nowrap;}
 .gotm-name a{color:inherit;text-decoration:none;}
 .gotm-name a:hover{text-decoration:underline;}
-.gotm-state{font-family:'DM Mono',monospace;font-size:0.58rem;padding:2px 7px;border-radius:99px;
-  white-space:nowrap;background:#ffffff08;color:var(--muted);border:1px solid #ffffff12;}
+/* Bumped from 0.58rem/--muted, which measured 9.3px at 3.52:1 against the chip's own
+   translucent backdrop — under WCAG AA's 4.5:1 and small enough to squint at. */
+.gotm-state{font-family:'DM Mono',monospace;font-size:0.68rem;padding:3px 8px;border-radius:99px;
+  white-space:nowrap;background:#ffffff08;color:#b4b4c0;border:1px solid #ffffff12;}
+
+/* The "add to tracker" chip is the only actionable thing in the strip, so it reads as a
+   button rather than another status label. Its anchor previously had no colour rule at all
+   and inherited the UA stylesheet's #0000EE — saturated blue on a near-black row, which is
+   what made it hard to read. */
 .gotm-state.act{background:#c8f54218;color:var(--accent);border-color:#c8f54230;}
+/* .link is set by the renderer when this chip wraps an anchor. A marker class rather than
+   :not(:has(a)) so the padding hand-off can't silently break on a browser without :has(). */
+.gotm-state.act.link{padding:0;}
+.gotm-state.act.link a{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;
+  color:var(--accent);font-weight:700;text-decoration:none;border-radius:99px;}
+.gotm-state.act.link a:hover{background:#c8f54222;text-decoration:underline;}
+.gotm-state.act.link a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .gotm-foot{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--dim);margin-top:0.55rem;line-height:1.5;}
 .gotm-warn{color:#f5a042;}
 
@@ -649,7 +663,7 @@ function gotmRow(pick){
     state = CAN_EDIT
       ? `<a href="add.html?t=${encodeURIComponent(pick.game)}&gotm=${encodeURIComponent(pick.tag)}">+ add to tracker</a>`
       : 'not tracked';
-    stateCls = 'act';
+    stateCls = CAN_EDIT ? 'act link' : 'act';
   } else if(g.s === 'done'){
     state = 'played · verify flair'; stateCls = 'act';
   } else {
