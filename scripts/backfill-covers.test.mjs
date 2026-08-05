@@ -3,7 +3,7 @@
 // storefront search API once matched "ITTA" to an unrelated "It Takes Two" bundle, and
 // "Tomb Raider I Remastered" to the wrong remaster pack, both silently. That must not
 // happen again here, so the exact-match rule gets its own test, not just a happy path.
-import { normalize, findCover, findCoverDetailed, candidateQueries, backfillCovers } from "./backfill-covers.mjs";
+import { normalize, findCover, findCoverDetailed, candidateQueries, backfillCovers, SGDB_TITLE_ALIASES } from "./backfill-covers.mjs";
 import assert from "node:assert/strict";
 
 process.env.STEAMGRIDDB_API_KEY = "fake-key";
@@ -64,11 +64,30 @@ await test("candidateQueries widens the search without loosening acceptance", ()
     "a year marks a distinct remake with its own art, so it must not be stripped");
   assert.ok(remake.every(q => q.includes("(2019)")), "every candidate keeps the edition marker");
 
-  assert.deepEqual(candidateQueries("Celeste (PICO-8)"), ["Celeste (PICO-8)"],
-    "the PICO-8 prototype is not the 2018 game and must not borrow its art");
+  // The PICO-8 build has its own catalogue entry ("Celeste Classic"), so it resolves to that
+  // — never to plain "Celeste", which is the different, 2018 game.
+  const pico = candidateQueries("Celeste (PICO-8)");
+  assert.ok(pico.includes("Celeste Classic"), "it should reach the prototype's own entry");
+  assert.ok(!pico.includes("Celeste"), "and must never fall through to the 2018 game");
 
-  assert.ok(candidateQueries("999: Nine Hours, Nine Persons").includes("Nine Hours, Nine Persons, Nine Doors"),
+  assert.ok(candidateQueries("999: Nine Hours, Nine Persons").includes("999"),
     "an irreducible difference comes from the alias map");
+});
+
+await test("no alias points two library entries at the same catalogue game", () => {
+  // The failure this guards against: aliasing "Lies of P: Overture" to "Lies of P" would give
+  // that record the base game's art, and the library holds both. Same reasoning as refusing to
+  // strip an edition marker — an alias must never collapse two distinct records onto one game.
+  const targets = Object.values(SGDB_TITLE_ALIASES).map(v => v.toLowerCase());
+  assert.equal(new Set(targets).size, targets.length, "two aliases resolve to the same catalogue title");
+
+  for (const [from, to] of Object.entries(SGDB_TITLE_ALIASES)) {
+    assert.notEqual(from.toLowerCase(), to.toLowerCase(), `${from} aliases to itself`);
+  }
+  assert.ok(!("Lies of P: Overture" in SGDB_TITLE_ALIASES),
+    "Overture must stay unaliased while plain 'Lies of P' is its own record");
+  assert.ok(!("Zelda: Link's Awakening (2019)" in SGDB_TITLE_ALIASES),
+    "the 2019 remake must not borrow the Game Boy original's art");
 });
 
 await test("a Pokemon title now resolves against the catalogue's accented name", async () => {

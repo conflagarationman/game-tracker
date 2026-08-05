@@ -42,10 +42,30 @@ export function normalize(title) {
 // Tracker titles that are genuinely shorter than the catalogue's, in ways no rule derives:
 // a dropped subtitle. Kept explicit and small for the same reason sync-apis.mjs keeps its
 // own alias map small — anything a rule can handle belongs in candidateQueries() instead.
+// Every entry below was read off the run summary's "catalogue offered" column rather than
+// guessed — that report exists precisely so this map can be filled in from evidence.
 export const SGDB_TITLE_ALIASES = {
-  "999: Nine Hours, Nine Persons": "Nine Hours, Nine Persons, Nine Doors",
+  "999: Nine Hours, Nine Persons": "999",
   "Marvel vs. Capcom 2": "Marvel vs. Capcom 2: New Age of Heroes",
+  "Zelda: Wind Waker HD": "The Legend of Zelda: The Wind Waker HD",
+  // The standalone release the catalogue actually carries; plain "Four Swords" only exists
+  // there bundled into A Link to the Past.
+  "Zelda: Four Swords": "The Legend of Zelda: Four Swords Anniversary Edition",
+  "Pokemon LeafGreen": "Pokémon LeafGreen Version",
+  "Donkey Kong: Tropical Freeze": "Donkey Kong Country: Tropical Freeze",
+  "Cadence of Hyrule": "Cadence of Hyrule: Crypt of the NecroDancer Featuring The Legend of Zelda",
+  // The PICO-8 build has its own catalogue entry under its own name, which is why refusing to
+  // strip "(PICO-8)" was right: this gets the prototype's art, not the 2018 game's.
+  "Celeste (PICO-8)": "Celeste Classic",
 };
+
+// Deliberately NOT aliased, and why — so nobody "fixes" these by adding an entry later:
+//   Lies of P: Overture  -> the catalogue has no Overture entry, only "Lies of P", which is
+//                           already a separate game in this library. Aliasing would hand both
+//                           records the same art.
+//   Zelda: Link's Awakening (2019) -> the catalogue's "The Legend of Zelda: Link's Awakening"
+//                           is the Game Boy original, also in this library.
+//   Tetris, Sesame St: Elmo's Number Journey -> no matching catalogue entry at all.
 
 // Parenthetical suffixes safe to drop, because they name a fan PORT of the same game and the
 // catalogue only lists the original: 2 Ship 2 Harkinian (Majora's Mask) and Ship of Harkinian
