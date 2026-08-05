@@ -22,6 +22,9 @@ jobs:
         with:
           node-version: 20
 
+      # GITHUB_STEP_SUMMARY lets the script publish the unmatched titles, and what the
+      # catalogue called them instead, onto the run page — so a leftover is an actionable
+      # one-line alias rather than something buried in step logs.
       - name: Backfill missing cover art from SteamGridDB
         env:
           STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}

@@ -284,7 +284,10 @@ async function main() {
 // tests must not trigger a real sync against the actual games.json file and live APIs.
 // pathToFileURL (not manual string-building) so this is correct on Windows too, not just
 // the Linux Actions runner this actually ships on.
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// argv[1] is undefined under `node -e` / `--input-type=module`, and pathToFileURL throws on
+// undefined rather than returning null — so guard it, or merely *importing* this module from
+// such a context crashes before any of its exports can be used.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => {
     console.error(e);
     process.exit(1);

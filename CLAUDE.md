@@ -117,7 +117,13 @@ interpreting it:
   Steam's own counters; achievements are unaffected and still sync.
 - `backfill-covers.yml` — Sundays. Fills gaps in `covers.json` from SteamGridDB. It declines
   uncertain matches rather than guessing, so some titles stay uncovered on purpose; the pages
-  fall back to a coloured platform glyph.
+  fall back to a coloured platform glyph. Matching folds diacritics (the catalogue writes
+  "Pokémon", this library writes "Pokemon") and tries a few derived search terms — the
+  catalogue's "The Legend of Zelda: X" for a "Zelda: X" tag, and known fan-port suffixes
+  like `(2S2H)` dropped. A parenthetical that marks a *different edition* — `(2019)`,
+  `(PICO-8)` — is deliberately kept, since those have their own art. Titles it still can't
+  place are listed on the workflow's run summary alongside what the catalogue offered, so
+  the fix is an `SGDB_TITLE_ALIASES` entry.
 - `fetch-gotm.mjs` — daily, alongside the Steam sync. Rebuilds `gotm.json` from the club's
   newest post. It needs `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`, because unauthenticated
   Reddit refuses cloud IP ranges, which is where Actions runners live. A failed or unparseable
@@ -133,7 +139,7 @@ and exits non-zero on failure.
 
 ```
 node scripts/sync-apis.test.mjs        # 12
-node scripts/backfill-covers.test.mjs  #  6
+node scripts/backfill-covers.test.mjs  # 11
 node scripts/fetch-gotm.test.mjs       # 13
 cd worker && node index.test.mjs       # 23
 ```
