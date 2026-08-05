@@ -2448,7 +2448,7 @@
     "id": 1,
     "t": "Pokemon Pokopia",
     "p": "switch2",
-    "s": "done",
+    "s": "playing",
     "r": 10,
     "g": "RPG",
     "y": 2025,
@@ -2463,7 +2463,7 @@
     "achCount": null,
     "actualHours": null,
     "lastPlayed": null,
-    "casual": false,
+    "casual": true,
     "note": null,
     "start": null,
     "queued": null
