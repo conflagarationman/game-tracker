@@ -59,7 +59,11 @@ export const SGDB_TITLE_ALIASES = {
   "Celeste (PICO-8)": "Celeste Classic",
 };
 
-// Deliberately NOT aliased, and why — so nobody "fixes" these by adding an entry later:
+// The five titles that remain uncovered after all of the above, and why. Recorded so the next
+// person doesn't re-investigate them — none is fixable by another alias:
+//   999: Nine Hours, Nine Persons -> the "999" alias DOES match, but the catalogue holds no
+//                           grids for that entry. Only a hand-picked URL in covers.json, or
+//                           somebody uploading art to SteamGridDB, changes this.
 //   Lies of P: Overture  -> the catalogue has no Overture entry, only "Lies of P", which is
 //                           already a separate game in this library. Aliasing would hand both
 //                           records the same art.
