@@ -36,6 +36,22 @@ await test("normalize() strips punctuation/case so equivalent titles compare equ
   assert.notEqual(normalize("Tomb Raider I Remastered"), normalize("Tomb Raider IV-VI Remastered"));
 });
 
+await test("normalize() folds accents so plain-ASCII titles match their accented SteamGridDB listing", async () => {
+  // Regression test: every Pokemon title in games.json is stored without the accent
+  // ("Pokemon Pokopia"), but SteamGridDB and every other real source list it as
+  // "Pokémon Pokopia" -- the exact-match rule was silently rejecting all of them.
+  assert.equal(normalize("Pokemon Pokopia"), normalize("Pokémon Pokopia"));
+});
+
+await test("findCover matches a plain-ASCII title against an accented SteamGridDB result (the Pokemon regression)", async () => {
+  stubSgdb({
+    searchResults: [{ id: 5503567, name: "Pokémon Pokopia", types: ["steam"], verified: true }],
+    grids: [{ id: 1, score: 8, url: "https://example.com/pokopia.jpg" }],
+  });
+  const url = await findCover("Pokemon Pokopia");
+  assert.equal(url, "https://example.com/pokopia.jpg");
+});
+
 await test("findCover accepts an exact normalized title match and returns the highest-score grid", async () => {
   stubSgdb({
     searchResults: [{ id: 42, name: "Chained Echoes", types: ["steam"], verified: true }],

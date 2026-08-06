@@ -29,7 +29,9 @@ const SGDB_BASE = "https://www.steamgriddb.com/api/v2";
 // "Tomb Raider I Remastered" to the wrong remaster pack. Only an exact normalized match
 // is ever auto-accepted; anything else is left for a manual pick rather than guessed.
 export function normalize(title) {
-  return title.toLowerCase().replace(/[:'".!™®]/g, "").replace(/\s+/g, " ").trim();
+  return title
+    .normalize("NFD").replace(/[̀-ͯ]/g, "") // fold accents: "Pokémon" -> "Pokemon"
+    .toLowerCase().replace(/[:'".!™®]/g, "").replace(/\s+/g, " ").trim();
 }
 
 async function sgdbGet(path) {
