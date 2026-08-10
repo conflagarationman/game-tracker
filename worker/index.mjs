@@ -290,6 +290,14 @@ export default {
       if (url.pathname.endsWith("/games/edit")) {
         const { id, ...patch } = body;
         const games = await editGame(env, id, patch);
+        // Only a status change affects what the hub push and Steam/RA sync care about
+        // (now_playing/up_next categorization, whether a game is even synced at all) —
+        // an edit to a note or rating would just burn an Actions run for an identical
+        // sync result, same reasoning /games/reorder already documents.
+        if ("s" in patch) {
+          const triggers = await triggerSyncWorkflows(env);
+          return json({ games, triggers }, 200, origin);
+        }
         return json(games, 200, origin);
       }
       if (url.pathname.endsWith("/games/delete")) {

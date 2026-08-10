@@ -482,8 +482,13 @@ $('submit-btn').addEventListener('click', async () => {
   showMsg('Saving…', true);
   try {
     if (editingId) {
-      await callWorker('/games/edit', { id: editingId, ...input });
-      showMsg(`Saved "${input.t}". <a href="index.html">View tracker &rarr;</a>`, true);
+      const data = await callWorker('/games/edit', { id: editingId, ...input });
+      let msg = `Saved "${input.t}". <a href="index.html">View tracker &rarr;</a>`;
+      const failed = ((data && data.triggers) || []).filter(t => !t.ok);
+      if (failed.length) {
+        msg += `<br><span style="color:#f5a042">⚠ Saved, but couldn't auto-trigger: ${failed.map(t => t.workflow).join(', ')}. They'll still run on their normal schedule.</span>`;
+      }
+      showMsg(msg, true);
     } else {
       const data = await callWorker('/games/add', input);
       let msg = `Added "${input.t}". <a href="index.html">View tracker &rarr;</a>`;

@@ -118,7 +118,8 @@ await test("gotmFlair defaults to false on add and survives an unrelated edit", 
   // the same way the completion fields aren't.
   await post("/games/edit", { id: added.id, gotmFlair: true });
   const res2 = await post("/games/edit", { id: added.id, s: "done" });
-  const edited = (await res2.json()).find(g => g.id === added.id);
+  // A status-changing edit's response is {games, triggers}, same shape as add — unwrap it.
+  const edited = (await res2.json()).games.find(g => g.id === added.id);
   assert.equal(edited.gotmFlair, true, "flair must survive a later status change");
   assert.equal(edited.gotm, "Aug 2026");
 });
@@ -180,7 +181,8 @@ await test("POST /games/edit patches only the matching game by id", async () => 
   const gh = fakeGitHub({ games: [baseGame({ id: 1, s: "queue", start: null }), baseGame({ id: 2, t: "Other" })] });
   const res = await post("/games/edit", { id: 1, s: "playing", start: "2026-07-28" });
   assert.equal(res.status, 200);
-  const games = await res.json();
+  // A status-changing edit's response is {games, triggers}, same shape as add — unwrap it.
+  const { games } = await res.json();
   assert.equal(games.find(g => g.id === 1).s, "playing");
   assert.equal(games.find(g => g.id === 1).start, "2026-07-28");
   assert.equal(games.find(g => g.id === 2).t, "Other", "the other game must be untouched");
@@ -233,9 +235,25 @@ await test("add still succeeds (200) even when both workflow dispatches fail —
   assert.equal(gh.dispatches.length, 2, "both dispatches should still have been attempted");
 });
 
-await test("edit and delete never dispatch either workflow — only add does", async () => {
+await test("an edit that changes status dispatches both workflows, same as add", async () => {
+  // The actual bug this guards against: moving a game from queue to playing via edit wrote
+  // to games.json immediately, but the hub push (now_playing/up_next) only reflected it on
+  // the next scheduled sync run — up to a day of the hub/digest email showing stale data.
+  const gh = fakeGitHub({ games: [baseGame({ id: 1, s: "queue" })] });
+  const res = await post("/games/edit", { id: 1, s: "playing" });
+  assert.equal(res.status, 200);
+  const { games, triggers } = await res.json();
+  assert.equal(games.find(g => g.id === 1).s, "playing");
+  assert.equal(gh.dispatches.length, 2, "a status change should trigger both workflows");
+  assert.ok(triggers.every(t => t.ok), "and report success");
+});
+
+await test("an edit that doesn't touch status, and delete, never dispatch either workflow", async () => {
   const gh = fakeGitHub({ games: [baseGame({ id: 1 }), baseGame({ id: 2, t: "Other" })] });
-  await post("/games/edit", { id: 1, s: "done" });
+  const res = await post("/games/edit", { id: 1, note: "just a note change" });
+  assert.equal(res.status, 200);
+  const games = await res.json();
+  assert.ok(Array.isArray(games), "a non-status edit's response shape is unchanged — plain array, no triggers key");
   await post("/games/delete", { id: 2 });
   assert.equal(gh.dispatches.length, 0);
 });
