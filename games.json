@@ -2897,10 +2897,13 @@
     "gotmFlair": false,
     "mastery": "100pct",
     "diff": null,
-    "achPct": null,
-    "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
+    "achPct": 100,
+    "achCount": [
+      21,
+      21
+    ],
+    "actualHours": 3.4,
+    "lastPlayed": "2026-08-10",
     "casual": false,
     "note": "Short but awesome",
     "start": "2026-08-09",
