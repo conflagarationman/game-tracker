@@ -2881,5 +2881,29 @@
     "y": null,
     "gotmFlair": false,
     "id": 504
+  },
+  {
+    "id": 505,
+    "t": "Kabuto Park",
+    "p": "steam",
+    "s": "done",
+    "r": 9,
+    "g": "Creature Collector",
+    "y": 2025,
+    "h": "2-4h",
+    "cy": 2026,
+    "cm": 7,
+    "gotm": null,
+    "gotmFlair": false,
+    "mastery": "100pct",
+    "diff": null,
+    "achPct": null,
+    "achCount": null,
+    "actualHours": null,
+    "lastPlayed": null,
+    "casual": false,
+    "note": "Short but awesome",
+    "start": "2026-08-09",
+    "queued": null
   }
 ]
