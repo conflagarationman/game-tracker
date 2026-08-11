@@ -380,13 +380,13 @@
     "gotmFlair": false,
     "mastery": null,
     "diff": null,
-    "achPct": 83,
+    "achPct": 86,
     "achCount": [
-      48,
+      50,
       58
     ],
-    "actualHours": 24.3,
-    "lastPlayed": "2026-08-10",
+    "actualHours": 26,
+    "lastPlayed": "2026-08-11",
     "casual": false,
     "note": "Releases Jul 28",
     "start": "2026-07-28",
