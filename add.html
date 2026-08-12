@@ -111,6 +111,7 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
       <select id="p">
         <option value="steam">Steam</option>
         <option value="steamdeck">Steam Deck</option>
+        <option value="pc">PC (non-Steam)</option>
         <option value="ps5">PS5</option>
         <option value="switch">Switch</option>
         <option value="switch2">Switch 2</option>
@@ -533,7 +534,7 @@ async function loadGames() {
 // relationship between several.
 const PLAT_LABEL = {
   steam: 'Steam', steamdeck: 'Steam Deck', ps5: 'PS5', switch: 'Switch',
-  switch2: 'Switch 2', ayn: 'AYN Thor', retro: 'Retro', wiiu: 'Wii U',
+  pc: 'PC', switch2: 'Switch 2', ayn: 'AYN Thor', retro: 'Retro', wiiu: 'Wii U',
 };
 
 let roOrder = [];        // queue games, in the order shown

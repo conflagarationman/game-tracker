@@ -37,7 +37,10 @@ One flat array. Every record carries every key, with `null` for unset.
 {
   "id": 410,              // unique, assigned by the Worker as max(id)+1
   "t": "Halo: Campaign Evolved",
-  "p": "steam",           // steam | steamdeck | ps5 | switch | switch2 | ayn | retro | wiiu
+  "p": "steam",           // steam | steamdeck | pc | ps5 | switch | switch2 | ayn | retro | wiiu
+                          // "pc" = a PC game NOT in the Steam library (Battle.net, GOG,
+                          // itch, a private server). The sync skips it, so achPct /
+                          // actualHours stay null by design, not by failure.
   "s": "playing",         // playing | queue | soon | done | dropped
   "g": "FPS",             // genre, free text
   "y": 2026,              // release year

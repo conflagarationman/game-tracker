@@ -33,7 +33,10 @@
 const FILE = "games.json";
 const UA = "game-tracker-admin";
 
-const VALID_PLATFORMS = new Set(["steam", "steamdeck", "ps5", "switch", "switch2", "ayn", "retro", "wiiu"]);
+// "pc" is deliberately distinct from "steam": it means a PC game that is not in the Steam
+// library — Battle.net, GOG, itch, a private/offline server. The sync only looks at steam and
+// steamdeck entries, so a pc game is skipped outright rather than fruitlessly searched for.
+const VALID_PLATFORMS = new Set(["steam", "steamdeck", "pc", "ps5", "switch", "switch2", "ayn", "retro", "wiiu"]);
 const VALID_STATUSES = new Set(["playing", "queue", "soon", "done", "dropped"]);
 // Mirrors the badge map in index.html's masteryBadge() — an unknown value there renders as
 // nothing at all, so a typo would silently vanish from the card rather than show up wrong.

@@ -212,6 +212,8 @@ section:first-of-type .slabel{margin-top:0;}
 .p-ayn      {background:#ff4af022;color:#ff4af0;border:1px solid #ff4af044;}
 .p-retro    {background:#ffb84a22;color:#ffb84a;border:1px solid #ffb84a44;}
 .p-wiiu     {background:#009ac722;color:#009ac7;border:1px solid #009ac744;}
+/* Slate, kept clear of every other platform hue so a PC entry never reads as Steam. */
+.p-pc       {background:#9aa7b822;color:#9aa7b8;border:1px solid #9aa7b844;}
 
 /* Meta pills */
 .yr{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);}
@@ -331,9 +333,9 @@ let COVERS = {};
 let G = [];
 
 const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const PL={steam:'Steam',steamdeck:'Steam Deck',ps5:'PS5',switch:'Switch',switch2:'Switch 2',ayn:'AYN Thor',retro:'Retro',wiiu:'Wii U'};
-const PC={steam:'#00e5ff',steamdeck:'#a06bff',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
-const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
+const PL={steam:'Steam',steamdeck:'Steam Deck',pc:'PC',ps5:'PS5',switch:'Switch',switch2:'Switch 2',ayn:'AYN Thor',retro:'Retro',wiiu:'Wii U'};
+const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
+const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DIFF_LABELS={1:'Easy',2:'Normal',3:'Hard',4:'Expert',5:'Brutal'};
 let NOW = new Date();
 let open={ar:false,yl:false,so:false};

@@ -72,6 +72,15 @@ await test("validateNewGame requires title, a known platform, and a known status
   assert.equal(validateNewGame({ t: "Foo", p: "steam", s: "queue" }), null);
 });
 
+await test("pc is a valid platform, distinct from steam so the sync skips it", async () => {
+  assert.equal(validateNewGame({ t: "Some GOG Game", p: "pc", s: "playing" }), null);
+  fakeGitHub({ games: [baseGame({ id: 1 })] });
+  const res = await post("/games/add", { t: "Offline Server Thing", p: "pc", s: "playing" });
+  assert.equal(res.status, 200);
+  const { games } = await res.json();
+  assert.equal(games.find(g => g.t === "Offline Server Thing").p, "pc");
+});
+
 await test("validateGameFields passes on unset (null) optional fields — null means 'not set', not invalid", () => {
   assert.equal(validateGameFields({}), null);
   assert.equal(validateGameFields({ cy: null, cm: null, r: null, diff: null, mastery: null, y: null }), null);
