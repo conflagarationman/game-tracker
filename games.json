@@ -1693,8 +1693,8 @@
       0,
       37
     ],
-    "actualHours": null,
-    "lastPlayed": null,
+    "actualHours": 0.3,
+    "lastPlayed": "2026-08-16",
     "casual": false,
     "note": null,
     "start": null,
