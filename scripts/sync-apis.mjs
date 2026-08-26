@@ -63,6 +63,7 @@ const RA_TITLE_MAP = {
   "Advance Wars": "Advance Wars",
   "Wario Land 4": "Wario Land 4",
   "Metroid: Samus Returns": "Metroid: Samus Returns",
+  "Pokemon Lazarus": "~Hack~ Pokémon Lazarus",
 };
 
 async function steamGet(iface, method, version, params) {
