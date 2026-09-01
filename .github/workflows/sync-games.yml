@@ -12,6 +12,9 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Healthcheck - signal start
+        run: curl -fsS -m 10 --retry 3 https://hc-ping.com/8cb20190-ff66-41b6-a8bc-4b4bd993082a/start
+
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5
@@ -50,6 +53,14 @@ jobs:
           git diff --staged --quiet || git commit -m "Sync Steam & RetroAchievements data"
           git pull --rebase origin main
           git push
+
+      - name: Healthcheck - signal success
+        if: success()
+        run: curl -fsS -m 10 --retry 3 https://hc-ping.com/8cb20190-ff66-41b6-a8bc-4b4bd993082a
+
+      - name: Healthcheck - signal failure
+        if: failure()
+        run: curl -fsS -m 10 --retry 3 https://hc-ping.com/8cb20190-ff66-41b6-a8bc-4b4bd993082a/fail
 
       # See TODO above - paired with the disabled GOTM step; re-enable both together.
       # - name: Fail the run if the club fetch failed
