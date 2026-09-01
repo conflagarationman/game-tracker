@@ -2987,8 +2987,8 @@
   {
     "r": 0,
     "h": null,
-    "cy": null,
-    "cm": null,
+    "cy": 2026,
+    "cm": 8,
     "gotm": null,
     "gotmFlair": false,
     "mastery": null,
@@ -3006,7 +3006,7 @@
     "queued": null,
     "t": "Coffee Talk",
     "p": "steam",
-    "s": "playing",
+    "s": "done",
     "g": "Visual Novel",
     "id": 509
   },
@@ -3106,5 +3106,29 @@
     "note": null,
     "start": null,
     "queued": "2026-09-01"
+  },
+  {
+    "id": 514,
+    "t": "Space Rock Breaker",
+    "p": "steam",
+    "s": "done",
+    "g": "Incremental",
+    "y": 2025,
+    "h": null,
+    "r": 0,
+    "cy": 2026,
+    "cm": 8,
+    "gotm": null,
+    "gotmFlair": false,
+    "mastery": "100pct",
+    "diff": null,
+    "achPct": null,
+    "achCount": null,
+    "actualHours": null,
+    "lastPlayed": null,
+    "casual": false,
+    "note": null,
+    "start": null,
+    "queued": null
   }
 ]
