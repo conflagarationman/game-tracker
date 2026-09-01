@@ -55,6 +55,18 @@ await test("parseTitle pulls month, game and platform out of the post title", ()
   assert.equal(parseTitle("Bogusmonth 2026 Game of the Month - Nope"), null, "an unreal month is not a pick");
 });
 
+// Captured from the club's September 2026 post. Starting this month the club alternates the
+// usual by-committee title with a "Host Presents" format for months where a randomly-picked
+// mod gets carte blanche — same club, same history block, different title shape.
+const HOST_TITLE = "hbi2k Presents SEP '26 GotM - Civilization Revolution (DS)";
+
+await test("parseTitle also handles the alternating 'Host Presents MON 'YY GotM' format", () => {
+  assert.deepEqual(parseTitle(HOST_TITLE), { month: "2026-09", game: "Civilization Revolution", platform: "DS" });
+  assert.deepEqual(parseTitle("u/somehost Presents jan '27 gotm - Some Game"),
+    { month: "2027-01", game: "Some Game", platform: null }, "case must not matter");
+  assert.equal(parseTitle("hbi2k Presents Bogusmonth '26 GotM - Nope"), null, "an unreal month is not a pick here either");
+});
+
 await test("parsePreviousList reads the whole history block", () => {
   const list = parsePreviousList(BODY);
   assert.equal(list.length, 19, `expected 19 previous picks, got ${list.length}`);
