@@ -3039,11 +3039,11 @@
   {
     "r": 0,
     "h": null,
-    "cy": null,
-    "cm": null,
+    "cy": 2026,
+    "cm": 8,
     "gotm": null,
     "gotmFlair": false,
-    "mastery": null,
+    "mastery": "100pct",
     "diff": null,
     "achPct": null,
     "achCount": null,
@@ -3055,7 +3055,7 @@
     "queued": null,
     "t": "Portal: Alive & Kicking",
     "p": "steam",
-    "s": "playing",
+    "s": "done",
     "g": "Puzzle",
     "id": 511
   },
