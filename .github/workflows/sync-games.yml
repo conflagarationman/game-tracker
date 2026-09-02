@@ -51,7 +51,12 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add games.json last-synced.json gotm.json
           git diff --staged --quiet || git commit -m "Sync Steam & RetroAchievements data"
-          git pull --rebase origin main
+          # actions/checkout sets the local branch to track its own origin ref, so a bare
+          # `pull --rebase` reconciles against whatever branch actually got checked out — on
+          # main that's a concurrent-commit race, but a hardcoded "origin main" here breaks a
+          # manual workflow_dispatch run against any other branch: it rebases that branch's
+          # unrelated history onto main and every file conflicts as add/add.
+          git pull --rebase
           git push
 
       - name: Healthcheck - signal success

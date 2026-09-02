@@ -139,7 +139,22 @@ export async function syncSteam(games, log, farmedAppids = new Set()) {
     if (entry.p !== "steam" && entry.p !== "steamdeck") continue; // only these run through Steam
     const searchName = STEAM_NAME_ALIASES[entry.t] || entry.t;
     const sg = byNormalizedName.get(normalize(searchName));
-    if (!sg) continue;
+    if (!sg) {
+      // A silent miss here is exactly what broke Halo (see above) — except that had playtime
+      // to notice missing. A game GetOwnedGames simply never returns (some free/tool-type
+      // apps aren't included even with include_played_free_games) would otherwise sit at
+      // null forever with no signal anything was wrong. Same discipline as backfill-covers.mjs's
+      // declines: name what the source actually offered instead of just saying "not found".
+      const firstWord = normalize(searchName).split(" ")[0];
+      const near = firstWord
+        ? [...byNormalizedName.values()].filter(g => normalize(g.name).includes(firstWord)).slice(0, 5)
+        : [];
+      const suffix = near.length
+        ? ` — closest owned titles: ${near.map(g => `"${g.name}"`).join(", ")}`
+        : "";
+      log.push(`Steam: no library match for "${entry.t}" among ${byNormalizedName.size} owned titles${suffix}`);
+      continue;
+    }
 
     const isFarming = farmedAppids.has(sg.appid);
     const hours = Math.round((sg.playtime_forever / 60) * 10) / 10;

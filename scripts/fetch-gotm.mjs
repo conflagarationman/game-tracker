@@ -47,9 +47,11 @@ export function monthIndex(ym) {
 }
 
 export function toYm(name, year) {
-  const i = MONTHS.findIndex(x => x.toLowerCase() === String(name).toLowerCase());
+  let i = MONTHS.findIndex(x => x.toLowerCase() === String(name).toLowerCase());
+  if (i === -1) i = SHORT.findIndex(x => x.toLowerCase() === String(name).toLowerCase());
   if (i === -1) return null;
-  return `${year}-${String(i + 1).padStart(2, "0")}`;
+  const y = String(year).length === 2 ? Number(year) + 2000 : Number(year);
+  return `${y}-${String(i + 1).padStart(2, "0")}`;
 }
 
 // The "Mon YYYY" form games.json stores in its gotm tag, which is the join key between a
@@ -70,10 +72,17 @@ export function monthsLeft(pickYm, nowYm) {
   return pick + ELIGIBLE_MONTHS - now;
 }
 
-// Post titles look like "August 2026 Game of the Month - Marvel vs. Capcom 2 (Dreamcast)".
-// The platform is optional: not every month has carried one.
+// Post titles normally look like "August 2026 Game of the Month - Marvel vs. Capcom 2
+// (Dreamcast)". Starting Sep 2026 the club alternates that with a second host-picked format
+// — "hbi2k Presents SEP '26 GotM - Civilization Revolution (DS)" — for months where a
+// randomly-chosen mod gets carte blanche instead of the usual by-committee pick. The platform
+// is optional in both: not every month has carried one.
+const STANDARD_TITLE_RE = /^([A-Za-z]+)\s+(\d{4})\s+Game of the Month\s*[-–—]\s*(.+?)\s*$/;
+const HOST_TITLE_RE = /^.+?\s+Presents\s+([A-Za-z]+)\s*['’](\d{2})\s+GotM\s*[-–—]\s*(.+?)\s*$/i;
+
 export function parseTitle(title) {
-  const m = /^([A-Za-z]+)\s+(\d{4})\s+Game of the Month\s*[-–—]\s*(.+?)\s*$/.exec(title || "");
+  const t = String(title || "");
+  const m = STANDARD_TITLE_RE.exec(t) || HOST_TITLE_RE.exec(t);
   if (!m) return null;
   const ym = toYm(m[1], m[2]);
   if (!ym) return null;
