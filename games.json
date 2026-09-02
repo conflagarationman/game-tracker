@@ -1855,8 +1855,8 @@
       0,
       29
     ],
-    "actualHours": 1,
-    "lastPlayed": "2026-09-01",
+    "actualHours": 1.8,
+    "lastPlayed": "2026-09-02",
     "casual": true,
     "note": null,
     "start": null,
@@ -2993,13 +2993,13 @@
     "gotmFlair": false,
     "mastery": null,
     "diff": null,
-    "achPct": 63,
+    "achPct": 79,
     "achCount": [
-      15,
+      19,
       24
     ],
-    "actualHours": 9.8,
-    "lastPlayed": "2026-08-31",
+    "actualHours": 10.7,
+    "lastPlayed": "2026-09-02",
     "casual": false,
     "note": null,
     "start": null,
