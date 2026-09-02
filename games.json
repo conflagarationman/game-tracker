@@ -2987,8 +2987,8 @@
   {
     "r": 0,
     "h": null,
-    "cy": 2026,
-    "cm": 8,
+    "cy": null,
+    "cm": null,
     "gotm": null,
     "gotmFlair": false,
     "mastery": null,
@@ -3006,7 +3006,7 @@
     "queued": null,
     "t": "Coffee Talk",
     "p": "steam",
-    "s": "done",
+    "s": "playing",
     "g": "Visual Novel",
     "id": 509
   },
