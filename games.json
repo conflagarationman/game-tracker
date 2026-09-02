@@ -3045,8 +3045,11 @@
     "gotmFlair": false,
     "mastery": "100pct",
     "diff": null,
-    "achPct": null,
-    "achCount": null,
+    "achPct": 100,
+    "achCount": [
+      9,
+      9
+    ],
     "actualHours": null,
     "lastPlayed": null,
     "casual": false,
