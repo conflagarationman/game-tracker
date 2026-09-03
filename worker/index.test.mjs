@@ -81,6 +81,16 @@ await test("pc is a valid platform, distinct from steam so the sync skips it", a
   assert.equal(games.find(g => g.t === "Offline Server Thing").p, "pc");
 });
 
+await test("ongoing is a valid status, accepted on add; an unknown status is still rejected with the full list", async () => {
+  assert.equal(validateNewGame({ t: "World of Warcraft", p: "pc", s: "ongoing" }), null);
+  assert.match(validateNewGame({ t: "Foo", p: "steam", s: "bogus" }), /playing.*ongoing.*queue.*soon.*done.*dropped/);
+  fakeGitHub({ games: [baseGame({ id: 1 })] });
+  const res = await post("/games/add", { t: "Marvel Snap", p: "steam", s: "ongoing" });
+  assert.equal(res.status, 200);
+  const { games } = await res.json();
+  assert.equal(games.find(g => g.t === "Marvel Snap").s, "ongoing");
+});
+
 await test("validateGameFields passes on unset (null) optional fields — null means 'not set', not invalid", () => {
   assert.equal(validateGameFields({}), null);
   assert.equal(validateGameFields({ cy: null, cm: null, r: null, diff: null, mastery: null, y: null }), null);
