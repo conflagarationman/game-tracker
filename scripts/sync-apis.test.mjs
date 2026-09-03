@@ -211,6 +211,23 @@ await test("pushToHub sorts now_playing by lastPlayed but takes up_next in array
   );
 });
 
+await test("pushToHub omits an ongoing game from now_playing", async () => {
+  // Passes today by construction (pushToHub filters g.s === "playing", a strict-equality
+  // check "ongoing" never matches) — pinning it anyway, since the exclusion is load-bearing
+  // for the hub card and is currently accidental rather than deliberately tested.
+  let captured = null;
+  globalThis.fetch = async (url, init) => {
+    captured = { url: String(url), body: JSON.parse(init.body) };
+    return new Response("{}", { status: 200 });
+  };
+  const games = [
+    baseGame({ id: 1, t: "World of Warcraft", s: "ongoing", lastPlayed: "2026-09-01" }),
+    baseGame({ id: 2, t: "Real Now Playing", s: "playing", lastPlayed: "2026-01-01" }),
+  ];
+  await pushToHub(games, []);
+  assert.deepEqual(captured.body.now_playing.map(g => g.name), ["Real Now Playing"]);
+});
+
 await test("pushToHub throws on a non-OK response so a failed push isn't silently swallowed", async () => {
   globalThis.fetch = async () => new Response("nope", { status: 502 });
   await assert.rejects(() => pushToHub([baseGame()], []));

@@ -41,7 +41,10 @@ One flat array. Every record carries every key, with `null` for unset.
                           // "pc" = a PC game NOT in the Steam library (Battle.net, GOG,
                           // itch, a private server). The sync skips it, so achPct /
                           // actualHours stay null by design, not by failure.
-  "s": "playing",         // playing | queue | soon | done | dropped
+  "s": "playing",         // playing | ongoing | queue | soon | done | dropped
+                          // "ongoing" = a live-service/evergreen game (WoW, Marvel Snap) played
+                          // indefinitely, never reaching "done" — no completion date, no HLTB
+                          // estimate, by design. See "Ongoing vs a boolean flag" below.
   "g": "FPS",             // genre, free text
   "y": 2026,              // release year
   "h": "20h",             // HowLongToBeat estimate, free text ("20h", "10-15h", "40+")
@@ -76,6 +79,20 @@ One flat array. Every record carries every key, with `null` for unset.
   flags them as "— needs date" in its dropdown so they can be found and filled in.
 - **`achPct` / `achCount` / `actualHours` / `lastPlayed` are bot-owned.** Editing them by hand
   is pointless — the next sync overwrites them.
+- **An `ongoing` game having `h: null`, `cy: null`, and `cm: null` is not missing data.** A
+  live-service game has no finish line to estimate and no completion date to record; those
+  fields stay null by design, the same way `pc`'s null `achPct` is a design choice and not a
+  sync failure.
+
+### Ongoing vs a boolean flag
+
+`ongoing` is a sixth value of `s`, not a `casual`-style boolean modifier on `"playing"`. A
+modifier was considered and rejected: every consumer in this codebase filters statuses by
+strict equality (`g.s === 'playing'`, `g.s === 'queue'`, `g.s === 'done' || g.s === 'dropped'`),
+so a new enum value excludes itself from all of them for free, while a boolean would need
+remembering — and excluding — in every one of those places, with silent over-counting as the
+failure mode. Don't relitigate this by proposing a `continuous: true` flag; it was already
+weighed and it's the wrong shape for how this codebase reads status.
 
 ### Array order is meaningful
 

@@ -35,12 +35,13 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
    coarse pointers (touch) get the tap-to-move flow below instead, which needs no gesture
    capture at all, so scrolling stays completely normal on phones in Edit mode. */
 @media (hover:hover) and (pointer:fine){
-  body.edit-mode #now .hero-card,body.edit-mode #queue .card,body.edit-mode #soon .card{
+  body.edit-mode #now .hero-card,body.edit-mode #queue .card,body.edit-mode #soon .card,body.edit-mode #ongoing .card{
     touch-action:none;cursor:grab;
   }
 }
 .dragging{box-shadow:0 12px 32px rgba(0,0,0,0.5);}
-#now.drop-hover,#queue.drop-hover,#soon.drop-hover,#now.move-target,#queue.move-target,#soon.move-target{
+#now.drop-hover,#queue.drop-hover,#soon.drop-hover,#ongoing.drop-hover,
+#now.move-target,#queue.move-target,#soon.move-target,#ongoing.move-target{
   outline:2px dashed var(--accent);outline-offset:6px;border-radius:8px;background:#c8f54212;
 }
 .move-picked{outline:2px solid var(--accent);outline-offset:2px;opacity:0.6;border-radius:10px;}
@@ -136,6 +137,11 @@ section:first-of-type .slabel{margin-top:0;}
 .card.now{border-left:3px solid var(--playing);}
 .card.dormant{border-left:3px solid var(--dim);opacity:0.75;}
 .card.faded{opacity:0.55;}
+/* Ongoing: deliberately lighter than a full Up Next card — no queue number, HLTB, or
+   achievement bar to begin with (see ongC()), and a smaller thumb + tighter padding on top of
+   that so the row reads at roughly .gotm-row's density rather than competing with real cards. */
+.card.ong .thumb,.card.ong .thumb-placeholder{width:44px;min-width:44px;height:44px;margin:6px;}
+.card.ong .card-content{padding:0.4rem 0.6rem;gap:3px;}
 
 /* Hover-lift only for devices with real mouse hover — gated so touch/mobile never gets a
    half-working hover state. Nothing is ever hidden behind hover; this is pure polish. */
@@ -181,6 +187,10 @@ section:first-of-type .slabel{margin-top:0;}
 /* Up Next: same cards as before, just wrapped so they flow into columns on wider screens
    instead of one long vertical list. Collapses to a single column on phones same as above. */
 .queue-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;}
+
+/* Ongoing: a slim stacked list, not a card grid — these rows carry no priority order to lay
+   out in columns for (see ongC()'s sort-by-lastPlayed note). */
+.ong-list{display:flex;flex-direction:column;gap:6px;}
 
 /* Card content */
 .card-content{flex:1;padding:0.65rem 0.75rem;display:flex;flex-direction:column;gap:5px;min-width:0;}
@@ -303,6 +313,10 @@ section:first-of-type .slabel{margin-top:0;}
   <h2 class="slabel" id="up-next-heading">Up next</h2>
   <div class="queue-grid" id="queue"></div>
 </section>
+<section aria-labelledby="ongoing-heading">
+  <h2 class="slabel" id="ongoing-heading">Ongoing</h2>
+  <div class="ong-list" id="ongoing"></div>
+</section>
 <section aria-label="Soon">
   <div class="cr" id="so-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="so-panel" onclick="tog('so')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('so');}"><span id="so-arr" aria-hidden="true">▶</span><span id="so-lbl">Soon™ (0)</span></div>
   <div id="so-panel" style="display:none;margin-top:0.75rem;">
@@ -389,6 +403,14 @@ function pb(p){return `<span class="plat p-${p}">${PL[p]||p}</span>`;}
 function isDormant(g){
   if(!g.lastPlayed) return false;
   return (NOW - new Date(g.lastPlayed))/(1000*60*60*24) > 30;
+}
+
+// Dormancy means opposite things for the two kinds of in-progress game. For a backlog game,
+// 30 days idle is a stall. For an ongoing game it's unremarkable — but 90+ days is a habit
+// that quietly ended, and the useful nudge is "demote this to dropped", not "get back to it".
+function isCold(g){
+  if(!g.lastPlayed) return false;
+  return (NOW - new Date(g.lastPlayed))/(1000*60*60*24) > 90;
 }
 
 function hltbEl(g){
@@ -510,6 +532,24 @@ function qC(g,n,showNum=true){
         ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
+    </div>
+  </div>`);
+}
+
+// A live-service game has no queue number, no HLTB estimate, and no achievement bar to earn —
+// none of that is a decision here, so the row doesn't ask for one. lastPlayed / isCold cover
+// what actually matters: is this still active. A game with no lastPlayed at all (WoW, p:"pc",
+// which syncSteam skips by design) just shows nothing rather than a guessed pill — falling
+// back to `start` would falsely read a daily-played game as cold months after it began.
+function ongC(g){
+  return cardLink(g, `<div class="card ong" data-id="${g.id}">
+    ${thumbEl(g)}
+    <div class="card-content">
+      <div class="row1">${pb(g.p)}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
+      <div class="row2">
+        ${lastPlayedEl(g)}${isCold(g)?'<span class="dormant-pill">❄ cold</span>':''}
+        ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
+      </div>
     </div>
   </div>`);
 }
@@ -726,6 +766,13 @@ function render(){
   const queue=G.filter(g=>g.s==='queue');
   const soon=G.filter(g=>g.s==='soon');
   const done=G.filter(g=>g.s==='done');
+  // Array order is the Up Next priority contract (CLAUDE.md) and /games/reorder can't touch
+  // ongoing rows, so presenting them in array order would imply an ordering nothing maintains.
+  const ongoing=G.filter(g=>g.s==='ongoing').sort((a,b)=>{
+    if(!a.lastPlayed) return b.lastPlayed?1:0;
+    if(!b.lastPlayed) return -1;
+    return new Date(b.lastPlayed)-new Date(a.lastPlayed);
+  });
   const backlogHrs=[...playing,...queue,...soon].reduce((s,g)=>s+(parseHltb(g.h)||0),0);
   const rated=done.filter(g=>g.r>0);
   const avg=rated.length?(rated.reduce((s,g)=>s+g.r,0)/rated.length).toFixed(1):'—';
@@ -740,6 +787,7 @@ function render(){
   `;
   document.getElementById('now').innerHTML=playing.length?playing.map(nowC).join(''):'<div class="empty">Nothing playing.</div>';
   document.getElementById('queue').innerHTML=queue.length?queue.map((g,i)=>qC(g,i+1,true)).join(''):'<div class="empty">Nothing up next.</div>';
+  document.getElementById('ongoing').innerHTML=ongoing.length?ongoing.map(ongC).join(''):'<div class="empty">Nothing ongoing.</div>';
   document.getElementById('so-lbl').textContent=`Soon™ (${soon.length})`;
   document.getElementById('soon').innerHTML=soon.length?soon.map(g=>qC(g,0,false)).join(''):'<div class="empty">Nothing here yet.</div>';
   renderGotm();
@@ -802,6 +850,9 @@ function sectionPatch(sectionId, g){
   if (sectionId==='now')   return { s:'playing', start: todayStr() };
   if (sectionId==='queue') return { s:'queue', queued: g.queued || todayStr() };
   if (sectionId==='soon')  return { s:'soon',  queued: g.queued || todayStr() };
+  // Not the unconditional todayStr() 'now' uses — moving an already-started game (WoW) into
+  // Ongoing must not reset when it began.
+  if (sectionId==='ongoing') return { s:'ongoing', start: g.start || todayStr() };
   return null;
 }
 
@@ -815,9 +866,15 @@ function setEditMode(on){
   try { localStorage.setItem('gt_edit_mode', on ? '1' : '0'); } catch(e){}
 }
 
+// The one list of move-target sections, shared by every drag/tap-to-move site below rather
+// than hardcoded five times over. A fourth entry added to only some of those sites fails
+// asymmetrically — miss cardSectionAt and a card can drag out of a section but never back in.
+const MOVE_SECTIONS = ['now','queue','soon','ongoing'];
+const MOVE_SEL = MOVE_SECTIONS.map(id => '#' + id).join(', ');
+
 function cardSectionAt(x, y){
   const el = document.elementFromPoint(x, y);
-  return el ? el.closest('#now, #queue, #soon') : null;
+  return el ? el.closest(MOVE_SEL) : null;
 }
 
 function beginVisualDrag(){
@@ -862,7 +919,7 @@ function onPointerDown(e){
   if (e.pointerType==='mouse' && e.button!==0) return;     // left-click only
   const cardEl = e.target.closest('.hero-card, .card');
   if (!cardEl || !cardEl.dataset.id) return;                // absent on Archive/Year Log cards
-  const container = cardEl.closest('#now, #queue, #soon');
+  const container = cardEl.closest(MOVE_SEL);
   if (!container) return;
   const g = G.find(x => x.id === Number(cardEl.dataset.id));
   if (!g) return;
@@ -954,7 +1011,7 @@ function cancelMoveMode(){
   if (!moveMode) return;
   const el = document.querySelector(`[data-id="${moveMode.g.id}"]`);
   if (el) el.classList.remove('move-picked');
-  ['now','queue','soon'].forEach(id => document.getElementById(id).classList.remove('move-target'));
+  MOVE_SECTIONS.forEach(id => document.getElementById(id).classList.remove('move-target'));
   moveMode = null;
   document.getElementById('move-bar').style.display = 'none';
 }
@@ -969,7 +1026,7 @@ async function commitMove(sectionId){
 function beginMoveMode(g, sourceId, cardEl){
   moveMode = { g, sourceId };
   cardEl.classList.add('move-picked');
-  ['now','queue','soon'].filter(id => id !== sourceId)
+  MOVE_SECTIONS.filter(id => id !== sourceId)
     .forEach(id => document.getElementById(id).classList.add('move-target'));
   document.getElementById('move-bar-title').textContent = `Moving "${g.t}"`;
   document.getElementById('move-bar').style.display = 'flex';
@@ -978,7 +1035,7 @@ function beginMoveMode(g, sourceId, cardEl){
 function handleTapMove(e){
   if (!editMode || canHoverDrag) return;
   if (clickGuard.suppress) return;                        // the pointer travelled — a scroll, not a tap
-  const sectionEl = e.target.closest('#now, #queue, #soon');
+  const sectionEl = e.target.closest(MOVE_SEL);
   if (moveMode){
     if (sectionEl) commitMove(sectionEl.id);
     return;                                                // tap outside any section: leave move mode open
@@ -1020,6 +1077,7 @@ function showSkeletons(){
   document.getElementById('stats').innerHTML=Array.from({length:6},()=>card('62px')).join('');
   document.getElementById('now').innerHTML=Array.from({length:2},()=>card('210px')).join('');
   document.getElementById('queue').innerHTML=Array.from({length:4},()=>card('84px')).join('');
+  document.getElementById('ongoing').innerHTML=Array.from({length:1},()=>card('56px')).join('');
 }
 showSkeletons();
 
@@ -1052,6 +1110,7 @@ Promise.all([
   document.getElementById('stats').innerHTML='';
   document.getElementById('now').innerHTML='';
   document.getElementById('queue').innerHTML='';
+  document.getElementById('ongoing').innerHTML='';
 });
 
 // The sync job runs daily at 13:00 UTC. A static date reads as fine forever if that job

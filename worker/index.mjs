@@ -37,7 +37,12 @@ const UA = "game-tracker-admin";
 // library — Battle.net, GOG, itch, a private/offline server. The sync only looks at steam and
 // steamdeck entries, so a pc game is skipped outright rather than fruitlessly searched for.
 const VALID_PLATFORMS = new Set(["steam", "steamdeck", "pc", "ps5", "switch", "switch2", "ayn", "retro", "wiiu"]);
-const VALID_STATUSES = new Set(["playing", "queue", "soon", "done", "dropped"]);
+// "ongoing" is a status, not a `casual`-style boolean modifier on "playing": every consumer in
+// this codebase filters statuses by strict equality, so a new enum value excludes itself from
+// all of them for free, where a flag would need remembering in each one. It marks a
+// live-service/evergreen game (WoW, Marvel Snap) that is played indefinitely and never reaches
+// "done" — no completion date, no HowLongToBeat estimate, by design rather than by omission.
+const VALID_STATUSES = new Set(["playing", "ongoing", "queue", "soon", "done", "dropped"]);
 // Mirrors the badge map in index.html's masteryBadge() — an unknown value there renders as
 // nothing at all, so a typo would silently vanish from the card rather than show up wrong.
 const VALID_MASTERY = new Set(["in-progress", "mastered", "platinum", "100pct"]);
