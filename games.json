@@ -3019,9 +3019,9 @@
     "gotmFlair": false,
     "mastery": null,
     "diff": null,
-    "achPct": 5,
+    "achPct": 6,
     "achCount": [
-      3,
+      4,
       63
     ],
     "actualHours": null,
@@ -3157,8 +3157,8 @@
     "diff": null,
     "achPct": null,
     "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
+    "actualHours": 5.6,
+    "lastPlayed": "2023-11-09",
     "casual": true,
     "note": "iOS",
     "start": null,
