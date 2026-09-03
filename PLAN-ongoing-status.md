@@ -38,7 +38,8 @@ The obvious alternative is a boolean modifier alongside `s: "playing"`, mirrorin
   achievement display, not placement — which is the proof that a modifier flag doesn't solve
   the actual ask anyway.
 
-Data value: `"ongoing"`. Human-facing heading: **"In rotation"**.
+Data value and human-facing label are the same word: **`ongoing`** / **"Ongoing"**.
+Jonny settled this; do not substitute "In rotation" or "Always on".
 
 ## 3. Changes, file by file
 
@@ -63,7 +64,7 @@ Line ~127, add one option directly under Playing so the ordering reads as a life
 
 ```html
 <option value="playing">Playing</option>
-<option value="ongoing">In rotation</option>
+<option value="ongoing">Ongoing</option>
 ```
 
 Nothing else in this file changes:
@@ -80,15 +81,15 @@ Insert **between Up next (ends line 305) and Soon™ (starts line 306)**:
 
 ```html
 <section aria-labelledby="ongoing-heading">
-  <h2 class="slabel" id="ongoing-heading">In rotation</h2>
+  <h2 class="slabel" id="ongoing-heading">Ongoing</h2>
   <div class="queue-grid" id="ongoing"></div>
 </section>
 ```
 
 **Render it unconditionally with an empty state — never `display:none` when empty.** A hidden
 section cannot be a drop target, so hiding it would make "drag WoW here" impossible from a
-clean slate. Follow the pattern already used at line 741-744: `'<div class="empty">Nothing in
-rotation.</div>'`.
+clean slate. Follow the pattern already used at line 741-744: `'<div class="empty">Nothing
+ongoing.</div>'`.
 
 ### 3.4 `index.html` — the row
 
@@ -123,7 +124,7 @@ Do **not** reuse `isDormant`. Add a sibling:
 
 ```js
 // Dormancy means opposite things for the two kinds of in-progress game. For a backlog game,
-// 30 days idle is a stall. For a game in rotation it's unremarkable — but 90+ days is a habit
+// 30 days idle is a stall. For an ongoing game it's unremarkable — but 90+ days is a habit
 // that quietly ended, and the useful nudge is "demote this to dropped", not "get back to it".
 function isCold(g){
   if(!g.lastPlayed) return false;
@@ -167,7 +168,7 @@ if (sectionId==='ongoing') return { s:'ongoing', start: g.start || todayStr() };
 ```
 
 Note `g.start || todayStr()`, **not** the unconditional `todayStr()` that `'now'` uses. Moving
-WoW into rotation should not reset its `start: "2026-08-11"`. `moveGameToSection` already
+Moving WoW to ongoing should not reset its `start: "2026-08-11"`. `moveGameToSection` already
 snapshots `{s, start, queued}` for rollback, so this patch shape needs no other change.
 
 ### 3.7 `index.html` — remaining small sites
@@ -176,10 +177,10 @@ snapshots `{s, start, queued}` for rollback, so this patch shape needs no other 
   `document.getElementById('ongoing').innerHTML = ...` line. Do **not** add it to `backlogHrs`
   (line 729) — an ongoing game has no finish line to estimate.
 - **Stats row (line 733-740):** leave it alone. It is already six wide and tight on mobile,
-  and "2 in rotation" is not a number anyone acts on. If it feels absent, that's the correct
+  and "2 ongoing" is not a number anyone acts on. If it feels absent, that's the correct
   feeling.
 - **`gotmRow` (line 672):** the state ternary falls through to raw `g.s`, which would print
-  `ongoing`. Add `g.s === 'ongoing' ? 'in rotation' :` to the chain.
+  `ongoing`. Add `g.s === 'ongoing' ? 'ongoing' :` to the chain.
 - **`showSkeletons` (line 1021)** and the **load-error handler (line 1053-1055):** add
   `#ongoing` to both so the section doesn't read as "loaded and empty" during a fetch, or
   keep stale rows after a failure. Both currently touch `now` and `queue` only.
@@ -240,25 +241,24 @@ tests and that headless-browser driving has caught real bugs that reading the co
 Chromium is preinstalled at `/opt/pw-browsers/chromium`; do not run `playwright install`.
 Check specifically:
 
-1. WoW renders in "In rotation", not "Now playing"; `Playing` stat reads 6.
+1. WoW renders under "Ongoing", not "Now playing"; `Playing` stat reads 6.
 2. The section renders its empty state when no game is ongoing, **and is still a valid drop
    target in that state** — this is the failure mode §3.3 exists to prevent.
-3. Desktop: drag a card from Now Playing into In rotation and back. Confirm `.drop-hover`
+3. Desktop: drag a card from Now Playing into Ongoing and back. Confirm `.drop-hover`
    highlights, and that auto-scroll still reaches the new section (it sits below Up Next, so
    it will often be below the fold from Now Playing).
 4. Mobile emulation (coarse pointer): tap-to-move picks up an ongoing row and the move bar
    offers the other three sections.
 5. With `WORKER` unset, rows are not links and edit mode is hidden — same as every other card.
 
-## 6. Open questions for Jonny — ask, don't guess
+## 6. Open question for Jonny — ask, don't guess
 
-1. **Hub card.** v1 drops ongoing games from the Family Holocron `now_playing` push entirely.
-   The alternative is a third array in the payload, but that needs a matching change on the
-   familyholocron side, which is outside this repo. Confirm the exclusion is what he wants
-   before shipping, since the hub card visibly loses WoW.
-2. **Heading wording.** "In rotation" is the recommendation over "Ongoing" / "Always on".
-   Cheap to change, but it appears in the section heading, the `add.html` option, and the GOTM
-   state label, so settle it before writing the CSS.
+**The hub card.** v1 drops ongoing games from the Family Holocron `now_playing` push entirely.
+The alternative is a third array in the payload, but that needs a matching change on the
+familyholocron side, which is outside this repo. Confirm the exclusion is what he wants before
+shipping, since the hub card visibly loses WoW.
+
+*(Label wording was the other open question. It is settled — see §2. "Ongoing", everywhere.)*
 
 ## 7. Out of scope — do not bundle
 
