@@ -82,8 +82,17 @@ Insert **between Up next (ends line 305) and Soon™ (starts line 306)**:
 ```html
 <section aria-labelledby="ongoing-heading">
   <h2 class="slabel" id="ongoing-heading">Ongoing</h2>
-  <div class="queue-grid" id="ongoing"></div>
+  <div class="ong-list" id="ongoing"></div>
 </section>
+```
+
+**Not `queue-grid`.** That class (line 183) is a multi-column
+`repeat(auto-fill,minmax(280px,1fr))` grid, which would lay ongoing games out as cards side by
+side — the opposite of the slim stacked list §3.4 specifies. Add a new container class
+modelled on `.gotm-rows` (line 82):
+
+```css
+.ong-list{display:flex;flex-direction:column;gap:6px;}
 ```
 
 **Render it unconditionally with an empty state — never `display:none` when empty.** A hidden
@@ -96,8 +105,8 @@ ongoing.</div>'`.
 **Reuse `.card`, do not invent a new row type.** Build it as
 `<div class="card ong" data-id="${g.id}">`, wrapped in `cardLink(g, ...)`.
 
-This matters mechanically, not just stylistically. `onPointerDown` (line 862) and
-`handleTapMove` (line 978) both find draggables via `e.target.closest('.hero-card, .card')`,
+This matters mechanically, not just stylistically. `onPointerDown` (line 863) and
+`handleTapMove` (line 986) both find draggables via `e.target.closest('.hero-card, .card')`,
 and `.drop-hover` / `.dragging` / `.move-picked` are all styled against `.card`. A bespoke
 `.ong-row` element would silently opt out of the entire drag and tap-to-move engine.
 
@@ -111,8 +120,9 @@ Row content — deliberately minimal, because none of this is a decision:
 [thumb] [platform pill] Title          [played Aug 28 | ❄ cold]  [📌 note]
 ```
 
-No queue number, no HLTB, no achievement bar, no `startEl`. Add a `nowC`-style function
-alongside `qC` (line 497) rather than overloading `qC` with a third mode.
+No queue number, no HLTB, no achievement bar, no `startEl`. Add a dedicated `ongC(g)`
+alongside `qC` (line 497) rather than overloading `qC` with a third mode — `qC` already
+carries a `showNum` flag for the Up Next / Soon split, and a third variant would tip it over.
 
 **Sort by `lastPlayed` descending, nulls last.** Not array order: array order is the Up Next
 priority contract (CLAUDE.md, "Array order is meaningful") and `/games/reorder` cannot touch
@@ -142,9 +152,10 @@ beats a wrong pill.
 
 ### 3.6 `index.html` — wire up the move targets
 
-Four selector strings and two arrays currently hardcode the three sections. **Replace all six
-with two shared constants** rather than adding a fourth entry to each — this is the
-change most likely to be half-applied.
+Three selector strings and two arrays currently hardcode the three sections — five sites,
+listed below. **Replace all five with two shared constants** rather than adding a fourth entry
+to each. This is the change most likely to be half-applied, and a half-applied version fails
+asymmetrically: miss `cardSectionAt` and you can drag out of Ongoing but not into it.
 
 ```js
 const MOVE_SECTIONS = ['now','queue','soon','ongoing'];
@@ -167,8 +178,8 @@ And `sectionPatch` (line 801):
 if (sectionId==='ongoing') return { s:'ongoing', start: g.start || todayStr() };
 ```
 
-Note `g.start || todayStr()`, **not** the unconditional `todayStr()` that `'now'` uses. Moving
-Moving WoW to ongoing should not reset its `start: "2026-08-11"`. `moveGameToSection` already
+Note `g.start || todayStr()`, **not** the unconditional `todayStr()` that `'now'` uses —
+moving WoW to ongoing must not reset its `start: "2026-08-11"`. `moveGameToSection` already
 snapshots `{s, start, queued}` for rollback, so this patch shape needs no other change.
 
 ### 3.7 `index.html` — remaining small sites
@@ -179,9 +190,10 @@ snapshots `{s, start, queued}` for rollback, so this patch shape needs no other 
 - **Stats row (line 733-740):** leave it alone. It is already six wide and tight on mobile,
   and "2 ongoing" is not a number anyone acts on. If it feels absent, that's the correct
   feeling.
-- **`gotmRow` (line 672):** the state ternary falls through to raw `g.s`, which would print
-  `ongoing`. Add `g.s === 'ongoing' ? 'ongoing' :` to the chain.
-- **`showSkeletons` (line 1021)** and the **load-error handler (line 1053-1055):** add
+- **`gotmRow` (line 672):** **no change needed.** The state ternary falls through to raw
+  `g.s`, which now prints exactly `ongoing` — a free consequence of the data value and the
+  label being the same word (§2). Do not add a branch that maps `'ongoing'` to `'ongoing'`.
+- **`showSkeletons` (line 1021)** and the **load-error handler (lines 1052-1054):** add
   `#ongoing` to both so the section doesn't read as "loaded and empty" during a fetch, or
   keep stale rows after a failure. Both currently touch `now` and `queue` only.
 - **`renderPanels` (line 611):** no change. Archive and Year Log filter `done || dropped`;
