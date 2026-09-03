@@ -3139,5 +3139,29 @@
     "note": null,
     "start": null,
     "queued": null
+  },
+  {
+    "id": 515,
+    "t": "Marvel Snap",
+    "p": "steam",
+    "s": "ongoing",
+    "r": 0,
+    "g": "CCG",
+    "y": 2022,
+    "h": null,
+    "cy": null,
+    "cm": null,
+    "gotm": null,
+    "gotmFlair": false,
+    "mastery": null,
+    "diff": null,
+    "achPct": null,
+    "achCount": null,
+    "actualHours": null,
+    "lastPlayed": null,
+    "casual": true,
+    "note": "iOS",
+    "start": null,
+    "queued": null
   }
 ]
