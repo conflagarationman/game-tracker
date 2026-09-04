@@ -2985,13 +2985,13 @@
     "id": 508
   },
   {
-    "r": 0,
+    "r": 8,
     "h": null,
-    "cy": null,
-    "cm": null,
+    "cy": 2026,
+    "cm": 8,
     "gotm": null,
     "gotmFlair": false,
-    "mastery": null,
+    "mastery": "100pct",
     "diff": null,
     "achPct": 79,
     "achCount": [
@@ -3006,9 +3006,10 @@
     "queued": null,
     "t": "Coffee Talk",
     "p": "steam",
-    "s": "playing",
+    "s": "done",
     "g": "Visual Novel",
-    "id": 509
+    "id": 509,
+    "y": null
   },
   {
     "r": 0,
