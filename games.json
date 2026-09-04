@@ -2993,13 +2993,13 @@
     "gotmFlair": false,
     "mastery": "100pct",
     "diff": null,
-    "achPct": 79,
+    "achPct": 100,
     "achCount": [
-      19,
+      24,
       24
     ],
-    "actualHours": 10.7,
-    "lastPlayed": "2026-09-02",
+    "actualHours": 12.4,
+    "lastPlayed": "2026-09-03",
     "casual": false,
     "note": null,
     "start": null,
