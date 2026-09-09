@@ -3198,10 +3198,13 @@
     "gotmFlair": false,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
+    "achPct": 0,
+    "achCount": [
+      0,
+      9
+    ],
+    "actualHours": 4.7,
+    "lastPlayed": "2026-07-18",
     "casual": false,
     "note": null,
     "start": null,
