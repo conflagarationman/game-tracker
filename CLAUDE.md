@@ -175,6 +175,11 @@ node scripts/fetch-gotm.test.mjs       # 14
 cd worker && node index.test.mjs       # 26
 ```
 
+`tests.yml` runs all four on every pull request and on pushes to `main`. They need no
+install step, no secrets and no network, so the workflow is just checkout, Node 20, and the
+four commands above. Before it existed nothing ran them on a change — the same shape as the
+Home List regression in the Home Hub repo, where good tests existed and nothing watched them.
+
 `fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the
 12-month rule, applied from scratch, reproduces every RETIRED / LAST CHANCE marker the host
 wrote by hand — so the derived eligibility is checked against the club's own bookkeeping
