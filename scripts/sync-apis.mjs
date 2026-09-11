@@ -203,31 +203,70 @@ export async function syncRA(games, log) {
   }
   const completed = await raGet("API_GetUserCompletedGames.php", { u: raUser });
   const byTitle = new Map();
-  for (const g of completed) {
+  for (const g of Array.isArray(completed) ? completed : []) {
     // The endpoint lists one row per (game, hardcore/softcore) — keep whichever has more
     // awarded so a hardcore run doesn't get shadowed by a lower softcore count or vice versa.
     const existing = byTitle.get(g.Title);
     if (!existing || Number(g.NumAwarded) > Number(existing.NumAwarded)) byTitle.set(g.Title, g);
   }
 
+  // API_GetUserCompletedGames carries no play date, so for a long time NOTHING updated
+  // lastPlayed on a RetroAchievements game — only the Steam path ever wrote that field.
+  // The visible symptom: Castlevania: Symphony of the Night sat at lastPlayed 2026-07-08
+  // while actively being played, which made the tracker badge it "dormant" and the Home
+  // Hub's Backlog Pressure card call it stale. Its achievement counts were updating the
+  // whole time, so the record looked synced.
+  //
+  // API_GetUserRecentlyPlayedGames does carry LastPlayed. One extra call covers every
+  // actively-played game, which is exactly the case that was broken. A game that has
+  // dropped off the recent window is genuinely not recent, so leaving its stored date
+  // alone is the right outcome rather than a gap worth N per-game calls to close.
+  const playedByTitle = new Map();
+  try {
+    const recent = await raGet("API_GetUserRecentlyPlayedGames.php", { u: raUser, c: 50 });
+    for (const g of Array.isArray(recent) ? recent : []) {
+      const d = raDateStr(g.LastPlayed);
+      if (!d || !g.Title) continue;
+      const prev = playedByTitle.get(g.Title);
+      if (!prev || d > prev) playedByTitle.set(g.Title, d);
+    }
+  } catch (e) {
+    // Achievement counts above already synced — don't lose them to a failure here.
+    log.push(`RA recently-played lookup failed: ${e.message} (lastPlayed not refreshed)`);
+  }
+
   for (const [trackerTitle, raTitle] of Object.entries(RA_TITLE_MAP)) {
-    const rg = byTitle.get(raTitle);
-    if (!rg) continue;
     const entry = games.find(g => g.t === trackerTitle);
     if (!entry) continue;
-
-    const earned = Number(rg.NumAwarded) || 0;
-    const total = Number(rg.MaxPossible) || 0;
-    const pct = total ? Math.round((earned / total) * 100) : 0;
     let changed = false;
-    if (entry.achPct !== pct || JSON.stringify(entry.achCount) !== JSON.stringify([earned, total])) {
-      entry.achPct = pct;
-      entry.achCount = [earned, total];
-      changed = true;
+    const parts = [];
+
+    // Achievements and lastPlayed come from different endpoints and are handled
+    // independently: a game freshly started has a recent play date but may not appear in
+    // the completed-games list at all yet.
+    const rg = byTitle.get(raTitle);
+    if (rg) {
+      const earned = Number(rg.NumAwarded) || 0;
+      const total = Number(rg.MaxPossible) || 0;
+      const pct = total ? Math.round((earned / total) * 100) : 0;
+      if (entry.achPct !== pct || JSON.stringify(entry.achCount) !== JSON.stringify([earned, total])) {
+        entry.achPct = pct;
+        entry.achCount = [earned, total];
+        changed = true;
+      }
+      parts.push(`${earned}/${total} (${pct}%)`);
     }
-    // API_GetUserCompletedGames doesn't carry a last-played date; leave lastPlayed alone
-    // rather than guessing at one.
-    if (changed) log.push(`RA · ${trackerTitle}: ${earned}/${total} (${pct}%)`);
+
+    // Only ever move lastPlayed forward. The recent-games list is a rolling window, and a
+    // stale row from it must never drag a newer date backwards.
+    const played = playedByTitle.get(raTitle);
+    if (played && (!entry.lastPlayed || played > entry.lastPlayed)) {
+      entry.lastPlayed = played;
+      changed = true;
+      parts.push(`lastPlayed -> ${played}`);
+    }
+
+    if (changed) log.push(`RA · ${trackerTitle}: ${parts.join(", ")}`);
   }
 }
 

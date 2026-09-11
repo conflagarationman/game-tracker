@@ -78,7 +78,10 @@ One flat array. Every record carries every key, with `null` for unset.
   `cy`, and lands in the Archive's "Unknown" group. 13 records are in that state; `add.html`
   flags them as "— needs date" in its dropdown so they can be found and filled in.
 - **`achPct` / `achCount` / `actualHours` / `lastPlayed` are bot-owned.** Editing them by hand
-  is pointless — the next sync overwrites them.
+  is pointless — the next sync overwrites them. The exception worth knowing: `lastPlayed` on a
+  non-Steam, non-RA platform (`pc`, `switch`, `ps5`, `wiiu` with no RA entry) has no source at
+  all and will stay wherever it was, so any "stale/dormant" logic reading it is only meaningful
+  for Steam and RetroAchievements titles.
 - **An `ongoing` game having `h: null`, `cy: null`, and `cm: null` is not missing data.** A
   live-service game has no finish line to estimate and no completion date to record; those
   fields stay null by design, the same way `pc`'s null `achPct` is a design choice and not a
@@ -131,6 +134,14 @@ interpreting it:
 
 - `sync-games.yml` — daily. Pulls Steam playtime/achievements and RetroAchievements progress
   into `games.json`, writes `last-synced.json`, and pushes a summary to the home dashboard.
+  **RetroAchievements needs two endpoints, not one.** `API_GetUserCompletedGames` carries
+  achievement counts but no play date, so for a long time nothing wrote `lastPlayed` on an RA
+  game at all — only the Steam path ever did. An actively-played game therefore read as
+  "dormant" here and "stale" on the Home Hub while its achievement counts kept updating, which
+  is what made it look synced. `API_GetUserRecentlyPlayedGames` supplies `LastPlayed`;
+  `syncRA()` merges the two, and only ever moves `lastPlayed` **forward** — that endpoint is a
+  rolling window, so an old row from it must never drag a newer date backwards. The two are
+  handled independently, so a freshly-started game with no awards row still gets a date.
   Steam games are matched by normalised title against the owned-games list rather than a
   hand-maintained map, so a new game only needs the right title and platform to start syncing.
   Playtime is skipped for any app currently being idled for trading cards, since idling inflates
@@ -158,11 +169,16 @@ No test runner, no dependencies — each suite is a plain Node script that print
 and exits non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 12
-node scripts/backfill-covers.test.mjs  # 11
-node scripts/fetch-gotm.test.mjs       # 13
-cd worker && node index.test.mjs       # 23
+node scripts/sync-apis.test.mjs        # 17
+node scripts/backfill-covers.test.mjs  # 12
+node scripts/fetch-gotm.test.mjs       # 14
+cd worker && node index.test.mjs       # 26
 ```
+
+`tests.yml` runs all four on every pull request and on pushes to `main`. They need no
+install step, no secrets and no network, so the workflow is just checkout, Node 20, and the
+four commands above. Before it existed nothing ran them on a change — the same shape as the
+Home List regression in the Home Hub repo, where good tests existed and nothing watched them.
 
 `fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the
 12-month rule, applied from scratch, reproduces every RETIRED / LAST CHANCE marker the host

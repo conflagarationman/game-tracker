@@ -164,16 +164,87 @@ await test("syncSteam skips cleanly (no throw) when credentials are missing", as
   process.env.STEAM_API_KEY = savedKey;
 });
 
+// syncRA now calls two endpoints, so the stub has to answer by URL rather than blindly.
+const raStub = ({ completed = [], recent = [] } = {}) => async (url) => {
+  const u = String(url);
+  if (u.includes("API_GetUserCompletedGames")) {
+    return new Response(JSON.stringify(completed), { status: 200 });
+  }
+  if (u.includes("API_GetUserRecentlyPlayedGames")) {
+    return new Response(JSON.stringify(recent), { status: 200 });
+  }
+  throw new Error(`unexpected fetch ${u}`);
+};
+
 await test("syncRA updates achievement counts from stubbed API, picks the higher-awarded row", async () => {
-  globalThis.fetch = async () => new Response(JSON.stringify([
+  globalThis.fetch = raStub({ completed: [
     { Title: "Tetris", NumAwarded: "3", MaxPossible: "10" },    // softcore-ish, lower
     { Title: "Tetris", NumAwarded: "8", MaxPossible: "10" },    // should win
-  ]), { status: 200 });
+  ] });
   const games = [baseGame({ id: 2, t: "Tetris", p: "retro" })];
   const log = [];
   await syncRA(games, log);
   assert.deepEqual(games[0].achCount, [8, 10]);
   assert.equal(games[0].achPct, 80);
+});
+
+// The bug this fixes: API_GetUserCompletedGames carries no play date, so a RetroAchievements
+// game's lastPlayed was never written by anything, and an actively-played game read as
+// dormant/stale while its achievement counts kept updating.
+await test("syncRA sets lastPlayed from recently-played, which nothing used to write at all", async () => {
+  globalThis.fetch = raStub({
+    completed: [{ Title: "Castlevania: Symphony of the Night", NumAwarded: "23", MaxPossible: "105" }],
+    recent: [{ Title: "Castlevania: Symphony of the Night", LastPlayed: "2026-09-10 22:21:05" }],
+  });
+  const games = [baseGame({ id: 3, t: "Castlevania: Symphony of the Night", p: "ayn",
+                           lastPlayed: "2026-07-08" })];
+  const log = [];
+  await syncRA(games, log);
+  assert.equal(games[0].lastPlayed, "2026-09-10", "RA play date should refresh lastPlayed");
+  assert.deepEqual(games[0].achCount, [23, 105], "achievements still sync alongside it");
+  assert.ok(log.some(l => l.includes("lastPlayed -> 2026-09-10")), "should log the bump");
+});
+
+await test("syncRA never moves lastPlayed backwards", async () => {
+  globalThis.fetch = raStub({
+    completed: [{ Title: "Tetris", NumAwarded: "8", MaxPossible: "10" }],
+    recent: [{ Title: "Tetris", LastPlayed: "2026-01-01 10:00:00" }],  // older than stored
+  });
+  const games = [baseGame({ id: 4, t: "Tetris", p: "retro", lastPlayed: "2026-08-20" })];
+  const log = [];
+  await syncRA(games, log);
+  assert.equal(games[0].lastPlayed, "2026-08-20",
+    "a stale row from the rolling recent window must not drag a newer date backwards");
+});
+
+await test("syncRA keeps achievement sync when the recently-played call fails", async () => {
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("API_GetUserCompletedGames")) {
+      return new Response(JSON.stringify(
+        [{ Title: "Tetris", NumAwarded: "8", MaxPossible: "10" }]), { status: 200 });
+    }
+    return new Response("nope", { status: 500 });   // recently-played is down
+  };
+  const games = [baseGame({ id: 5, t: "Tetris", p: "retro", lastPlayed: "2026-08-20" })];
+  const log = [];
+  await syncRA(games, log);
+  assert.deepEqual(games[0].achCount, [8, 10], "achievements must still land");
+  assert.equal(games[0].lastPlayed, "2026-08-20", "lastPlayed left alone");
+  assert.ok(log.some(l => l.includes("recently-played lookup failed")), "should say why");
+});
+
+await test("syncRA sets lastPlayed for a game not yet in the completed-games list", async () => {
+  // A freshly-started game has a play date but no awards row yet; the two endpoints are
+  // handled independently so it still gets a date.
+  globalThis.fetch = raStub({
+    completed: [],
+    recent: [{ Title: "Castlevania: Aria of Sorrow", LastPlayed: "2026-09-11 08:00:00" }],
+  });
+  const games = [baseGame({ id: 6, t: "Castlevania: Aria of Sorrow", p: "ayn", lastPlayed: null })];
+  const log = [];
+  await syncRA(games, log);
+  assert.equal(games[0].lastPlayed, "2026-09-11");
 });
 
 await test("pushToHub sorts now_playing by lastPlayed but takes up_next in array order, matching the page", async () => {
