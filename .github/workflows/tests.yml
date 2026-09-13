@@ -1,0 +1,47 @@
+name: Tests
+
+# The suites are plain Node scripts with no dependencies, no network and no tokens, so this
+# needs no install step and no secrets — which is exactly why there was no good reason for
+# them to have gone unrun on changes for this long. Each one prints "N/N passing" and exits
+# non-zero on failure.
+on:
+  pull_request: {}
+  # Only main on push: a PR branch already gets covered by the pull_request trigger above,
+  # and without this restriction every PR push would run the suite twice for no extra signal.
+  push:
+    branches: [main]
+
+# Read-only. Unlike sync-games.yml this job commits nothing; it only runs tests.
+permissions:
+  contents: read
+
+# A new push to the same PR makes the in-flight run irrelevant — cancel it rather than
+# letting two runs race to report on the same branch.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      # Deliberately one step per suite rather than a single chained command: a failure then
+      # names the suite in the run's step list, instead of collapsing into one red blob.
+      - name: Steam / RetroAchievements sync
+        run: node scripts/sync-apis.test.mjs
+
+      - name: SteamGridDB cover backfill
+        run: node scripts/backfill-covers.test.mjs
+
+      - name: Game of the Month fetch
+        run: node scripts/fetch-gotm.test.mjs
+
+      - name: Admin Worker
+        run: node index.test.mjs
+        working-directory: worker
