@@ -38,6 +38,9 @@ function normalize(title) {
 // these. Kept intentionally small: everything else matches automatically, no map upkeep.
 const STEAM_NAME_ALIASES = {
   "Ori and the Blind Forest": "Ori and the Blind Forest: Definitive Edition",
+  "Shadow of Mordor": "Middle-earth: Shadow of Mordor",
+  "Midnight Suns": "Marvel's Midnight Suns",
+  "Placid Duck Simulator": "Placid Plastic Duck Simulator",
 };
 
 // Tracker title -> RetroAchievements game title (matches game_tracker_update.py's RA_TITLE_MAP).
@@ -270,49 +273,6 @@ export async function syncRA(games, log) {
   }
 }
 
-// Pushes the same derived shape the old PC-side PowerShell relay used to compute, straight
-// to the Home Hub's existing endpoint — the hub's card, its rendering, and its Caddy route
-// don't need to know or care that a GitHub Action is the one pushing now instead of a
-// scheduled task on Jonny's PC re-parsing an HTML file over OneDrive.
-export async function pushToHub(games, log) {
-  const hubToken = process.env.HUB_STATUS_TOKEN;
-  if (!hubToken) {
-    log.push("Hub push: missing HUB_STATUS_TOKEN, skipped");
-    return;
-  }
-  const detailFor = g => {
-    if (g.achCount && Array.isArray(g.achCount) && g.achCount.length === 2) {
-      return `${g.achCount[0]}/${g.achCount[1]} achievements`;
-    }
-    if (g.actualHours) return `${g.actualHours}h played`;
-    return undefined;
-  };
-
-  const nowPlaying = games
-    .filter(g => g.s === "playing")
-    .sort((a, b) => (b.lastPlayed || "").localeCompare(a.lastPlayed || ""))
-    .map(g => ({ name: g.t, platform: g.p, genre: g.g, detail: detailFor(g) }));
-
-  // Array order, not queued-date order. The page numbers Up Next 1..N straight from
-  // games.json's array order, and that order is now explicitly maintained (add.html's reorder
-  // panel -> the Worker's /games/reorder). Sorting by `queued` here meant the hub card's #1
-  // and the page's #1 were routinely different games — the hub showed whatever was queued most
-  // recently, which is close to the opposite of a priority list. Also drops the `&& g.queued`
-  // filter: a queued game with no date is still in the queue and still has a position.
-  const upNext = games
-    .filter(g => g.s === "queue")
-    .slice(0, 4)
-    .map(g => ({ name: g.t, platform: g.p, gotm: g.gotm || undefined }));
-
-  const res = await fetch(`https://familyholocron.duckdns.org/game-tracker/update?token=${hubToken}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ now_playing: nowPlaying, up_next: upNext }),
-  });
-  if (!res.ok) throw new Error(`Hub push -> ${res.status}: ${await res.text()}`);
-  log.push(`Hub: pushed ${nowPlaying.length} now-playing, ${upNext.length} up-next`);
-}
-
 async function main() {
   const games = JSON.parse(await fs.readFile("games.json", "utf8"));
   const log = [];
@@ -323,14 +283,6 @@ async function main() {
 
   await fs.writeFile("games.json", JSON.stringify(games, null, 2) + "\n");
   await fs.writeFile("last-synced.json", JSON.stringify({ syncedAt: new Date().toISOString() }, null, 2) + "\n");
-
-  // Hub push is independent of whether games.json actually changed today — the hub's card
-  // should reflect current now-playing/up-next state even on a day with no Steam/RA deltas.
-  try {
-    await pushToHub(games, log);
-  } catch (e) {
-    log.push(`Hub push failed: ${e.message}`);
-  }
 
   console.log(log.length ? log.join("\n") : "No changes.");
 }

@@ -1,10 +1,10 @@
-// Exercises the sync script's actual data-mutation logic against stubbed Steam/RA/hub
+// Exercises the sync script's actual data-mutation logic against stubbed Steam/RA
 // responses — same stubbed-fetch pattern as worker/index.test.mjs in steph-tv-tracker. The
-// whole point of this file: it can only pass if syncSteam/syncRA/pushToHub genuinely read
+// whole point of this file: it can only pass if syncSteam/syncRA genuinely read
 // the fake API responses and mutate `games` correctly. A commented-out placeholder loop
 // (which is what the first version of this idea shipped with, before it was caught and
 // rebuilt) would fail every test here immediately.
-import { syncSteam, syncRA, pushToHub, getRecentlyFarmedAppids } from "./sync-apis.mjs";
+import { syncSteam, syncRA, getRecentlyFarmedAppids } from "./sync-apis.mjs";
 import assert from "node:assert/strict";
 
 process.env.STEAM_API_KEY = "fake";
@@ -153,6 +153,21 @@ await test("syncSteam applies STEAM_NAME_ALIASES for the one known real subtitle
   assert.equal(games[0].actualHours, 5, "should match via the alias despite the store listing's extra subtitle");
 });
 
+await test("syncSteam applies STEAM_NAME_ALIASES for Shadow of Mordor despite Steam's trademark glyphs", async () => {
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("GetOwnedGames")) {
+      return new Response(JSON.stringify({
+        response: { games: [{ appid: 6, name: "Middle-earth™: Shadow of Mordor™", playtime_forever: 120, rtime_last_played: 1785000000 }] },
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ playerstats: { success: false } }), { status: 200 });
+  };
+  const games = [baseGame({ t: "Shadow of Mordor", p: "steam", actualHours: null })];
+  await syncSteam(games, []);
+  assert.equal(games[0].actualHours, 2, "should match via the alias even though normalize() has to strip the trademark glyphs first");
+});
+
 await test("syncSteam skips cleanly (no throw) when credentials are missing", async () => {
   const savedKey = process.env.STEAM_API_KEY;
   delete process.env.STEAM_API_KEY;
@@ -245,63 +260,6 @@ await test("syncRA sets lastPlayed for a game not yet in the completed-games lis
   const log = [];
   await syncRA(games, log);
   assert.equal(games[0].lastPlayed, "2026-09-11");
-});
-
-await test("pushToHub sorts now_playing by lastPlayed but takes up_next in array order, matching the page", async () => {
-  let captured = null;
-  globalThis.fetch = async (url, init) => {
-    captured = { url: String(url), body: JSON.parse(init.body) };
-    return new Response("{}", { status: 200 });
-  };
-  // Queued dates here are deliberately shuffled relative to array order: the point is that
-  // they no longer influence the result. index.html numbers Up Next 1..N from array position,
-  // and that position is what add.html's reorder panel maintains, so the hub must read the
-  // same signal or the two surfaces disagree about what's #1 (which they used to).
-  const games = [
-    baseGame({ id: 1, t: "Older", s: "playing", lastPlayed: "2026-01-01" }),
-    baseGame({ id: 2, t: "Newer", s: "playing", lastPlayed: "2026-06-01" }),
-    baseGame({ id: 3, t: "Q-first", s: "queue", queued: "2026-01-01" }),
-    baseGame({ id: 4, t: "Q-second", s: "queue", queued: "2026-06-01" }),
-    baseGame({ id: 5, t: "NoQueueDate-still-counts", s: "queue", queued: null }),
-    baseGame({ id: 6, t: "Q-fourth", s: "queue", queued: "2026-04-01" }),
-    baseGame({ id: 7, t: "Q-fifth-dropped-by-cap", s: "queue", queued: "2026-12-01" }),
-    baseGame({ id: 8, t: "Backlog", s: "soon" }),
-  ];
-  await pushToHub(games, []);
-  assert.ok(captured.url.includes("/game-tracker/update?token=fake-hub-token"));
-  assert.deepEqual(captured.body.now_playing.map(g => g.name), ["Newer", "Older"], "newest lastPlayed first");
-  assert.equal(captured.body.up_next.length, 4, "capped to the first 4");
-  assert.deepEqual(
-    captured.body.up_next.map(g => g.name),
-    ["Q-first", "Q-second", "NoQueueDate-still-counts", "Q-fourth"],
-    "first four queue entries in array order, regardless of queued date",
-  );
-  assert.ok(
-    !captured.body.up_next.some(g => g.name === "Q-fifth-dropped-by-cap"),
-    "the newest queued date does not jump the cap any more",
-  );
-});
-
-await test("pushToHub omits an ongoing game from now_playing", async () => {
-  // Passes today by construction (pushToHub filters g.s === "playing", a strict-equality
-  // check "ongoing" never matches) — pinning it anyway, since the exclusion is load-bearing
-  // for the hub card and is currently accidental rather than deliberately tested.
-  let captured = null;
-  globalThis.fetch = async (url, init) => {
-    captured = { url: String(url), body: JSON.parse(init.body) };
-    return new Response("{}", { status: 200 });
-  };
-  const games = [
-    baseGame({ id: 1, t: "World of Warcraft", s: "ongoing", lastPlayed: "2026-09-01" }),
-    baseGame({ id: 2, t: "Real Now Playing", s: "playing", lastPlayed: "2026-01-01" }),
-  ];
-  await pushToHub(games, []);
-  assert.deepEqual(captured.body.now_playing.map(g => g.name), ["Real Now Playing"]);
-});
-
-await test("pushToHub throws on a non-OK response so a failed push isn't silently swallowed", async () => {
-  globalThis.fetch = async () => new Response("nope", { status: 502 });
-  await assert.rejects(() => pushToHub([baseGame()], []));
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);

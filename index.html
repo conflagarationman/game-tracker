@@ -22,6 +22,15 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .add-link{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--accent);background:#c8f54218;color:var(--accent);text-decoration:none;font-weight:700;white-space:nowrap;}
 .add-link:hover{background:#c8f54230;}
 
+/* At 390px "GAME LOG" was wrapping to two lines and "EDIT MODE: OFF" was wrapping too, which
+   pushed the sticky header to ~100px tall. Shrinking the title and locking the toggle/add
+   pills to one line each keeps it to a single row. */
+@media (max-width:480px){
+  h1{font-size:1.5rem;white-space:nowrap;}
+  .header{gap:0.5rem;align-items:center;}
+  .edit-toggle,.add-link{white-space:nowrap;padding:0.35rem 0.6rem;}
+}
+
 /* Cards link to their own edit form. draggable=false + user-drag:none because anchors are
    natively draggable, which would otherwise fight Edit mode's pointer-drag for the same
    gesture. The link is a plain wrapper — all card visuals stay on the card inside it, so
@@ -186,7 +195,7 @@ section:first-of-type .slabel{margin-top:0;}
 
 /* Up Next: same cards as before, just wrapped so they flow into columns on wider screens
    instead of one long vertical list. Collapses to a single column on phones same as above. */
-.queue-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;}
+.queue-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px;}
 
 /* Ongoing: a slim stacked list, not a card grid — these rows carry no priority order to lay
    out in columns for (see ongC()'s sort-by-lastPlayed note). */
@@ -231,7 +240,7 @@ section:first-of-type .slabel{margin-top:0;}
 .rating{font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:600;color:var(--accent);}
 .gotm{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54218;color:var(--accent);border:1px solid #c8f54230;white-space:nowrap;}
 .dropped-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#f5424218;color:var(--dropped);border:1px solid #f5424230;white-space:nowrap;}
-.note-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#a06bff18;color:#a06bff;border:1px solid #a06bff30;white-space:nowrap;}
+.note-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#a06bff18;color:#a06bff;border:1px solid #a06bff30;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
 .dormant-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#55556018;color:var(--dim);border:1px solid #55556030;white-space:nowrap;}
 .casual-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#42c8f510;color:#42c8f580;border:1px solid #42c8f520;white-space:nowrap;}
 .start-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54210;color:#c8f54270;border:1px solid #c8f54220;white-space:nowrap;}
@@ -400,9 +409,14 @@ function heroArt(g) {
 // ─── Helpers ──────────────────────────────────────────
 function pb(p){return `<span class="plat p-${p}">${PL[p]||p}</span>`;}
 
+// new Date('2026-09-12') parses as UTC midnight, so on an Eastern-time evening "played today"
+// can read "yesterday". games.json only ever stores plain YYYY-MM-DD dates, never a time or
+// zone, so building the Date from its parts in local time is the correct reading.
+function localDate(s){ const [y,m,d]=String(s).split('-').map(Number); return new Date(y, m-1, d); }
+
 function isDormant(g){
   if(!g.lastPlayed) return false;
-  return (NOW - new Date(g.lastPlayed))/(1000*60*60*24) > 30;
+  return (NOW - localDate(g.lastPlayed))/(1000*60*60*24) > 30;
 }
 
 // Dormancy means opposite things for the two kinds of in-progress game. For a backlog game,
@@ -410,7 +424,7 @@ function isDormant(g){
 // that quietly ended, and the useful nudge is "demote this to dropped", not "get back to it".
 function isCold(g){
   if(!g.lastPlayed) return false;
-  return (NOW - new Date(g.lastPlayed))/(1000*60*60*24) > 90;
+  return (NOW - localDate(g.lastPlayed))/(1000*60*60*24) > 90;
 }
 
 function hltbEl(g){
@@ -450,7 +464,7 @@ function parseHltb(h){
 
 function daysSince(dateStr){
   if(!dateStr) return null;
-  const diff = NOW - new Date(dateStr);
+  const diff = NOW - localDate(dateStr);
   return Math.floor(diff/(1000*60*60*24));
 }
 
@@ -508,7 +522,7 @@ function nowC(g){
         ${startEl(g)}
         ${dormant?'<span class="dormant-pill">💤 dormant</span>':lastPlayedEl(g)}
         ${g.casual?'<span class="casual-pill">casual play</span>':''}
-        ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
+        ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${hltbEl(g)?`<div class="hero-hltb">${hltbEl(g)}</div>`:''}
       ${achBar(g)}
@@ -529,7 +543,7 @@ function qC(g,n,showNum=true){
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
         ${queuedEl(g)}
         ${g.casual?'<span class="casual-pill">casual play</span>':''}
-        ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
+        ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
     </div>
@@ -548,7 +562,7 @@ function ongC(g){
       <div class="row1">${pb(g.p)}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
       <div class="row2">
         ${lastPlayedEl(g)}${isCold(g)?'<span class="dormant-pill">❄ cold</span>':''}
-        ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
+        ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
     </div>
   </div>`);
@@ -568,7 +582,7 @@ function aC(g){
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gap!=null?`<span class="yr">${gap===0?'same yr':gap+'yr gap'}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
-        ${g.note?`<span class="note-pill">📌 ${esc(g.note)}</span>`:''}
+        ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
         ${dropped?'<span class="dropped-pill">dropped</span>':''}
       </div>
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
@@ -688,6 +702,28 @@ function renderPanels(){
 // meeting that month's requirement are different things.
 let GOTM = null;
 
+// gotm.json's monthsLeft/retired/isCurrent are a snapshot from whenever the bot last ran, and
+// that run can be weeks old (the fetch is paused while the Reddit secrets are unset). Derive
+// them from today instead, with the same arithmetic as fetch-gotm.mjs, so the countdowns
+// never go stale with the file.
+function gotmMonthIndex(ym){
+  const m = /^(\d{4})-(\d{2})$/.exec(ym || '');
+  return m ? Number(m[1]) * 12 + (Number(m[2]) - 1) : null;
+}
+function refreshGotmWindows(gotm, now = new Date()){
+  if(!gotm || !Array.isArray(gotm.picks)) return gotm;
+  const nowIdx = now.getFullYear() * 12 + now.getMonth();
+  for(const p of gotm.picks){
+    const i = gotmMonthIndex(p.month);
+    if(i == null) continue;
+    p.monthsLeft = i + 12 - nowIdx;
+    p.retired = p.monthsLeft <= 0;
+    p.lastChance = p.monthsLeft === 1;
+    p.isCurrent = i === nowIdx;
+  }
+  return gotm;
+}
+
 // The gotm tag is the join, never the title: club and tracker names drift ("Tomb Raider" vs
 // "Tomb Raider I Remastered"), and fuzzy matching pairs the club's "Super Mario World" with
 // this library's "Super Mario World 2: Yoshi's Island", a different game.
@@ -741,7 +777,11 @@ function renderGotm(){
   const src = GOTM.sourceUrl ? `<a href="${esc(GOTM.sourceUrl)}" target="_blank" rel="noopener noreferrer">r/SBCGaming</a>` : 'r/SBCGaming';
   const staleBits = [];
   if(GOTM.error) staleBits.push(`<span class="gotm-warn">⚠ Club list couldn’t be refreshed (${esc(GOTM.error)}) — showing the last known copy.</span>`);
-  if(GOTM.seeded) staleBits.push('Seeded by hand from the August 2026 post; the first successful fetch replaces it.');
+  const genIdx = gotmMonthIndex(GOTM.generatedFor);
+  const genLabel = genIdx!=null ? `${M[genIdx%12]} ${Math.floor(genIdx/12)}` : GOTM.generatedFor;
+  if(GOTM.seeded) staleBits.push(`Seeded by hand from the ${genLabel} post; the first successful fetch replaces it.`);
+  const nowIdx = NOW.getFullYear()*12 + NOW.getMonth();
+  if(genIdx!=null && genIdx < nowIdx) staleBits.push(`Club list last refreshed for ${genLabel}; this month’s pick isn’t listed yet.`);
   if(cur && !outstanding.some(p => p.isCurrent)) staleBits.push(`This month’s pick (${esc(cur.game)}) is already claimed.`);
   staleBits.push('Completion rules differ every month — check each pick’s own post.');
 
@@ -771,7 +811,7 @@ function render(){
   const ongoing=G.filter(g=>g.s==='ongoing').sort((a,b)=>{
     if(!a.lastPlayed) return b.lastPlayed?1:0;
     if(!b.lastPlayed) return -1;
-    return new Date(b.lastPlayed)-new Date(a.lastPlayed);
+    return localDate(b.lastPlayed)-localDate(a.lastPlayed);
   });
   const backlogHrs=[...playing,...queue,...soon].reduce((s,g)=>s+(parseHltb(g.h)||0),0);
   const rated=done.filter(g=>g.r>0);
@@ -801,8 +841,9 @@ function render(){
 // pen in one code path instead.
 //
 // Cross-section drops only (Now Playing / Up Next / Soon) — dragging within a section is a
-// no-op, same as dropping outside any of the three. In-section priority reordering would
-// need a new order/priority field this schema doesn't have; out of scope for this pass.
+// no-op, same as dropping outside any of the three. In-section priority reordering exists
+// now too, just not here: it's add.html's reorder panel, which moves queue rows through the
+// Worker's /games/reorder rather than this page's own drag-and-drop.
 //
 // The edit-mode toggle is a declutter control, not a security boundary — WORKER.key is
 // already committed in plaintext to the public worker-config.js once deployed (same
@@ -1097,7 +1138,7 @@ Promise.all([
 ]).then(([games,covers,gotm])=>{
   G=games;
   COVERS=covers;
-  GOTM=gotm;
+  GOTM=refreshGotmWindows(gotm);
   NOW=new Date();
   render();
 }).catch(err=>{
