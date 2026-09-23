@@ -184,6 +184,9 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
     </div>
   </div>
 
+  <label for="release">Release date (only for games that aren't out yet)</label>
+  <input type="date" id="release">
+
   <div class="check">
     <input type="checkbox" id="casual">
     <label for="casual" style="margin:0;text-transform:none;font-size:0.85rem;color:var(--text);font-family:'Syne',sans-serif;">Casual play (no achievement tracking)</label>
@@ -343,6 +346,7 @@ function fillForm(g) {
   $('note').value = g.note || '';
   $('start').value = g.start || '';
   $('queued').value = g.queued || '';
+  $('release').value = g.release || '';
   $('casual').checked = !!g.casual;
   $('completed').value = toMonthInput(g.cy, g.cm);
   $('r').value = g.r ? String(g.r) : '';
@@ -365,6 +369,7 @@ function clearForm() {
   $('note').value = '';
   $('start').value = '';
   $('queued').value = '';
+  $('release').value = '';
   $('casual').checked = false;
   $('completed').value = '';
   $('r').value = '';
@@ -389,6 +394,7 @@ function readForm() {
     note: $('note').value.trim() || null,
     start: $('start').value || null,
     queued: $('queued').value || null,
+    release: $('release').value || null,
     casual: $('casual').checked,
     cy, cm,
     // r defaults to 0 rather than null: that's what DEFAULT_GAME uses and what

@@ -50,7 +50,7 @@ const VALID_MASTERY = new Set(["in-progress", "mastered", "platinum", "100pct"])
 const DEFAULT_GAME = {
   r: 0, h: null, cy: null, cm: null, gotm: null, gotmFlair: false, mastery: null, diff: null,
   achPct: null, achCount: null, actualHours: null, lastPlayed: null,
-  casual: false, note: null, start: null, queued: null,
+  casual: false, note: null, start: null, queued: null, release: null,
 };
 
 const json = (body, status, origin) => new Response(JSON.stringify(body), {
@@ -137,6 +137,16 @@ export function validateGameFields(input) {
   // so a typo ("July 2026", "Jul 26") would silently fail to match any pick rather than erroring.
   if (input.gotm != null && !/^[A-Z][a-z]{2} \d{4}$/.test(input.gotm)) {
     return 'gotm must look like "Jul 2026"';
+  }
+  // Release date for an unreleased game, so index.html can count down to it instead of the
+  // date living inside a free-text note. Same YYYY-MM-DD shape as start/queued, and it has to
+  // be a real calendar date: "2026-02-30" would render as March 2 without complaint.
+  if (input.release != null) {
+    const m = typeof input.release === "string" && /^(\d{4})-(\d{2})-(\d{2})$/.exec(input.release);
+    const d = m && new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    if (!d || d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[3]) {
+      return 'release must be a real date like "2026-11-04"';
+    }
   }
   if (input.gotmFlair != null && typeof input.gotmFlair !== "boolean") {
     return "gotmFlair must be a boolean";
