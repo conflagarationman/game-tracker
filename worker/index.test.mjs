@@ -96,6 +96,16 @@ await test("validateGameFields passes on unset (null) optional fields — null m
   assert.equal(validateGameFields({ cy: null, cm: null, r: null, diff: null, mastery: null, y: null }), null);
 });
 
+await test("validateGameFields accepts a real release date or null, rejects anything else", () => {
+  assert.equal(validateGameFields({ release: null }), null);
+  assert.equal(validateGameFields({ release: "2026-11-04" }), null);
+  assert.equal(validateGameFields({ release: "2028-02-29" }), null, "leap day in a leap year");
+  assert.match(validateGameFields({ release: "2026-02-30" }), /release/, "would silently become Mar 2");
+  assert.match(validateGameFields({ release: "Nov 4, 2026" }), /release/);
+  assert.match(validateGameFields({ release: "2026-11-4" }), /release/);
+  assert.match(validateGameFields({ release: 20261104 }), /release/);
+});
+
 await test("validateGameFields rejects out-of-range cm, cy, y, diff, r and unknown mastery", () => {
   assert.match(validateGameFields({ cm: 12 }), /cm/, "cm is 0-indexed, so 12 is past December");
   assert.match(validateGameFields({ cm: -1 }), /cm/);

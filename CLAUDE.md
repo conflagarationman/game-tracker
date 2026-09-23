@@ -62,7 +62,10 @@ One flat array. Every record carries every key, with `null` for unset.
   "casual": false,        // true = deliberately excluded from achievement display
   "note": null,
   "start": null,          // YYYY-MM-DD
-  "queued": null          // YYYY-MM-DD
+  "queued": null,         // YYYY-MM-DD
+  "release": null         // YYYY-MM-DD, only for a game that isn't out yet. index.html shows
+                          // "out in N days" until then and nothing after, so it never needs
+                          // clearing. Use this, not the note, for release dates.
 }
 ```
 
@@ -173,7 +176,7 @@ and exits non-zero on failure.
 node scripts/sync-apis.test.mjs        # 15
 node scripts/backfill-covers.test.mjs  # 12
 node scripts/fetch-gotm.test.mjs       # 14
-cd worker && node index.test.mjs       # 26
+cd worker && node index.test.mjs       # 27
 ```
 
 `tests.yml` runs all four on every pull request and on pushes to `main`. They need no

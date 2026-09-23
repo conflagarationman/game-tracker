@@ -246,6 +246,8 @@ section:first-of-type .slabel{margin-top:0;}
 .start-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54210;color:#c8f54270;border:1px solid #c8f54220;white-space:nowrap;}
 .queued-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#55556015;color:var(--dim);border:1px solid #55556025;white-space:nowrap;}
 .lp-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#ffffff08;color:var(--muted);border:1px solid #ffffff10;white-space:nowrap;}
+/* Unreleased games: a countdown instead of a release date buried in a free-text note. */
+.release-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#f5a04218;color:#f5a042;border:1px solid #f5a04230;white-space:nowrap;}
 
 /* Mastery */
 .mast{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;white-space:nowrap;}
@@ -490,6 +492,17 @@ function lastPlayedEl(g){
   return `<span class="lp-pill">${label}</span>`;
 }
 
+// Only while the game is still unreleased: once the date passes, the pill has nothing left to
+// say and disappears on its own, so there's no cleanup step to forget.
+function releaseEl(g){
+  if(!g.release) return '';
+  const d = -daysSince(g.release);
+  if(d < 0) return '';
+  const label = d===0 ? 'out today' : d===1 ? 'out tomorrow' : d<=60 ? `out in ${d} days`
+    : `out ${fmtDate(g.release)}${g.release.slice(0,4)!==String(NOW.getFullYear())?' '+g.release.slice(0,4):''}`;
+  return `<span class="release-pill" title="Releases ${esc(g.release)}">🗓 ${label}</span>`;
+}
+
 function queuedEl(g){
   if(!g.queued) return '';
   const f = fmtDate(g.queued);
@@ -519,7 +532,7 @@ function nowC(g){
         ${g.y?`<span class="yr">${g.y}</span>`:''}
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
-        ${startEl(g)}
+        ${releaseEl(g)}${startEl(g)}
         ${dormant?'<span class="dormant-pill">💤 dormant</span>':lastPlayedEl(g)}
         ${g.casual?'<span class="casual-pill">casual play</span>':''}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
@@ -541,7 +554,7 @@ function qC(g,n,showNum=true){
         ${g.y?`<span class="yr">${g.y}</span>`:''}
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
-        ${queuedEl(g)}
+        ${releaseEl(g)}${queuedEl(g)}
         ${g.casual?'<span class="casual-pill">casual play</span>':''}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
