@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Sync Steam + RA data and push to the hub
+      - name: Sync Steam + RA data
         env:
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
           STEAM_ID: ${{ secrets.STEAM_ID }}

@@ -100,9 +100,10 @@ weighed and it's the wrong shape for how this codebase reads status.
 ### Array order is meaningful
 
 **The order of records in `games.json` is the Up Next priority.** `index.html` numbers the
-queue 1..N straight from array position, `pushToHub` sends the first four in the same order,
-and the reorder panel in `add.html` exists to change it (via the Worker's `/games/reorder`,
-which moves only `queue` rows and leaves every other record's position untouched).
+queue 1..N straight from array position, the Home Hub reads `games.json` directly and takes
+the first four `queue` rows in that same array order, and the reorder panel in `add.html`
+exists to change it (via the Worker's `/games/reorder`, which moves only `queue` rows and
+leaves every other record's position untouched).
 
 Sorting or regenerating the array — for tidiness, or as a side effect of a rewrite — silently
 destroys that ordering. Nothing else in the codebase depends on array position; every script
@@ -133,7 +134,7 @@ interpreting it:
 ## Automation
 
 - `sync-games.yml` — daily. Pulls Steam playtime/achievements and RetroAchievements progress
-  into `games.json`, writes `last-synced.json`, and pushes a summary to the home dashboard.
+  into `games.json` and writes `last-synced.json`.
   **RetroAchievements needs two endpoints, not one.** `API_GetUserCompletedGames` carries
   achievement counts but no play date, so for a long time nothing wrote `lastPlayed` on an RA
   game at all — only the Steam path ever did. An actively-played game therefore read as
@@ -169,7 +170,7 @@ No test runner, no dependencies — each suite is a plain Node script that print
 and exits non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 17
+node scripts/sync-apis.test.mjs        # 15
 node scripts/backfill-covers.test.mjs  # 12
 node scripts/fetch-gotm.test.mjs       # 14
 cd worker && node index.test.mjs       # 26
