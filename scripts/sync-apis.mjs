@@ -30,7 +30,9 @@ const RA_BASE = "https://retroachievements.org/API";
 // platform in games.json — no code change needed to start syncing. The appid comes straight
 // off the matched owned-game record, so the separate achievement-appid map is gone too.
 function normalize(title) {
-  return title.toLowerCase().replace(/[:'".!™®]/g, "").replace(/\s+/g, " ").trim();
+  // Diacritics folded first, same as backfill-covers.mjs: RA and Steam write "Pokémon", this
+  // library writes "Pokemon".
+  return title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[:'".!™®]/g, "").replace(/\s+/g, " ").trim();
 }
 
 // A handful of tracker titles genuinely differ from their Steam store listing beyond
@@ -43,31 +45,58 @@ const STEAM_NAME_ALIASES = {
   "Placid Duck Simulator": "Placid Plastic Duck Simulator",
 };
 
-// Tracker title -> RetroAchievements game title (matches game_tracker_update.py's RA_TITLE_MAP).
+// RetroAchievements games are matched by title, the same way Steam is. This used to be a
+// 22-entry map that every RA game had to be added to before it would sync, which is the exact
+// shape that broke Halo on the Steam side: half the ayn/retro library was never on it, so the
+// next retro game started would have silently never synced. Most of the old entries were
+// either identical on both sides or the "Zelda: X" -> "The Legend of Zelda: X" pattern, both
+// now handled by rule in raCandidates(). What's left are real title differences no rule
+// derives. RA's "~Hack~ " style prefixes are also handled by rule (see raIndex()).
 const RA_TITLE_MAP = {
-  "Zelda: A Link to the Past": "The Legend of Zelda: A Link to the Past",
-  "The Legendary Starfy": "The Legendary Starfy",
-  "God of War": "God of War",
-  "Tetris": "Tetris",
-  "Castlevania: Symphony of the Night": "Castlevania: Symphony of the Night",
-  "Castlevania: Aria of Sorrow": "Castlevania: Aria of Sorrow",
-  "Super Mario World 2: Yoshi's Island": "Super Mario World 2: Yoshi's Island",
-  "Zelda: Oracle of Seasons": "The Legend of Zelda: Oracle of Seasons",
-  "Zelda: Oracle of Ages": "The Legend of Zelda: Oracle of Ages",
-  "Zelda: Phantom Hourglass": "The Legend of Zelda: Phantom Hourglass",
-  "Zelda: Spirit Tracks": "The Legend of Zelda: Spirit Tracks",
   "999: Nine Hours, Nine Persons": "999: Nine Hours, Nine Persons, Nine Doors",
-  "Alien Hominid": "Alien Hominid",
-  "Chrono Trigger": "Chrono Trigger",
-  "Super Metroid": "Super Metroid",
-  "DuckTales": "DuckTales",
-  "Super Mario RPG": "Super Mario RPG",
-  "Pokemon Odyssey": "Pokemon Odyssey",
-  "Advance Wars": "Advance Wars",
-  "Wario Land 4": "Wario Land 4",
-  "Metroid: Samus Returns": "Metroid: Samus Returns",
-  "Pokemon Lazarus": "~Hack~ Pokémon Lazarus",
 };
+
+// Platforms that run through RA. Switch/PS5/Wii U have no RA support, so a same-titled game
+// there must not pick up a handheld run's achievements.
+const RA_PLATFORMS = new Set(["ayn", "retro"]);
+
+// The RA titles to try for one tracker title, most-literal first.
+export function raCandidates(title) {
+  const out = [];
+  const push = (t) => { if (t && !out.includes(t)) out.push(t); };
+  push(RA_TITLE_MAP[title]);
+  push(title);
+  if (/^Zelda:\s*/i.test(title)) push(title.replace(/^Zelda:\s*/i, "The Legend of Zelda: "));
+  return out;
+}
+
+// normalized RA title -> RA title. An exact title always wins over a prefix-stripped one, so a
+// tracker "Tetris" can never be claimed by a "~Homebrew~ Tetris" when RA also has "Tetris".
+function raIndex(raTitles) {
+  const exact = new Map(), stripped = new Map();
+  for (const t of raTitles) {
+    exact.set(normalize(t), t);
+    const m = /^~[^~]+~\s*(.+)$/.exec(t);
+    if (m) stripped.set(normalize(m[1]), t);
+  }
+  return (key) => exact.get(key) || stripped.get(key) || null;
+}
+
+// tracker game id -> RA title, for every RA-platform game that matches one of `raTitles`.
+// Only ever an exact normalized match: "Super Mario World" must never claim
+// "Super Mario World 2: Yoshi's Island".
+export function resolveRaTitles(games, raTitles) {
+  const lookup = raIndex(raTitles);
+  const out = new Map();
+  for (const g of games) {
+    if (!RA_PLATFORMS.has(g.p)) continue;
+    for (const c of raCandidates(g.t)) {
+      const hit = lookup(normalize(c));
+      if (hit) { out.set(g.id, hit); break; }
+    }
+  }
+  return out;
+}
 
 async function steamGet(iface, method, version, params) {
   const url = new URL(`${STEAM_BASE}/${iface}/${method}/v${version}/`);
@@ -241,9 +270,19 @@ export async function syncRA(games, log) {
     log.push(`RA recently-played lookup failed: ${e.message} (lastPlayed not refreshed)`);
   }
 
-  for (const [trackerTitle, raTitle] of Object.entries(RA_TITLE_MAP)) {
-    const entry = games.find(g => g.t === trackerTitle);
-    if (!entry) continue;
+  const matched = resolveRaTitles(games, [...byTitle.keys(), ...playedByTitle.keys()]);
+  for (const entry of games) {
+    if (!RA_PLATFORMS.has(entry.p)) continue;
+    const raTitle = matched.get(entry.id);
+    if (!raTitle) {
+      // Only worth a line for something being played now: most of the retro library is
+      // finished games that simply have no RA activity, and listing them daily is noise.
+      if (entry.s === "playing" || entry.s === "ongoing") {
+        log.push(`RA: no match for "${entry.t}" among ${byTitle.size} awarded + ${playedByTitle.size} recent titles (add an RA_TITLE_MAP entry if RA names it differently)`);
+      }
+      continue;
+    }
+    const trackerTitle = entry.t;
     let changed = false;
     const parts = [];
 
@@ -299,8 +338,9 @@ export function buildPlayCheck(games, { steamOwned = [], farmedAppids = new Set(
   for (const g of games) {
     byName.set(normalize(g.t), g);
     if (STEAM_NAME_ALIASES[g.t]) byName.set(normalize(STEAM_NAME_ALIASES[g.t]), g);
-    if (RA_TITLE_MAP[g.t]) byName.set(normalize(RA_TITLE_MAP[g.t]), g);
   }
+  const raMatched = resolveRaTitles(games, [...raPlayed.keys()]);
+  const raToGame = new Map([...raMatched].map(([id, t]) => [t, games.find(g => g.id === id)]));
 
   const recent = {};   // tracked id -> { mins?, lastPlayed? }
   const untracked = [];
@@ -316,7 +356,7 @@ export function buildPlayCheck(games, { steamOwned = [], farmedAppids = new Set(
   const cutoff = new Date(today.getTime() - PLAY_CHECK_DAYS * 86400000).toISOString().slice(0, 10);
   for (const [raTitle, date] of raPlayed) {
     if (date < cutoff) continue;
-    const g = byName.get(normalize(raTitle));
+    const g = raToGame.get(raTitle) || byName.get(normalize(raTitle));
     if (g) recent[g.id] = { ...recent[g.id], lastPlayed: date };
     else untracked.push({ title: raTitle, source: "ra", lastPlayed: date });
   }
