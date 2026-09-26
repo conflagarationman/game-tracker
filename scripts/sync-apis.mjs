@@ -129,7 +129,7 @@ export async function syncSteam(games, log, farmedAppids = new Set()) {
   const steamId = process.env.STEAM_ID;
   if (!process.env.STEAM_API_KEY || !steamId) {
     log.push("Steam: missing STEAM_API_KEY/STEAM_ID, skipped");
-    return;
+    return [];
   }
   const owned = await steamGet("IPlayerService", "GetOwnedGames", 1, {
     steamid: steamId, include_appinfo: true, include_played_free_games: true,
@@ -196,13 +196,16 @@ export async function syncSteam(games, log, farmedAppids = new Set()) {
 
     if (changed) log.push(`Steam · ${entry.t}: ${hours ?? "?"}h, achPct=${entry.achPct ?? "n/a"}`);
   }
+  // Returned for buildPlayCheck(), which needs the whole library (including games the
+  // tracker doesn't know about) and each game's playtime_2weeks.
+  return owned.response.games || [];
 }
 
 export async function syncRA(games, log) {
   const raUser = process.env.RA_USER;
   if (!raUser || !process.env.RA_API_KEY) {
     log.push("RetroAchievements: missing RA_USER/RA_API_KEY, skipped");
-    return;
+    return new Map();
   }
   const completed = await raGet("API_GetUserCompletedGames.php", { u: raUser });
   const byTitle = new Map();
@@ -271,6 +274,86 @@ export async function syncRA(games, log) {
 
     if (changed) log.push(`RA · ${trackerTitle}: ${parts.join(", ")}`);
   }
+  // RA title -> latest play date, for buildPlayCheck().
+  return playedByTitle;
+}
+
+// ─── Play check ───────────────────────────────────────────
+// Compares what games.json says you're playing against what Steam and RA say you actually
+// played. This replaces a Mac scheduled task that used to do a version of this locally and
+// died quietly; living in the daily sync means it runs where failures are already watched.
+//
+// Deliberately does NOT re-flag idle Now Playing games: index.html already badges those
+// "dormant" from lastPlayed. What nothing else could see is the other direction, a game with
+// real recent play that isn't marked playing, plus actual recent hours rather than lifetime.
+//
+// Only Steam and RA are sources. pc/switch/ps5/wiiu games without RA have no play data at
+// all, so they can never appear here, which is the right outcome rather than a gap.
+export const PLAY_CHECK_DAYS = 14;         // Steam's playtime_2weeks window; RA uses the same
+export const UNTRACKED_MIN_MINUTES = 60;   // below this, a stray launch isn't worth a nudge
+
+export function buildPlayCheck(games, { steamOwned = [], farmedAppids = new Set(), raPlayed = new Map() } = {}, today = new Date()) {
+  // Title lookup across every platform: a game tracked as "switch" but played on Steam is
+  // still a known game, and reporting it as untracked would be wrong.
+  const byName = new Map();
+  for (const g of games) {
+    byName.set(normalize(g.t), g);
+    if (STEAM_NAME_ALIASES[g.t]) byName.set(normalize(STEAM_NAME_ALIASES[g.t]), g);
+    if (RA_TITLE_MAP[g.t]) byName.set(normalize(RA_TITLE_MAP[g.t]), g);
+  }
+
+  const recent = {};   // tracked id -> { mins?, lastPlayed? }
+  const untracked = [];
+  for (const sg of steamOwned) {
+    const mins = sg.playtime_2weeks || 0;
+    // ASF idling inflates playtime_2weeks exactly like playtime_forever (see above).
+    if (!mins || farmedAppids.has(sg.appid)) continue;
+    const g = byName.get(normalize(sg.name));
+    if (g) recent[g.id] = { ...recent[g.id], mins };
+    else if (mins >= UNTRACKED_MIN_MINUTES) untracked.push({ title: sg.name, source: "steam", mins });
+  }
+
+  const cutoff = new Date(today.getTime() - PLAY_CHECK_DAYS * 86400000).toISOString().slice(0, 10);
+  for (const [raTitle, date] of raPlayed) {
+    if (date < cutoff) continue;
+    const g = byName.get(normalize(raTitle));
+    if (g) recent[g.id] = { ...recent[g.id], lastPlayed: date };
+    else untracked.push({ title: raTitle, source: "ra", lastPlayed: date });
+  }
+
+  const offList = games
+    .filter(g => recent[g.id] && g.s !== "playing" && g.s !== "ongoing")
+    .map(g => ({ id: g.id, t: g.t, s: g.s, ...recent[g.id] }));
+
+  const byMins = (a, b) => (b.mins || 0) - (a.mins || 0) || String(b.lastPlayed).localeCompare(String(a.lastPlayed));
+  offList.sort(byMins);
+  untracked.sort(byMins);
+  return { windowDays: PLAY_CHECK_DAYS, recent, offList, untracked };
+}
+
+function fmtActivity(x) {
+  const bits = [];
+  if (x.mins) bits.push(`${Math.round(x.mins / 6) / 10}h in ${PLAY_CHECK_DAYS}d`);
+  if (x.lastPlayed) bits.push(`RA ${x.lastPlayed}`);
+  return bits.join(", ");
+}
+
+export function playCheckSummary(check, games) {
+  const lines = ["## Play check", ""];
+  const playing = games.filter(g => g.s === "playing");
+  lines.push(`**Now Playing, last ${check.windowDays} days**`, "");
+  for (const g of playing) {
+    const r = check.recent[g.id];
+    lines.push(`- ${g.t}: ${r ? fmtActivity(r) : "no Steam/RA play"}`);
+  }
+  if (!playing.length) lines.push("- (nothing marked playing)");
+  lines.push("", "**Played lately but not marked playing**", "");
+  for (const x of check.offList) lines.push(`- ${x.t} (${x.s}): ${fmtActivity(x)}`);
+  if (!check.offList.length) lines.push("- none");
+  lines.push("", "**Played lately but not in the tracker**", "");
+  for (const x of check.untracked) lines.push(`- ${x.title}: ${fmtActivity(x)}`);
+  if (!check.untracked.length) lines.push("- none");
+  return lines.join("\n") + "\n";
 }
 
 async function main() {
@@ -278,10 +361,15 @@ async function main() {
   const log = [];
 
   const farmedAppids = await getRecentlyFarmedAppids(log);
-  await syncSteam(games, log, farmedAppids);
-  await syncRA(games, log);
+  const steamOwned = await syncSteam(games, log, farmedAppids);
+  const raPlayed = await syncRA(games, log);
+  const check = buildPlayCheck(games, { steamOwned, farmedAppids, raPlayed });
 
   await fs.writeFile("games.json", JSON.stringify(games, null, 2) + "\n");
+  await fs.writeFile("play-check.json", JSON.stringify(check, null, 2) + "\n");
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, playCheckSummary(check, games));
+  }
   await fs.writeFile("last-synced.json", JSON.stringify({ syncedAt: new Date().toISOString() }, null, 2) + "\n");
 
   console.log(log.length ? log.join("\n") : "No changes.");

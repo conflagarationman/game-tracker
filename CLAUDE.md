@@ -21,6 +21,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `covers.json` | bot only (`backfill-covers.yml`, Sundays) | Cover art URLs, **keyed by lowercase title**. |
 | `gotm.json` | bot only (`fetch-gotm.mjs`, daily) | Mirror of the r/SBCGaming club's pick list. Overwritten wholesale — never put human state here. |
 | `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page. |
+| `play-check.json` | bot only (`sync-games.yml`, daily) | Recent real play vs. status — see "Play check" below. Keyed by `id`. |
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
@@ -150,6 +151,15 @@ interpreting it:
   hand-maintained map, so a new game only needs the right title and platform to start syncing.
   Playtime is skipped for any app currently being idled for trading cards, since idling inflates
   Steam's own counters; achievements are unaffected and still sync.
+- **Play check**, same run. `buildPlayCheck()` compares status against real recent play and
+  writes `play-check.json` plus a section on the workflow's run summary: each tracked game's
+  Steam minutes over the last 14 days (`playtime_2weeks`), tracked games played in that window
+  that aren't `playing`/`ongoing`, and Steam (60+ min) or RA games played that aren't in the
+  tracker at all. `index.html` shows the recent hours on Now Playing cards and a note under
+  them only when there's a mismatch. It does **not** re-flag idle Now Playing games; the page's
+  "dormant" pill already does that. ASF-idled appids are excluded, and titles match across
+  every platform, so a game tracked as `switch` but played on Steam isn't called untracked.
+  This replaces a Mac scheduled task that did a local version of this and died silently.
 - `backfill-covers.yml` — Sundays. Fills gaps in `covers.json` from SteamGridDB. It declines
   uncertain matches rather than guessing, so some titles stay uncovered on purpose; the pages
   fall back to a coloured platform glyph. Matching folds diacritics (the catalogue writes
@@ -173,7 +183,7 @@ No test runner, no dependencies — each suite is a plain Node script that print
 and exits non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 15
+node scripts/sync-apis.test.mjs        # 23
 node scripts/backfill-covers.test.mjs  # 12
 node scripts/fetch-gotm.test.mjs       # 14
 cd worker && node index.test.mjs       # 27

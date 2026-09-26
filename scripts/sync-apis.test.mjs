@@ -4,7 +4,7 @@
 // the fake API responses and mutate `games` correctly. A commented-out placeholder loop
 // (which is what the first version of this idea shipped with, before it was caught and
 // rebuilt) would fail every test here immediately.
-import { syncSteam, syncRA, getRecentlyFarmedAppids } from "./sync-apis.mjs";
+import { syncSteam, syncRA, getRecentlyFarmedAppids, buildPlayCheck, playCheckSummary } from "./sync-apis.mjs";
 import assert from "node:assert/strict";
 
 process.env.STEAM_API_KEY = "fake";
@@ -260,6 +260,94 @@ await test("syncRA sets lastPlayed for a game not yet in the completed-games lis
   const log = [];
   await syncRA(games, log);
   assert.equal(games[0].lastPlayed, "2026-09-11");
+});
+
+// ─── Play check ───
+const TODAY = new Date("2026-09-26T12:00:00Z");
+
+await test("buildPlayCheck records recent Steam minutes for a Now Playing game", async () => {
+  const games = [baseGame({ id: 1, t: "Brotato", s: "playing" })];
+  const c = buildPlayCheck(games, { steamOwned: [{ appid: 1, name: "Brotato", playtime_2weeks: 190 }] }, TODAY);
+  assert.deepEqual(c.recent, { 1: { mins: 190 } });
+  assert.deepEqual(c.offList, [], "a playing game is not a mismatch");
+});
+
+await test("buildPlayCheck flags a queued or done game with recent play, but not ongoing", async () => {
+  const games = [
+    baseGame({ id: 2, t: "Coffee Talk", s: "done" }),
+    baseGame({ id: 3, t: "Hades", s: "queue" }),
+    baseGame({ id: 4, t: "Marvel Snap", s: "ongoing" }),
+  ];
+  const c = buildPlayCheck(games, { steamOwned: [
+    { appid: 2, name: "Coffee Talk", playtime_2weeks: 45 },
+    { appid: 3, name: "Hades", playtime_2weeks: 300 },
+    { appid: 4, name: "MARVEL SNAP", playtime_2weeks: 500 },
+  ] }, TODAY);
+  assert.deepEqual(c.offList.map(x => [x.t, x.s]), [["Hades", "queue"], ["Coffee Talk", "done"]], "sorted by minutes");
+});
+
+await test("buildPlayCheck ignores ASF-idled appids entirely", async () => {
+  const games = [baseGame({ id: 3, t: "Hades", s: "queue" })];
+  const c = buildPlayCheck(games, {
+    steamOwned: [{ appid: 3, name: "Hades", playtime_2weeks: 900 }, { appid: 9, name: "Idle Only", playtime_2weeks: 900 }],
+    farmedAppids: new Set([3, 9]),
+  }, TODAY);
+  assert.deepEqual(c.offList, []);
+  assert.deepEqual(c.untracked, [], "card farming is not play");
+});
+
+await test("buildPlayCheck lists untracked Steam games only above the minimum", async () => {
+  const c = buildPlayCheck([baseGame()], { steamOwned: [
+    { appid: 5, name: "Balatro", playtime_2weeks: 240 },
+    { appid: 6, name: "Wallpaper Engine", playtime_2weeks: 20 },
+  ] }, TODAY);
+  assert.deepEqual(c.untracked, [{ title: "Balatro", source: "steam", mins: 240 }]);
+});
+
+await test("buildPlayCheck matches Steam aliases and other-platform titles as tracked", async () => {
+  const games = [
+    baseGame({ id: 7, t: "Midnight Suns", s: "soon" }),
+    baseGame({ id: 8, t: "Hollow Knight", p: "switch", s: "playing" }),
+  ];
+  const c = buildPlayCheck(games, { steamOwned: [
+    { appid: 7, name: "Marvel's Midnight Suns", playtime_2weeks: 120 },
+    { appid: 8, name: "Hollow Knight", playtime_2weeks: 120 },
+  ] }, TODAY);
+  assert.deepEqual(c.untracked, []);
+  assert.deepEqual(c.offList.map(x => x.id), [7]);
+});
+
+await test("buildPlayCheck uses RA dates inside the window only, via RA_TITLE_MAP", async () => {
+  const games = [baseGame({ id: 10, t: "Zelda: Oracle of Ages", p: "ayn", s: "queue" })];
+  const raPlayed = new Map([
+    ["The Legend of Zelda: Oracle of Ages", "2026-09-20"],
+    ["Kirby's Dream Land", "2026-09-25"],
+    ["Metroid Fusion", "2026-08-01"],
+  ]);
+  const c = buildPlayCheck(games, { raPlayed }, TODAY);
+  assert.deepEqual(c.offList, [{ id: 10, t: "Zelda: Oracle of Ages", s: "queue", lastPlayed: "2026-09-20" }]);
+  assert.deepEqual(c.untracked, [{ title: "Kirby's Dream Land", source: "ra", lastPlayed: "2026-09-25" }], "old RA rows drop out");
+});
+
+await test("syncSteam and syncRA hand back the data the play check needs", async () => {
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("GetOwnedGames")) return new Response(JSON.stringify({ response: { games: [{ appid: 1, name: "Balatro", playtime_2weeks: 90 }] } }));
+    if (u.includes("GetUserCompletedGames")) return new Response("[]");
+    if (u.includes("GetUserRecentlyPlayedGames")) return new Response(JSON.stringify([{ Title: "Tetris", LastPlayed: "2026-09-24 10:00:00" }]));
+    throw new Error(`unexpected fetch ${u}`);
+  };
+  const owned = await syncSteam([], []);
+  const played = await syncRA([], []);
+  assert.equal(owned[0].name, "Balatro");
+  assert.equal(played.get("Tetris"), "2026-09-24");
+});
+
+await test("playCheckSummary names Now Playing games with no recorded play", async () => {
+  const games = [baseGame({ id: 1, t: "Brotato", s: "playing" }), baseGame({ id: 2, t: "Hades", s: "playing" })];
+  const out = playCheckSummary(buildPlayCheck(games, { steamOwned: [{ appid: 1, name: "Brotato", playtime_2weeks: 90 }] }, TODAY), games);
+  assert.ok(out.includes("- Brotato: 1.5h in 14d"));
+  assert.ok(out.includes("- Hades: no Steam/RA play"));
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);
