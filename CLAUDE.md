@@ -164,7 +164,8 @@ interpreting it:
   that aren't `playing`/`ongoing`, and Steam (60+ min) or RA games played that aren't in the
   tracker at all. `index.html` shows the recent hours on Now Playing cards and a note under
   them only when there's a mismatch. It does **not** re-flag idle Now Playing games; the page's
-  "dormant" pill already does that. ASF-idled appids are excluded, and titles match across
+  "dormant" pill already does that. ASF-idled appids are excluded, as are background apps in
+  `PLAY_CHECK_IGNORE` (Bongo Cat, from the first real run), and titles match across
   every platform, so a game tracked as `switch` but played on Steam isn't called untracked.
   This replaces a Mac scheduled task that did a local version of this and died silently.
 - `backfill-covers.yml` — Sundays. Fills gaps in `covers.json` from SteamGridDB. It declines
@@ -194,7 +195,7 @@ No test runner, no dependencies — each suite is a plain Node script that print
 and exits non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 31
+node scripts/sync-apis.test.mjs        # 32
 node scripts/backfill-covers.test.mjs  # 12
 node scripts/fetch-gotm.test.mjs       # 16
 cd worker && node index.test.mjs       # 27

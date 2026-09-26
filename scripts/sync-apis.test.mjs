@@ -304,6 +304,14 @@ await test("buildPlayCheck lists untracked Steam games only above the minimum", 
   assert.deepEqual(c.untracked, [{ title: "Balatro", source: "steam", mins: 240 }]);
 });
 
+await test("buildPlayCheck leaves background apps like Bongo Cat off the untracked list", async () => {
+  const c = buildPlayCheck([baseGame()], { steamOwned: [
+    { appid: 5, name: "Bongo Cat", playtime_2weeks: 828 },
+    { appid: 6, name: "The Universim", playtime_2weeks: 403 },
+  ] }, TODAY);
+  assert.deepEqual(c.untracked.map(x => x.title), ["The Universim"]);
+});
+
 await test("buildPlayCheck matches Steam aliases and other-platform titles as tracked", async () => {
   const games = [
     baseGame({ id: 7, t: "Midnight Suns", s: "soon" }),

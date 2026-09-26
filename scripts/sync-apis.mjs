@@ -331,6 +331,11 @@ export async function syncRA(games, log) {
 export const PLAY_CHECK_DAYS = 14;         // Steam's playtime_2weeks window; RA uses the same
 export const UNTRACKED_MIN_MINUTES = 60;   // below this, a stray launch isn't worth a nudge
 
+// Steam "games" that run in the background rather than get played, so their hours say nothing
+// about what you're playing. Read off a real run's untracked list, never guessed: Bongo Cat
+// (a desktop pet) logged 13.8h in the first run's window. Only affects the untracked list.
+const PLAY_CHECK_IGNORE = new Set(["Bongo Cat"].map(normalize));
+
 export function buildPlayCheck(games, { steamOwned = [], farmedAppids = new Set(), raPlayed = new Map() } = {}, today = new Date()) {
   // Title lookup across every platform: a game tracked as "switch" but played on Steam is
   // still a known game, and reporting it as untracked would be wrong.
@@ -350,7 +355,7 @@ export function buildPlayCheck(games, { steamOwned = [], farmedAppids = new Set(
     if (!mins || farmedAppids.has(sg.appid)) continue;
     const g = byName.get(normalize(sg.name));
     if (g) recent[g.id] = { ...recent[g.id], mins };
-    else if (mins >= UNTRACKED_MIN_MINUTES) untracked.push({ title: sg.name, source: "steam", mins });
+    else if (mins >= UNTRACKED_MIN_MINUTES && !PLAY_CHECK_IGNORE.has(normalize(sg.name))) untracked.push({ title: sg.name, source: "steam", mins });
   }
 
   const cutoff = new Date(today.getTime() - PLAY_CHECK_DAYS * 86400000).toISOString().slice(0, 10);
