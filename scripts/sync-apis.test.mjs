@@ -4,7 +4,7 @@
 // the fake API responses and mutate `games` correctly. A commented-out placeholder loop
 // (which is what the first version of this idea shipped with, before it was caught and
 // rebuilt) would fail every test here immediately.
-import { syncSteam, syncRA, getRecentlyFarmedAppids, buildPlayCheck, playCheckSummary } from "./sync-apis.mjs";
+import { syncSteam, syncRA, getRecentlyFarmedAppids, buildPlayCheck, playCheckSummary, resolveRaTitles } from "./sync-apis.mjs";
 import assert from "node:assert/strict";
 
 process.env.STEAM_API_KEY = "fake";
@@ -304,6 +304,14 @@ await test("buildPlayCheck lists untracked Steam games only above the minimum", 
   assert.deepEqual(c.untracked, [{ title: "Balatro", source: "steam", mins: 240 }]);
 });
 
+await test("buildPlayCheck leaves background apps like Bongo Cat off the untracked list", async () => {
+  const c = buildPlayCheck([baseGame()], { steamOwned: [
+    { appid: 5, name: "Bongo Cat", playtime_2weeks: 828 },
+    { appid: 6, name: "The Universim", playtime_2weeks: 403 },
+  ] }, TODAY);
+  assert.deepEqual(c.untracked.map(x => x.title), ["The Universim"]);
+});
+
 await test("buildPlayCheck matches Steam aliases and other-platform titles as tracked", async () => {
   const games = [
     baseGame({ id: 7, t: "Midnight Suns", s: "soon" }),
@@ -348,6 +356,64 @@ await test("playCheckSummary names Now Playing games with no recorded play", asy
   const out = playCheckSummary(buildPlayCheck(games, { steamOwned: [{ appid: 1, name: "Brotato", playtime_2weeks: 90 }] }, TODAY), games);
   assert.ok(out.includes("- Brotato: 1.5h in 14d"));
   assert.ok(out.includes("- Hades: no Steam/RA play"));
+});
+
+// ─── RA title matching (no hand-maintained map) ───
+const row = (Title, NumAwarded, MaxPossible) => ({ Title, NumAwarded, MaxPossible });
+
+await test("syncRA picks up a brand-new retro game by title alone, no map entry (the Halo regression, RA side)", async () => {
+  globalThis.fetch = raStub({ completed: [row("Metroid Fusion", 12, 40)] });
+  const games = [baseGame({ id: 20, t: "Metroid Fusion", p: "ayn" })];
+  await syncRA(games, []);
+  assert.deepEqual(games[0].achCount, [12, 40]);
+});
+
+await test("resolveRaTitles derives \"The Legend of Zelda: X\" from a \"Zelda: X\" title", async () => {
+  const m = resolveRaTitles([baseGame({ id: 21, t: "Zelda: Minish Cap", p: "retro" })], ["The Legend of Zelda: Minish Cap"]);
+  assert.equal(m.get(21), "The Legend of Zelda: Minish Cap");
+});
+
+await test("resolveRaTitles folds diacritics and RA's ~Hack~ prefix (Pokemon Lazarus)", async () => {
+  const m = resolveRaTitles([baseGame({ id: 22, t: "Pokemon Lazarus", p: "ayn" })], ["~Hack~ Pokémon Lazarus"]);
+  assert.equal(m.get(22), "~Hack~ Pokémon Lazarus");
+});
+
+await test("resolveRaTitles prefers an exact title over a prefix-stripped hack of the same name", async () => {
+  const m = resolveRaTitles([baseGame({ id: 23, t: "Tetris", p: "retro" })], ["~Homebrew~ Tetris", "Tetris"]);
+  assert.equal(m.get(23), "Tetris");
+});
+
+await test("resolveRaTitles never fuzzy-matches (Super Mario World vs Yoshi's Island)", async () => {
+  const m = resolveRaTitles([baseGame({ id: 24, t: "Super Mario World", p: "retro" })], ["Super Mario World 2: Yoshi's Island"]);
+  assert.equal(m.has(24), false);
+});
+
+await test("resolveRaTitles ignores non-RA platforms, and RA_TITLE_MAP still covers real renames", async () => {
+  const games = [
+    baseGame({ id: 25, t: "Chrono Trigger", p: "switch" }),
+    baseGame({ id: 26, t: "999: Nine Hours, Nine Persons", p: "ayn" }),
+  ];
+  const m = resolveRaTitles(games, ["Chrono Trigger", "999: Nine Hours, Nine Persons, Nine Doors"]);
+  assert.equal(m.has(25), false, "a Switch copy must not take a handheld run's achievements");
+  assert.equal(m.get(26), "999: Nine Hours, Nine Persons, Nine Doors");
+});
+
+await test("syncRA names a Now Playing retro game it can't match, and stays quiet about finished ones", async () => {
+  globalThis.fetch = raStub({ completed: [] });
+  const log = [];
+  await syncRA([
+    baseGame({ id: 27, t: "Obscure Hack", p: "ayn", s: "playing" }),
+    baseGame({ id: 28, t: "Old Finished Game", p: "ayn", s: "done" }),
+  ], log);
+  assert.ok(log.some(l => l.includes('no match for "Obscure Hack"')));
+  assert.ok(!log.some(l => l.includes("Old Finished Game")));
+});
+
+await test("buildPlayCheck resolves RA titles with the same rules, so a Zelda game isn't called untracked", async () => {
+  const games = [baseGame({ id: 29, t: "Zelda: Oracle of Seasons", p: "ayn", s: "playing" })];
+  const c = buildPlayCheck(games, { raPlayed: new Map([["The Legend of Zelda: Oracle of Seasons", "2026-09-24"]]) }, TODAY);
+  assert.deepEqual(c.untracked, []);
+  assert.deepEqual(c.recent[29], { lastPlayed: "2026-09-24" });
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);

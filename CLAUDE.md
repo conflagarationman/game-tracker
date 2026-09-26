@@ -80,7 +80,8 @@ One flat array. Every record carries every key, with `null` for unset.
   achievements.
 - **A finished game with `cy: null` is invisible in the Year Log**, which filters on a truthy
   `cy`, and lands in the Archive's "Unknown" group. 13 records are in that state; `add.html`
-  flags them as "— needs date" in its dropdown so they can be found and filled in.
+  lists them in a "Needs attention" group at the top of its dropdown, alongside `done` games
+  with `r: 0` and `playing`/`queue`/`soon` games with no `h`, with counts under the dropdown.
 - **`achPct` / `achCount` / `actualHours` / `lastPlayed` are bot-owned.** Editing them by hand
   is pointless — the next sync overwrites them. The exception worth knowing: `lastPlayed` on a
   non-Steam, non-RA platform (`pc`, `switch`, `ps5`, `wiiu` with no RA entry) has no source at
@@ -149,6 +150,12 @@ interpreting it:
   handled independently, so a freshly-started game with no awards row still gets a date.
   Steam games are matched by normalised title against the owned-games list rather than a
   hand-maintained map, so a new game only needs the right title and platform to start syncing.
+  **RA games are matched the same way now** (`resolveRaTitles()`), for `ayn`/`retro` only:
+  diacritics folded, "Zelda: X" tried as "The Legend of Zelda: X", RA's `~Hack~ `-style
+  prefixes stripped as a fallback that never beats an exact title. `RA_TITLE_MAP` is down to
+  the one real rename (999). It used to be a 22-entry allow-list covering under half the retro
+  library, so the next retro game started would never have synced. A `playing`/`ongoing`
+  retro game that still doesn't match is named in the sync log.
   Playtime is skipped for any app currently being idled for trading cards, since idling inflates
   Steam's own counters; achievements are unaffected and still sync.
 - **Play check**, same run. `buildPlayCheck()` compares status against real recent play and
@@ -157,7 +164,8 @@ interpreting it:
   that aren't `playing`/`ongoing`, and Steam (60+ min) or RA games played that aren't in the
   tracker at all. `index.html` shows the recent hours on Now Playing cards and a note under
   them only when there's a mismatch. It does **not** re-flag idle Now Playing games; the page's
-  "dormant" pill already does that. ASF-idled appids are excluded, and titles match across
+  "dormant" pill already does that. ASF-idled appids are excluded, as are background apps in
+  `PLAY_CHECK_IGNORE` (Bongo Cat, from the first real run), and titles match across
   every platform, so a game tracked as `switch` but played on Steam isn't called untracked.
   This replaces a Mac scheduled task that did a local version of this and died silently.
 - `backfill-covers.yml` — Sundays. Fills gaps in `covers.json` from SteamGridDB. It declines
@@ -170,8 +178,12 @@ interpreting it:
   place are listed on the workflow's run summary alongside what the catalogue offered, so
   the fix is an `SGDB_TITLE_ALIASES` entry.
 - `fetch-gotm.mjs` — daily, alongside the Steam sync. Rebuilds `gotm.json` from the club's
-  newest post. It needs `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`, because unauthenticated
-  Reddit refuses cloud IP ranges, which is where Actions runners live. A failed or unparseable
+  newest post, read from **Arctic Shift** (a free Reddit archive, no key) rather than Reddit.
+  Reddit is a dead end here: unauthenticated requests are refused from cloud IP ranges, which
+  is where Actions runners live, and since late 2025 every new OAuth app needs manual
+  pre-approval that personal scripts rarely get. It searches both title formats ("Game of the
+  Month" and the host-presented "GotM") and fails if either search fails, since one alone
+  could name last month's pick as current. A failed or unparseable
   fetch keeps the last known picks, records the error, and then fails the step on purpose — a
   red run is the notification that the club list has gone stale.
 - Adding a game through `add.html` triggers the sync and cover workflows immediately,
@@ -183,9 +195,9 @@ No test runner, no dependencies — each suite is a plain Node script that print
 and exits non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 23
+node scripts/sync-apis.test.mjs        # 32
 node scripts/backfill-covers.test.mjs  # 12
-node scripts/fetch-gotm.test.mjs       # 14
+node scripts/fetch-gotm.test.mjs       # 16
 cd worker && node index.test.mjs       # 27
 ```
 
