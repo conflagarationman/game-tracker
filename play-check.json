@@ -1,0 +1,34 @@
+{
+  "windowDays": 14,
+  "recent": {
+    "507": {
+      "mins": 103
+    },
+    "510": {
+      "lastPlayed": "2026-09-12"
+    }
+  },
+  "offList": [],
+  "untracked": [
+    {
+      "title": "Bongo Cat",
+      "source": "steam",
+      "mins": 828
+    },
+    {
+      "title": "The Universim",
+      "source": "steam",
+      "mins": 403
+    },
+    {
+      "title": "Vampire Survivors",
+      "source": "steam",
+      "mins": 60
+    },
+    {
+      "title": "Star Fox 2",
+      "source": "ra",
+      "lastPlayed": "2026-09-12"
+    }
+  ]
+}
