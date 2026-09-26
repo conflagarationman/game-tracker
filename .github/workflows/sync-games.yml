@@ -49,7 +49,7 @@ jobs:
         run: |
           git config user.name "game-tracker-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add games.json last-synced.json gotm.json
+          git add games.json last-synced.json gotm.json play-check.json
           git diff --staged --quiet || git commit -m "Sync Steam & RetroAchievements data"
           # actions/checkout sets the local branch to track its own origin ref, so a bare
           # `pull --rebase` reconciles against whatever branch actually got checked out — on

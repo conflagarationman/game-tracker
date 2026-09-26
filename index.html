@@ -245,6 +245,13 @@ section:first-of-type .slabel{margin-top:0;}
 .casual-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#42c8f510;color:#42c8f580;border:1px solid #42c8f520;white-space:nowrap;}
 .start-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54210;color:#c8f54270;border:1px solid #c8f54220;white-space:nowrap;}
 .queued-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#55556015;color:var(--dim);border:1px solid #55556025;white-space:nowrap;}
+/* Play check (play-check.json, written by the daily sync): games with real recent play that
+   aren't marked playing. Quiet by design: it renders nothing when there's nothing to say. */
+.play-check{margin-top:0.75rem;padding:8px 12px;border:1px dashed var(--border);border-radius:6px;font-size:0.72rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;}
+.play-check b{color:var(--text);font-weight:600;}
+.play-check a{color:var(--playing);text-decoration:none;}
+.play-check a:hover{text-decoration:underline;}
+.recent-time{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);white-space:nowrap;}
 .lp-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#ffffff08;color:var(--muted);border:1px solid #ffffff10;white-space:nowrap;}
 /* Unreleased games: a countdown instead of a release date buried in a free-text note. */
 .release-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#f5a04218;color:#f5a042;border:1px solid #f5a04230;white-space:nowrap;}
@@ -319,6 +326,7 @@ section:first-of-type .slabel{margin-top:0;}
 <section aria-labelledby="now-playing-heading">
   <h2 class="slabel" id="now-playing-heading">Now playing</h2>
   <div class="hero-grid" id="now"></div>
+  <div class="play-check" id="play-check" style="display:none;"></div>
 </section>
 <section aria-labelledby="ongoing-heading">
   <h2 class="slabel" id="ongoing-heading">Ongoing</h2>
@@ -363,6 +371,7 @@ const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:
 const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DIFF_LABELS={1:'Easy',2:'Normal',3:'Hard',4:'Expert',5:'Brutal'};
 let NOW = new Date();
+let PLAY = null; // play-check.json; null when absent, and every consumer tolerates that
 let open={ar:false,yl:false,so:false};
 // Whether the Worker is configured. Cards only become links to their edit form when it is,
 // for the same reason the "+ Add game" link is hidden otherwise: add.html can't do anything
@@ -519,6 +528,38 @@ function cardLink(g, inner){
   return `<a class="card-link" href="add.html?id=${g.id}" draggable="false">${inner}</a>`;
 }
 
+// Actual play over the sync's window, next to the lifetime ▶ hours. Steam reports minutes;
+// RA only a date, which lastPlayedEl already shows, so RA games get nothing extra here. A
+// Steam game with no entry genuinely had no play in the window, so it says 0h rather than
+// going blank: that zero is the whole point of the check.
+function recentEl(g){
+  if(!PLAY) return '';
+  const r=PLAY.recent&&PLAY.recent[g.id];
+  const days=PLAY.windowDays||14;
+  if(r&&r.mins) return `<span class="recent-time" title="Steam playtime, last ${days} days">${Math.round(r.mins/6)/10}h / ${days}d</span>`;
+  if(g.p==='steam'||g.p==='steamdeck') return `<span class="recent-time" title="No Steam playtime in the last ${days} days">0h / ${days}d</span>`;
+  return '';
+}
+
+function playAmt(x){
+  return x.mins ? `${Math.round(x.mins/6)/10}h` : x.lastPlayed ? `RA ${fmtDate(x.lastPlayed)}` : '';
+}
+
+function renderPlayCheck(){
+  const el=document.getElementById('play-check');
+  const off=(PLAY&&PLAY.offList)||[], un=(PLAY&&PLAY.untracked)||[];
+  if(!off.length&&!un.length){ el.style.display='none'; el.innerHTML=''; return; }
+  const days=PLAY.windowDays||14;
+  const link=(href,text)=>CAN_EDIT?`<a href="${href}">${text}</a>`:text;
+  const rows=[];
+  if(off.length) rows.push(`<div><b>Played in the last ${days} days, not marked playing:</b> ${off.map(x=>
+    `${link(`add.html?id=${x.id}`,esc(x.t))} (${esc(x.s)}, ${playAmt(x)})`).join(' · ')}</div>`);
+  if(un.length) rows.push(`<div><b>Not in the tracker:</b> ${un.map(x=>
+    `${link(`add.html?t=${encodeURIComponent(x.title)}`,esc(x.title))} (${playAmt(x)})`).join(' · ')}</div>`);
+  el.innerHTML=rows.join('');
+  el.style.display='flex';
+}
+
 function nowC(g){
   const dormant=isDormant(g);
   return cardLink(g, `<div class="hero-card ${dormant?'dormant':'now'}" data-id="${g.id}">
@@ -537,7 +578,7 @@ function nowC(g){
         ${g.casual?'<span class="casual-pill">casual play</span>':''}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
-      ${hltbEl(g)?`<div class="hero-hltb">${hltbEl(g)}</div>`:''}
+      ${hltbEl(g)||recentEl(g)?`<div class="hero-hltb">${hltbEl(g)}${recentEl(g)}</div>`:''}
       ${achBar(g)}
     </div>
   </div>`);
@@ -843,6 +884,7 @@ function render(){
   document.getElementById('ongoing').innerHTML=ongoing.length?ongoing.map(ongC).join(''):'<div class="empty">Nothing ongoing.</div>';
   document.getElementById('so-lbl').textContent=`Soon™ (${soon.length})`;
   document.getElementById('soon').innerHTML=soon.length?soon.map(g=>qC(g,0,false)).join(''):'<div class="empty">Nothing here yet.</div>';
+  renderPlayCheck();
   renderGotm();
   renderPanels();
 }
@@ -1148,8 +1190,10 @@ Promise.all([
   fresh('games.json').then(r=>r.json()),
   fresh('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fresh('gotm.json').then(r=>r.ok?r.json():null).catch(()=>null),
-]).then(([games,covers,gotm])=>{
+  fresh('play-check.json').then(r=>r.ok?r.json():null).catch(()=>null),
+]).then(([games,covers,gotm,play])=>{
   G=games;
+  PLAY=play;
   COVERS=covers;
   GOTM=refreshGotmWindows(gotm);
   NOW=new Date();
