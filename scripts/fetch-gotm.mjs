@@ -7,9 +7,13 @@
 // RETIRED / LAST CHANCE markers. So one fetch reproduces the whole club state — there's no
 // month-by-month accumulation to get out of step, and a missed run self-heals on the next one.
 //
-// Reddit needs OAuth here. Unauthenticated reddit.com 403s from cloud IP ranges, which is
-// exactly where GitHub Actions runners live (three separate fetchers hit this during
-// development). REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET come from a Reddit "script" app.
+// The post is read from Arctic Shift, a free, maintained Reddit archive, not from Reddit. Reddit
+// itself is a dead end for this: unauthenticated reddit.com 403s from cloud IP ranges, which is
+// where GitHub Actions runners live, and since late 2025 its Responsible Builder Policy puts
+// every new OAuth app behind manual pre-approval that personal scripts rarely get. This repo
+// never had working keys (gotm.json was seeded by hand). Arctic Shift needs no key, archives
+// new posts as they appear, and returns the full selftext. It's a third party with no uptime
+// guarantee, which is why a failed fetch keeps the last known picks and turns the run red.
 //
 // Everything above the network boundary is a pure function so the parsing and the date maths
 // are unit-tested against a captured post, the same discipline as sync-apis.mjs.
@@ -20,14 +24,12 @@ import { pathToFileURL } from "node:url";
 const FILE = "gotm.json";
 const SUBREDDIT = "SBCGaming";
 
-// Reddit asks for a descriptive User-Agent in the form <platform>:<app id>:<version> (by
-// /u/<user>), and throttles or outright blocks generic ones more aggressively — which would
-// look like a credentials problem when it isn't. REDDIT_USERNAME is optional and is only used
-// to complete that string; the request authenticates purely on client id/secret.
-function userAgent() {
-  const who = process.env.REDDIT_USERNAME;
-  return `script:game-tracker-gotm:v1.0${who ? ` (by /u/${who})` : ""}`;
-}
+const ARCTIC_SHIFT = "https://arctic-shift.photon-reddit.com/api/posts/search";
+// A free service asking callers to go easy: identify this job so a problem can be traced to it.
+const USER_AGENT = "game-tracker-gotm/2.0 (+https://github.com/conflagarationman/game-tracker)";
+// One search per title format parseTitle() accepts. The host-picked months are titled
+// "<host> Presents SEP '26 GotM - ...", which a "Game of the Month" search never returns.
+const TITLE_QUERIES = ["Game of the Month", "GotM"];
 
 
 const MONTHS = ["January","February","March","April","May","June",
@@ -162,43 +164,36 @@ export function ymNow(date = new Date()) {
 }
 
 // ─── Network ──────────────────────────────────────────────────────────────────
-async function redditToken(fetchImpl = fetch) {
-  const id = process.env.REDDIT_CLIENT_ID, secret = process.env.REDDIT_CLIENT_SECRET;
-  if (!id || !secret) throw new Error("missing REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET");
-  const res = await fetchImpl("https://www.reddit.com/api/v1/access_token", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": userAgent(),
-    },
-    body: "grant_type=client_credentials",
-  });
-  if (!res.ok) throw new Error(`reddit auth -> ${res.status}`);
+async function searchPosts(title, fetchImpl) {
+  const url = new URL(ARCTIC_SHIFT);
+  url.searchParams.set("subreddit", SUBREDDIT);
+  url.searchParams.set("title", title);
+  url.searchParams.set("sort", "desc");
+  url.searchParams.set("limit", "25");
+  const res = await fetchImpl(url, { headers: { "User-Agent": USER_AGENT } });
+  if (!res.ok) throw new Error(`arctic shift search "${title}" -> ${res.status}`);
   const data = await res.json();
-  if (!data.access_token) throw new Error("reddit auth returned no access_token");
-  return data.access_token;
+  if (data?.error) throw new Error(`arctic shift search "${title}": ${data.error}`);
+  return Array.isArray(data?.data) ? data.data : [];
 }
 
-// Newest matching post wins. Searching the subreddit rather than the host's profile so a
-// change of host doesn't silently stop the sync.
+// Newest matching post wins, across both title formats. Searching the subreddit rather than
+// the host's profile so a change of host doesn't silently stop the sync.
+//
+// Both searches must succeed. If only the "Game of the Month" one came back during a month
+// whose post is a "GotM" one, the newest parseable post would be LAST month's, and the file
+// would confidently name the wrong current pick. Failing keeps the last known-good picks.
 export async function fetchLatestGotmPost(fetchImpl = fetch) {
-  const token = await redditToken(fetchImpl);
-  const url = new URL(`https://oauth.reddit.com/r/${SUBREDDIT}/search`);
-  url.searchParams.set("q", '"Game of the Month"');
-  url.searchParams.set("restrict_sr", "true");
-  url.searchParams.set("sort", "new");
-  url.searchParams.set("limit", "25");
-  const res = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}`, "User-Agent": userAgent() } });
-  if (!res.ok) throw new Error(`reddit search -> ${res.status}`);
-  const data = await res.json();
-  const posts = (data?.data?.children || []).map(c => c.data).filter(Boolean);
+  const results = await Promise.all(TITLE_QUERIES.map(q => searchPosts(q, fetchImpl)));
+  const byId = new Map();
+  for (const p of results.flat()) if (p && p.title) byId.set(p.id ?? p.permalink ?? p.title, p);
+  const posts = [...byId.values()].sort((a, b) => (Number(b.created_utc) || 0) - (Number(a.created_utc) || 0));
   for (const p of posts) {
     if (parseTitle(p.title)) {
       return { title: p.title, body: p.selftext || "", url: p.permalink ? `https://www.reddit.com${p.permalink}` : null };
     }
   }
-  throw new Error(`no post matching the "<Month> <Year> Game of the Month - <Game>" title found in the newest ${posts.length}`);
+  throw new Error(`no post matching a Game of the Month title found in the newest ${posts.length}`);
 }
 
 // Merge, never replace: a fetch that fails or returns something unparseable must leave the

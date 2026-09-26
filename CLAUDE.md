@@ -177,8 +177,12 @@ interpreting it:
   place are listed on the workflow's run summary alongside what the catalogue offered, so
   the fix is an `SGDB_TITLE_ALIASES` entry.
 - `fetch-gotm.mjs` — daily, alongside the Steam sync. Rebuilds `gotm.json` from the club's
-  newest post. It needs `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`, because unauthenticated
-  Reddit refuses cloud IP ranges, which is where Actions runners live. A failed or unparseable
+  newest post, read from **Arctic Shift** (a free Reddit archive, no key) rather than Reddit.
+  Reddit is a dead end here: unauthenticated requests are refused from cloud IP ranges, which
+  is where Actions runners live, and since late 2025 every new OAuth app needs manual
+  pre-approval that personal scripts rarely get. It searches both title formats ("Game of the
+  Month" and the host-presented "GotM") and fails if either search fails, since one alone
+  could name last month's pick as current. A failed or unparseable
   fetch keeps the last known picks, records the error, and then fails the step on purpose — a
   red run is the notification that the club list has gone stale.
 - Adding a game through `add.html` triggers the sync and cover workflows immediately,
@@ -192,7 +196,7 @@ and exits non-zero on failure.
 ```
 node scripts/sync-apis.test.mjs        # 31
 node scripts/backfill-covers.test.mjs  # 12
-node scripts/fetch-gotm.test.mjs       # 14
+node scripts/fetch-gotm.test.mjs       # 16
 cd worker && node index.test.mjs       # 27
 ```
 
