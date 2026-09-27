@@ -156,9 +156,9 @@ await test("a failed fetch keeps the previous picks and records the error", () =
 });
 
 await test("a failed first run degrades to an empty list rather than throwing", () => {
-  const merged = mergeResult(null, null, "2026-08", new Error("missing REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET"));
+  const merged = mergeResult(null, null, "2026-08", new Error("arctic shift search \"GotM\" -> 503"));
   assert.deepEqual(merged.picks, []);
-  assert.match(merged.error, /REDDIT_CLIENT_ID/);
+  assert.match(merged.error, /503/);
 });
 
 await test("a successful fetch clears a previously recorded error", () => {
@@ -169,28 +169,49 @@ await test("a successful fetch clears a previously recorded error", () => {
   assert.equal(merged.picks.length, 1);
 });
 
-await test("fetchLatestGotmPost skips non-matching posts and reports missing credentials", async () => {
-  const prev = { id: process.env.REDDIT_CLIENT_ID, secret: process.env.REDDIT_CLIENT_SECRET };
-  delete process.env.REDDIT_CLIENT_ID;
-  delete process.env.REDDIT_CLIENT_SECRET;
-  await assert.rejects(() => fetchLatestGotmPost(async () => new Response("{}", { status: 200 })), /REDDIT_CLIENT_ID/);
+// Arctic Shift stub: answers each title search from `byTitle`, recording what was asked.
+const arcticStub = (byTitle, calls = []) => async (url) => {
+  const u = new URL(String(url));
+  assert.equal(u.hostname, "arctic-shift.photon-reddit.com");
+  assert.equal(u.searchParams.get("subreddit"), "SBCGaming");
+  calls.push(u.searchParams.get("title"));
+  const r = byTitle[u.searchParams.get("title")];
+  if (r instanceof Response) return r;
+  return new Response(JSON.stringify({ data: r || [] }), { status: 200 });
+};
 
-  process.env.REDDIT_CLIENT_ID = "id";
-  process.env.REDDIT_CLIENT_SECRET = "secret";
-  const stub = async (url) => {
-    if (String(url).includes("access_token")) return new Response(JSON.stringify({ access_token: "t" }), { status: 200 });
-    return new Response(JSON.stringify({ data: { children: [
-      { data: { title: "Weekly Discussion Thread", selftext: "", permalink: "/r/x/1" } },
-      { data: { title: TITLE, selftext: BODY, permalink: "/r/SBCGaming/2" } },
-    ] } }), { status: 200 });
-  };
-  const post = await fetchLatestGotmPost(stub);
-  assert.equal(post.title, TITLE, "the first title that parses as a pick wins");
-  assert.equal(post.url, "https://www.reddit.com/r/SBCGaming/2");
-
-  if (prev.id) process.env.REDDIT_CLIENT_ID = prev.id; else delete process.env.REDDIT_CLIENT_ID;
-  if (prev.secret) process.env.REDDIT_CLIENT_SECRET = prev.secret; else delete process.env.REDDIT_CLIENT_SECRET;
+await test("fetchLatestGotmPost needs no credentials and skips posts that aren't a pick", async () => {
+  const calls = [];
+  const post = await fetchLatestGotmPost(arcticStub({
+    "Game of the Month": [
+      { id: "b", title: "Game of the Month discussion thread", selftext: "", created_utc: 300 },
+      { id: "a", title: "August 2026 Game of the Month - Marvel vs. Capcom 2 (Dreamcast)",
+        selftext: "body", permalink: "/r/SBCGaming/comments/a/x/", created_utc: 200 },
+    ],
+  }, calls));
+  assert.deepEqual(calls.sort(), ["Game of the Month", "GotM"], "searches both title formats");
+  assert.equal(post.title, "August 2026 Game of the Month - Marvel vs. Capcom 2 (Dreamcast)");
+  assert.equal(post.body, "body");
+  assert.equal(post.url, "https://www.reddit.com/r/SBCGaming/comments/a/x/");
 });
+
+await test("fetchLatestGotmPost picks the newest pick across both formats (a host-presented month)", async () => {
+  const post = await fetchLatestGotmPost(arcticStub({
+    "Game of the Month": [{ id: "a", title: "August 2026 Game of the Month - Marvel vs. Capcom 2", created_utc: 200 }],
+    "GotM": [{ id: "c", title: "hbi2k Presents SEP '26 GotM - Civilization Revolution (DS)", created_utc: 400 }],
+  }));
+  assert.match(post.title, /Civilization Revolution/);
+});
+
+await test("fetchLatestGotmPost fails outright if either search fails, rather than naming last month's pick", async () => {
+  await assert.rejects(() => fetchLatestGotmPost(arcticStub({
+    "Game of the Month": [{ id: "a", title: "August 2026 Game of the Month - Marvel vs. Capcom 2", created_utc: 200 }],
+    "GotM": new Response("rate limited", { status: 429 }),
+  })), /GotM" -> 429/);
+  await assert.rejects(() => fetchLatestGotmPost(async () =>
+    new Response(JSON.stringify({ error: "Timeout" }), { status: 200 })), /Timeout/);
+});
+
 
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);

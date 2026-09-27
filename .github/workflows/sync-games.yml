@@ -30,20 +30,13 @@ jobs:
           HUB_STATUS_TOKEN: ${{ secrets.HUB_STATUS_TOKEN }}
         run: node scripts/sync-apis.mjs
 
-      # TODO: re-enable once REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET are set as repo secrets again.
-      # Was failing every run with "missing REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET" (they're unset),
-      # which tripped the intentional fail-the-run step below and marked every run red even though
-      # the Steam/RA sync itself was succeeding. Disabled here rather than deleting so it's a
-      # one-line restore: uncomment this step and the "Fail the run" step, and re-add the secrets.
-      # - name: Refresh the r/SBCGaming Game of the Month list
-      #   id: gotm
-      #   continue-on-error: true
-      #   env:
-      #     REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-      #     REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-      #     # Optional. Only completes Reddit's preferred User-Agent string; not a credential.
-      #     REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
-      #   run: node scripts/fetch-gotm.mjs
+      # Reads the club's post from Arctic Shift (a Reddit archive), which needs no key. The
+      # old Reddit OAuth path is gone: new Reddit API apps now need manual pre-approval, and
+      # this step sat disabled for want of secrets that could no longer be obtained.
+      - name: Refresh the r/SBCGaming Game of the Month list
+        id: gotm
+        continue-on-error: true
+        run: node scripts/fetch-gotm.mjs
 
       - name: Commit results if anything changed
         run: |
@@ -67,9 +60,11 @@ jobs:
         if: failure()
         run: curl -fsS -m 10 --retry 3 https://hc-ping.com/8cb20190-ff66-41b6-a8bc-4b4bd993082a/fail
 
-      # See TODO above - paired with the disabled GOTM step; re-enable both together.
-      # - name: Fail the run if the club fetch failed
-      #   if: steps.gotm.outcome == 'failure'
-      #   run: |
-      #     echo "::error::GOTM fetch failed - gotm.json kept its last known picks and is marked stale."
-      #     exit 1
+      # After the commit and the healthcheck ping on purpose: a failed club fetch has already
+      # kept the last known picks and recorded its error in gotm.json, and the Steam/RA sync
+      # succeeded. Going red here is the notification that the club list is going stale.
+      - name: Fail the run if the club fetch failed
+        if: steps.gotm.outcome == 'failure'
+        run: |
+          echo "::error::GOTM fetch failed - gotm.json kept its last known picks and is marked stale."
+          exit 1

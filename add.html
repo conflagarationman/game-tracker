@@ -101,6 +101,7 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
 <div id="form-area" style="display:none;">
   <label for="existing">Edit an existing game (optional)</label>
   <select id="existing"><option value="">— Add a new game instead —</option></select>
+  <div class="hint" id="gaps-hint" aria-live="polite"></div>
 
   <label for="t">Title</label>
   <input type="text" id="t" placeholder="Game title">
@@ -520,14 +521,37 @@ async function loadGames() {
   games = await res.json();
   const sel = $('existing');
   const current = sel.value;
-  // Flagging finished-but-undated games right in the dropdown is the only practical way to
-  // find them: there are 113 entries and nothing else distinguishes the 13 that are missing a
-  // completion month and therefore missing from the Year Log entirely.
-  const needsDate = (g) => (g.s === 'done' || g.s === 'dropped') && g.cy == null;
+  // Gaps that quietly skew the tracker, surfaced where they get fixed. Nothing else in 113
+  // entries distinguishes them:
+  //   needs date: finished with no cy, so it's missing from the Year Log entirely
+  //   unrated:    done with r:0, which the average skips (0 means unrated, not zero)
+  //   no HLTB:    backlog with no estimate, so the "Backlog hrs" stat runs low
+  // Ongoing games are exempt from HLTB by design (no finish line), and so are dropped games
+  // from rating (there's no verdict to record).
+  const gaps = (g) => {
+    const out = [];
+    if ((g.s === 'done' || g.s === 'dropped') && g.cy == null) out.push('needs date');
+    if (g.s === 'done' && !g.r) out.push('unrated');
+    if (['playing', 'queue', 'soon'].includes(g.s) && !g.h) out.push('no HLTB');
+    return out;
+  };
+  const opt = (g) => {
+    const gp = gaps(g);
+    return `<option value="${g.id}">${escAttr(g.t)}${gp.length ? ' — ' + gp.join(', ') : ''}</option>`;
+  };
+  const sorted = [...games].sort((a, b) => a.t.localeCompare(b.t));
+  const flagged = sorted.filter(g => gaps(g).length);
+  // A game appears in both groups on purpose: the top group is the to-do list, the full list
+  // stays complete so nothing moves when a gap is fixed. Setting .value picks the first
+  // matching option, which is harmless since both carry the same id.
   sel.innerHTML = '<option value="">— Add a new game instead —</option>' +
-    [...games].sort((a, b) => a.t.localeCompare(b.t))
-      .map(g => `<option value="${g.id}">${g.t}${needsDate(g) ? ' — needs date' : ''}</option>`).join('');
+    (flagged.length ? `<optgroup label="Needs attention (${flagged.length})">${flagged.map(opt).join('')}</optgroup>` : '') +
+    `<optgroup label="All games (${sorted.length})">${sorted.map(opt).join('')}</optgroup>`;
   sel.value = current;
+  const count = (k) => games.filter(g => gaps(g).includes(k)).length;
+  const summary = [['needs date', 'need a date'], ['unrated', 'unrated'], ['no HLTB', 'no HLTB estimate']]
+    .map(([k, label]) => [count(k), label]).filter(([n]) => n).map(([n, label]) => `${n} ${label}`);
+  $('gaps-hint').textContent = summary.length ? `Needs attention: ${summary.join(' · ')} (listed first above)` : '';
   // Rebuilt from the fresh copy every time, because any add/edit/delete can change which
   // games are in the queue at all. An unsaved reorder is discarded here on purpose: it was
   // built against a membership list that may no longer be accurate.
