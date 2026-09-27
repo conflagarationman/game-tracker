@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-09-01T18:54:12.477Z",
+  "fetchedAt": "2026-09-27T17:25:16.117Z",
   "sourceUrl": null,
   "generatedFor": "2026-09",
   "seeded": true,
@@ -254,5 +254,5 @@
       "isCurrent": true
     }
   ],
-  "error": null
+  "error": "arctic shift search \"GotM\" -> 422"
 }
