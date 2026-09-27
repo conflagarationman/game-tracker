@@ -175,7 +175,8 @@ const arcticStub = (byTitle, calls = []) => async (url) => {
   assert.equal(u.hostname, "arctic-shift.photon-reddit.com");
   assert.equal(u.searchParams.get("subreddit"), "SBCGaming");
   calls.push(u.searchParams.get("title"));
-  const r = byTitle[u.searchParams.get("title")];
+  let r = byTitle[u.searchParams.get("title")];
+  if (typeof r === "function") r = r();
   if (r instanceof Response) return r;
   return new Response(JSON.stringify({ data: r || [] }), { status: 200 });
 };
@@ -206,12 +207,47 @@ await test("fetchLatestGotmPost picks the newest pick across both formats (a hos
 await test("fetchLatestGotmPost fails outright if either search fails, rather than naming last month's pick", async () => {
   await assert.rejects(() => fetchLatestGotmPost(arcticStub({
     "Game of the Month": [{ id: "a", title: "August 2026 Game of the Month - Marvel vs. Capcom 2", created_utc: 200 }],
-    "GotM": new Response("rate limited", { status: 429 }),
-  })), /GotM" -> 429/);
+    "GotM": () => new Response("rate limited", { status: 429 }),
+  }), { retryDelayMs: 0 }), /GotM" -> 429: rate limited/, "the body is in the error, after the one retry");
   await assert.rejects(() => fetchLatestGotmPost(async () =>
     new Response(JSON.stringify({ error: "Timeout" }), { status: 200 })), /Timeout/);
 });
 
+await test("fetchLatestGotmPost retries once on a load-shedding 422, then succeeds", async () => {
+  // Seen for real on 2026-09-27: "GotM" -> 422 from Actions, while the same request worked
+  // moments later from elsewhere.
+  const calls = [];
+  let gotmCalls = 0;
+  const post = await fetchLatestGotmPost(arcticStub({
+    "GotM": () => (++gotmCalls === 1
+      ? new Response("busy", { status: 422 })
+      : new Response(JSON.stringify({ data: [
+          { id: "c", title: "hbi2k Presents SEP '26 GotM - Civilization Revolution (DS)", created_utc: 400 }] }), { status: 200 })),
+  }, calls), { retryDelayMs: 0 });
+  assert.match(post.title, /Civilization Revolution/);
+  assert.equal(gotmCalls, 2);
+});
+
+await test("a post with no history list keeps every known pick instead of wiping them (host-presented months)", async () => {
+  // The real SEP '26 "hbi2k Presents" post has no "Previous Games of the Month" list at all.
+  // Rebuilding from it alone would have replaced 22 known picks with one.
+  const known = [
+    { month: "2025-10", game: "Castlevania: Symphony of the Night", platform: null, url: "u1", isCurrent: false },
+    { month: "2026-08", game: "Marvel vs. Capcom 2", platform: "Dreamcast", url: "u2", isCurrent: true },
+  ];
+  const cur = parseTitle("hbi2k Presents SEP '26 GotM - Civilization Revolution (DS)");
+  const picks = buildPicks({ current: cur, previous: parsePreviousList("Happy September! No list this month."), known }, "2026-09");
+  assert.deepEqual(picks.map(p => p.month), ["2025-10", "2026-08", "2026-09"]);
+  assert.deepEqual(picks.filter(p => p.isCurrent).map(p => p.month), ["2026-09"], "only the new post's pick is current");
+  assert.equal(picks[0].monthsLeft, 1, "windows are recomputed, not carried over");
+  assert.equal(picks[1].url, "u2", "known details survive");
+});
+
+await test("the post's own list still wins over a known pick for the same month", async () => {
+  const known = [{ month: "2026-02", game: "999", url: null }];
+  const picks = buildPicks({ current: null, previous: [{ month: "2026-02", game: "999: Nine Hours", url: "p" }], known }, "2026-09");
+  assert.deepEqual([picks[0].game, picks[0].url], ["999: Nine Hours", "p"]);
+});
 
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);

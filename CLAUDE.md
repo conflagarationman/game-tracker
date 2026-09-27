@@ -183,7 +183,11 @@ interpreting it:
   is where Actions runners live, and since late 2025 every new OAuth app needs manual
   pre-approval that personal scripts rarely get. It searches both title formats ("Game of the
   Month" and the host-presented "GotM") and fails if either search fails, since one alone
-  could name last month's pick as current. A failed or unparseable
+  could name last month's pick as current. The two searches run one after the other with
+  one retry each, because Arctic Shift sheds load with 422s (the first live run got one).
+  **Picks are merged, never rebuilt:** the host-presented months carry no "Previous Games
+  of the Month" list, so gotm.json's known picks are kept and the post only adds or
+  updates months. A failed or unparseable
   fetch keeps the last known picks, records the error, and then fails the step on purpose — a
   red run is the notification that the club list has gone stale.
 - Adding a game through `add.html` triggers the sync and cover workflows immediately,
@@ -197,7 +201,7 @@ and exits non-zero on failure.
 ```
 node scripts/sync-apis.test.mjs        # 32
 node scripts/backfill-covers.test.mjs  # 12
-node scripts/fetch-gotm.test.mjs       # 16
+node scripts/fetch-gotm.test.mjs       # 19
 cd worker && node index.test.mjs       # 27
 ```
 
