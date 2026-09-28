@@ -3387,10 +3387,10 @@
     "id": 518
   },
   {
-    "r": 0,
+    "r": 8,
     "h": null,
-    "cy": null,
-    "cm": null,
+    "cy": 2026,
+    "cm": 8,
     "gotm": null,
     "gotmFlair": false,
     "mastery": null,
@@ -3406,9 +3406,9 @@
     "release": null,
     "t": "Oxenfree II: Lost Signals",
     "p": "switch2",
-    "s": "playing",
-    "g": null,
-    "y": null,
+    "s": "done",
+    "g": "Adventure",
+    "y": 2023,
     "id": 519
   },
   {
