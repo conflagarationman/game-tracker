@@ -135,9 +135,19 @@ function linkTarget(s) {
 // Merges the current pick into the history and decorates every entry with derived eligibility.
 // `flairEarned` is deliberately absent here: that's human-owned state living in games.json, and
 // this file is bot-written and overwritten wholesale on every run.
-export function buildPicks({ current, previous }, nowYm) {
+// `known` is the last gotm.json's picks. The newest post is not always a full record: the
+// host-presented months ("hbi2k Presents SEP '26 GotM") carry no "Previous Games of the
+// Month" list at all, so rebuilding from the post alone would wipe the whole history down to
+// one pick. Months are therefore only ever added or updated, never dropped: known picks
+// first, then the post's own list over them, then the current pick over both.
+export function buildPicks({ current, previous, known = [] }, nowYm) {
   const byMonth = new Map();
-  for (const p of previous) byMonth.set(p.month, { ...p });
+  for (const p of known) {
+    if (!p || !p.month) continue;
+    // isCurrent is re-derived below from the newest post, never carried over.
+    byMonth.set(p.month, { month: p.month, game: p.game, platform: p.platform ?? null, url: p.url ?? null });
+  }
+  for (const p of previous) byMonth.set(p.month, { ...(byMonth.get(p.month) || {}), ...p });
   if (current) {
     byMonth.set(current.month, { ...(byMonth.get(current.month) || {}), ...current, isCurrent: true });
   }
@@ -164,17 +174,33 @@ export function ymNow(date = new Date()) {
 }
 
 // ─── Network ──────────────────────────────────────────────────────────────────
-async function searchPosts(title, fetchImpl) {
+// Arctic Shift sheds load by rejecting requests (it has answered 422 to a search that
+// succeeded moments later from elsewhere), and says rate limits are "calculated dynamically
+// based on server load and request complexity". So: one retry after a pause for those
+// statuses, and the response body in the error, since a bare status code gave nothing to
+// diagnose the first time.
+const RETRY_STATUSES = new Set([422, 429, 500, 502, 503, 504]);
+
+async function searchPosts(title, fetchImpl, { retryDelayMs = 5000 } = {}) {
   const url = new URL(ARCTIC_SHIFT);
   url.searchParams.set("subreddit", SUBREDDIT);
   url.searchParams.set("title", title);
   url.searchParams.set("sort", "desc");
   url.searchParams.set("limit", "25");
-  const res = await fetchImpl(url, { headers: { "User-Agent": USER_AGENT } });
-  if (!res.ok) throw new Error(`arctic shift search "${title}" -> ${res.status}`);
-  const data = await res.json();
-  if (data?.error) throw new Error(`arctic shift search "${title}": ${data.error}`);
-  return Array.isArray(data?.data) ? data.data : [];
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetchImpl(url, { headers: { "User-Agent": USER_AGENT } });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.error) throw new Error(`arctic shift search "${title}": ${data.error}`);
+      return Array.isArray(data?.data) ? data.data : [];
+    }
+    if (attempt < 2 && RETRY_STATUSES.has(res.status)) {
+      await new Promise(r => setTimeout(r, retryDelayMs));
+      continue;
+    }
+    const body = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
+    throw new Error(`arctic shift search "${title}" -> ${res.status}${body ? `: ${body}` : ""}`);
+  }
 }
 
 // Newest matching post wins, across both title formats. Searching the subreddit rather than
@@ -183,8 +209,11 @@ async function searchPosts(title, fetchImpl) {
 // Both searches must succeed. If only the "Game of the Month" one came back during a month
 // whose post is a "GotM" one, the newest parseable post would be LAST month's, and the file
 // would confidently name the wrong current pick. Failing keeps the last known-good picks.
-export async function fetchLatestGotmPost(fetchImpl = fetch) {
-  const results = await Promise.all(TITLE_QUERIES.map(q => searchPosts(q, fetchImpl)));
+export async function fetchLatestGotmPost(fetchImpl = fetch, opts) {
+  // One after the other, not in parallel: two concurrent full-text searches is exactly the
+  // "request complexity" a load-shedding free service pushes back on.
+  const results = [];
+  for (const q of TITLE_QUERIES) results.push(await searchPosts(q, fetchImpl, opts));
   const byId = new Map();
   for (const p of results.flat()) if (p && p.title) byId.set(p.id ?? p.permalink ?? p.title, p);
   const posts = [...byId.values()].sort((a, b) => (Number(b.created_utc) || 0) - (Number(a.created_utc) || 0));
@@ -225,7 +254,7 @@ async function main() {
     const current = parseTitle(post.title);
     const previous = parsePreviousList(post.body);
     if (!current) throw new Error(`could not parse a pick from title: ${post.title}`);
-    const picks = buildPicks({ current: { ...current, url: post.url }, previous }, nowYm);
+    const picks = buildPicks({ current: { ...current, url: post.url }, previous, known: previousFile?.picks }, nowYm);
     out = mergeResult(previousFile, { sourceUrl: post.url, current: { ...current, url: post.url }, picks }, nowYm, null);
     console.log(`GOTM: ${picks.length} picks, current ${current.month} — ${current.game}`);
   } catch (e) {
