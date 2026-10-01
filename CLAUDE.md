@@ -181,10 +181,14 @@ interpreting it:
   newest post, read from **Arctic Shift** (a free Reddit archive, no key) rather than Reddit.
   Reddit is a dead end here: unauthenticated requests are refused from cloud IP ranges, which
   is where Actions runners live, and since late 2025 every new OAuth app needs manual
-  pre-approval that personal scripts rarely get. It searches both title formats ("Game of the
-  Month" and the host-presented "GotM") and fails if either search fails, since one alone
-  could name last month's pick as current. The two searches run one after the other with
-  one retry each, because Arctic Shift sheds load with 422s (the first live run got one).
+  pre-approval that personal scripts rarely get. **It looks up the host's recent posts
+  first** (`GOTM_HOSTS`, an indexed `author=` filter) and matches titles locally; the
+  full-text title searches ("Game of the Month", "GotM") are only a fallback for a new
+  host. Probed from an Actions runner, the host lookup answered in ~1s while the title
+  searches sat at 5-8s and intermittently hit Arctic Shift's "Timeout. Maybe slow down a
+  bit" 422, with or without a date range; they failed the first three live runs. A pick
+  older than the newest known month is refused, so an incomplete fallback search can't
+  move "current" backwards.
   **Picks are merged, never rebuilt:** the host-presented months carry no "Previous Games
   of the Month" list, so gotm.json's known picks are kept and the post only adds or
   updates months. A failed or unparseable
@@ -201,7 +205,7 @@ and exits non-zero on failure.
 ```
 node scripts/sync-apis.test.mjs        # 32
 node scripts/backfill-covers.test.mjs  # 12
-node scripts/fetch-gotm.test.mjs       # 20
+node scripts/fetch-gotm.test.mjs       # 23
 cd worker && node index.test.mjs       # 27
 ```
 

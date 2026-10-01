@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import {
   parseTitle, parsePreviousList, buildPicks, monthsLeft, monthIndex, toTag, mergeResult,
-  fetchLatestGotmPost, ELIGIBLE_MONTHS,
+  fetchLatestGotmPost, assertNotBackwards, GOTM_HOSTS, ELIGIBLE_MONTHS,
 } from "./fetch-gotm.mjs";
 
 let pass = 0, fail = 0;
@@ -179,8 +179,10 @@ const arcticStub = (byTitle, calls = []) => async (url) => {
   const u = new URL(String(url));
   assert.equal(u.hostname, "arctic-shift.photon-reddit.com");
   assert.equal(u.searchParams.get("subreddit"), "SBCGaming");
-  calls.push(u.searchParams.get("title"));
-  let r = byTitle[u.searchParams.get("title")];
+  // Keyed by the title searched, or "author:<name>" for a host lookup.
+  const key = u.searchParams.get("title") ?? `author:${u.searchParams.get("author")}`;
+  calls.push(key);
+  let r = byTitle[key];
   if (typeof r === "function") r = r();
   if (r instanceof Response) return r;
   return new Response(JSON.stringify({ data: r || [] }), { status: 200 });
@@ -195,7 +197,8 @@ await test("fetchLatestGotmPost needs no credentials and skips posts that aren't
         selftext: "body", permalink: "/r/SBCGaming/comments/a/x/", created_utc: 200 },
     ],
   }, calls));
-  assert.deepEqual(calls.sort(), ["Game of the Month", "GotM"], "searches both title formats");
+  assert.deepEqual(calls, [...GOTM_HOSTS.map(h => `author:${h}`), "Game of the Month", "GotM"],
+    "host lookup first; with nothing from it, both title formats, one after the other");
   assert.equal(post.title, "August 2026 Game of the Month - Marvel vs. Capcom 2 (Dreamcast)");
   assert.equal(post.body, "body");
   assert.equal(post.url, "https://www.reddit.com/r/SBCGaming/comments/a/x/");
@@ -209,13 +212,49 @@ await test("fetchLatestGotmPost picks the newest pick across both formats (a hos
   assert.match(post.title, /Civilization Revolution/);
 });
 
-await test("fetchLatestGotmPost fails outright if either search fails, rather than naming last month's pick", async () => {
+await test("the host lookup answers alone when it finds a pick, so the slow title searches never run", async () => {
+  // The probe from Actions on 2026-10-01: author=hbi2k in 1.3s, both title searches 5-8s with
+  // intermittent "Timeout. Maybe slow down a bit" 422s.
+  const calls = [];
+  const post = await fetchLatestGotmPost(arcticStub({
+    "author:hbi2k": [
+      { id: "x", title: "What's your \"old faithful\" handheld?", created_utc: 500 },
+      { id: "o", title: "OCT '26 GotM - Parasite Eve (PS1)", created_utc: 400, permalink: "/r/SBCGaming/comments/o/x/" },
+      { id: "s", title: "hbi2k Presents SEP '26 GotM - Civilization Revolution (DS)", created_utc: 300 },
+    ],
+  }, calls), { retryDelayMs: 0 });
+  assert.match(post.title, /Parasite Eve/);
+  assert.deepEqual(calls, ["author:hbi2k"]);
+});
+
+await test("a failed host lookup falls back to the title searches, and one failing title search is tolerated", async () => {
+  const post = await fetchLatestGotmPost(arcticStub({
+    "author:hbi2k": () => new Response(JSON.stringify({ data: null, error: "Timeout. Maybe slow down a bit" }), { status: 422 }),
+    "Game of the Month": () => new Response(JSON.stringify({ data: null, error: "Timeout. Maybe slow down a bit" }), { status: 422 }),
+    "GotM": [{ id: "o", title: "OCT '26 GotM - Parasite Eve (PS1)", created_utc: 400 }],
+  }), { retryDelayMs: 0 });
+  assert.match(post.title, /Parasite Eve/);
+});
+
+await test("when every search fails, the error names each one with Arctic Shift's own message", async () => {
+  const busy = () => new Response(JSON.stringify({ data: null, error: "Timeout. Maybe slow down a bit" }), { status: 422 });
   await assert.rejects(() => fetchLatestGotmPost(arcticStub({
-    "Game of the Month": [{ id: "a", title: "August 2026 Game of the Month - Marvel vs. Capcom 2", created_utc: 200 }],
-    "GotM": () => new Response("rate limited", { status: 429 }),
-  }), { retryDelayMs: 0 }), /GotM" -> 429: rate limited/, "the body is in the error, after the one retry");
+    "author:hbi2k": busy, "Game of the Month": busy, "GotM": busy,
+  }), { retryDelayMs: 0 }), (e) => {
+    assert.match(e.message, /author=hbi2k -> 422: .*Timeout/);
+    assert.match(e.message, /"GotM" -> 422/);
+    return true;
+  });
   await assert.rejects(() => fetchLatestGotmPost(async () =>
-    new Response(JSON.stringify({ error: "Timeout" }), { status: 200 })), /Timeout/);
+    new Response(JSON.stringify({ error: "Timeout" }), { status: 200 }), { retryDelayMs: 0 }), /Timeout/);
+});
+
+await test("a pick older than the one already known never becomes current (incomplete fallback search)", async () => {
+  const known = [{ month: "2026-09" }, { month: "2026-10" }];
+  assert.throws(() => assertNotBackwards({ month: "2026-09" }, known, "t"), /refusing to move the current pick backwards/);
+  assert.doesNotThrow(() => assertNotBackwards({ month: "2026-10" }, known, "t"), "the same month is fine");
+  assert.doesNotThrow(() => assertNotBackwards({ month: "2026-11" }, known, "t"));
+  assert.doesNotThrow(() => assertNotBackwards({ month: "2026-01" }, [], "t"), "nothing known yet");
 });
 
 await test("fetchLatestGotmPost retries once on a load-shedding 422, then succeeds", async () => {
