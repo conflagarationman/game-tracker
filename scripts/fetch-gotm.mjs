@@ -30,6 +30,13 @@ const USER_AGENT = "game-tracker-gotm/2.0 (+https://github.com/conflagarationman
 // One search per title format parseTitle() accepts. The host-picked months are titled
 // "<host> Presents SEP '26 GotM - ...", which a "Game of the Month" search never returns.
 const TITLE_QUERIES = ["Game of the Month", "GotM"];
+// Who posts the picks. Every pick post since at least March 2026 is hbi2k's, in both title
+// formats. Looking up a host's recent posts is an indexed filter, not a full-text search:
+// probed from an Actions runner on 2026-10-01 it answered in 1.3s, while the title searches
+// took 5-8s and intermittently hit Arctic Shift's "Timeout. Maybe slow down a bit" 422,
+// with or without a date range. The title searches stay only as a fallback for a new host.
+export const GOTM_HOSTS = ["hbi2k"];
+const HOST_LOOKBACK_DAYS = 75;
 
 
 const MONTHS = ["January","February","March","April","May","June",
@@ -182,17 +189,17 @@ export function ymNow(date = new Date()) {
 // diagnose the first time.
 const RETRY_STATUSES = new Set([422, 429, 500, 502, 503, 504]);
 
-async function searchPosts(title, fetchImpl, { retryDelayMs = 5000 } = {}) {
+async function searchPosts(params, label, fetchImpl, { retryDelayMs = 5000 } = {}) {
   const url = new URL(ARCTIC_SHIFT);
   url.searchParams.set("subreddit", SUBREDDIT);
-  url.searchParams.set("title", title);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   url.searchParams.set("sort", "desc");
   url.searchParams.set("limit", "25");
   for (let attempt = 1; ; attempt++) {
     const res = await fetchImpl(url, { headers: { "User-Agent": USER_AGENT } });
     if (res.ok) {
       const data = await res.json();
-      if (data?.error) throw new Error(`arctic shift search "${title}": ${data.error}`);
+      if (data?.error) throw new Error(`arctic shift search ${label}: ${data.error}`);
       return Array.isArray(data?.data) ? data.data : [];
     }
     if (attempt < 2 && RETRY_STATUSES.has(res.status)) {
@@ -200,30 +207,57 @@ async function searchPosts(title, fetchImpl, { retryDelayMs = 5000 } = {}) {
       continue;
     }
     const body = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
-    throw new Error(`arctic shift search "${title}" -> ${res.status}${body ? `: ${body}` : ""}`);
+    throw new Error(`arctic shift search ${label} -> ${res.status}${body ? `: ${body}` : ""}`);
   }
 }
 
-// Newest matching post wins, across both title formats. Searching the subreddit rather than
-// the host's profile so a change of host doesn't silently stop the sync.
-//
-// Both searches must succeed. If only the "Game of the Month" one came back during a month
-// whose post is a "GotM" one, the newest parseable post would be LAST month's, and the file
-// would confidently name the wrong current pick. Failing keeps the last known-good picks.
-export async function fetchLatestGotmPost(fetchImpl = fetch, opts) {
-  // One after the other, not in parallel: two concurrent full-text searches is exactly the
-  // "request complexity" a load-shedding free service pushes back on.
-  const results = [];
-  for (const q of TITLE_QUERIES) results.push(await searchPosts(q, fetchImpl, opts));
+function newestPick(posts) {
   const byId = new Map();
-  for (const p of results.flat()) if (p && p.title) byId.set(p.id ?? p.permalink ?? p.title, p);
-  const posts = [...byId.values()].sort((a, b) => (Number(b.created_utc) || 0) - (Number(a.created_utc) || 0));
-  for (const p of posts) {
-    if (parseTitle(p.title)) {
-      return { title: p.title, body: p.selftext || "", url: p.permalink ? `https://www.reddit.com${p.permalink}` : null };
-    }
+  for (const p of posts) if (p && p.title) byId.set(p.id ?? p.permalink ?? p.title, p);
+  const sorted = [...byId.values()].sort((a, b) => (Number(b.created_utc) || 0) - (Number(a.created_utc) || 0));
+  const p = sorted.find(x => parseTitle(x.title));
+  return p ? { title: p.title, body: p.selftext || "", url: p.permalink ? `https://www.reddit.com${p.permalink}` : null } : null;
+}
+
+// Newest pick post. First the hosts' own recent posts (fast and reliable, see GOTM_HOSTS),
+// then, only if that finds nothing parseable, the slow title searches, each tolerated on its
+// own. A title search alone can miss the newest format and land on last month's post; main()
+// refuses any pick older than the one already known, so that can't move "current" backwards.
+export async function fetchLatestGotmPost(fetchImpl = fetch, opts = {}) {
+  const now = opts.now || new Date();
+  const after = new Date(now.getTime() - HOST_LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+  const errors = [];
+
+  const hostPosts = [];
+  for (const author of GOTM_HOSTS) {
+    try { hostPosts.push(...await searchPosts({ author, after }, `author=${author}`, fetchImpl, opts)); }
+    catch (e) { errors.push(e.message); }
   }
-  throw new Error(`no post matching a Game of the Month title found in the newest ${posts.length}`);
+  const fromHost = newestPick(hostPosts);
+  if (fromHost) return fromHost;
+
+  // One after the other, not in parallel: concurrent full-text searches are exactly the
+  // "request complexity" a load-shedding free service pushes back on.
+  const titlePosts = [];
+  for (const q of TITLE_QUERIES) {
+    try { titlePosts.push(...await searchPosts({ title: q }, `"${q}"`, fetchImpl, opts)); }
+    catch (e) { errors.push(e.message); }
+  }
+  const fromTitle = newestPick(titlePosts);
+  if (fromTitle) return fromTitle;
+
+  throw new Error(errors.length ? errors.join("; ")
+    : `no post matching a Game of the Month title (${hostPosts.length} host posts, ${titlePosts.length} title-search posts)`);
+}
+
+// A fallback title search can come back without the newest post and land on an older pick.
+// The month already known is the floor: anything older is an incomplete search, not news.
+export function assertNotBackwards(current, knownPicks, title) {
+  const knownLatest = (knownPicks || []).map(p => p.month).filter(Boolean)
+    .sort((a, b) => monthIndex(a) - monthIndex(b)).pop();
+  if (knownLatest && monthIndex(current.month) < monthIndex(knownLatest)) {
+    throw new Error(`newest post found is for ${current.month}, older than the known ${knownLatest}: refusing to move the current pick backwards (${title})`);
+  }
 }
 
 // Merge, never replace: a fetch that fails or returns something unparseable must leave the
@@ -255,6 +289,7 @@ async function main() {
     const current = parseTitle(post.title);
     const previous = parsePreviousList(post.body);
     if (!current) throw new Error(`could not parse a pick from title: ${post.title}`);
+    assertNotBackwards(current, previousFile?.picks, post.title);
     const picks = buildPicks({ current: { ...current, url: post.url }, previous, known: previousFile?.picks }, nowYm);
     out = mergeResult(previousFile, { sourceUrl: post.url, current: { ...current, url: post.url }, picks }, nowYm, null);
     console.log(`GOTM: ${picks.length} picks, current ${current.month} — ${current.game}`);
