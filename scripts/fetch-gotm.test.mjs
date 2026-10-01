@@ -60,6 +60,11 @@ await test("parseTitle pulls month, game and platform out of the post title", ()
 // mod gets carte blanche — same club, same history block, different title shape.
 const HOST_TITLE = "hbi2k Presents SEP '26 GotM - Civilization Revolution (DS)";
 
+await test("parseTitle handles a 'MON 'YY GotM' title with no host prefix", () => {
+  assert.deepEqual(parseTitle("OCT '26 GotM - Parasite Eve (PS1)"),
+    { month: "2026-10", game: "Parasite Eve", platform: "PS1" });
+});
+
 await test("parseTitle also handles the alternating 'Host Presents MON 'YY GotM' format", () => {
   assert.deepEqual(parseTitle(HOST_TITLE), { month: "2026-09", game: "Civilization Revolution", platform: "DS" });
   assert.deepEqual(parseTitle("u/somehost Presents jan '27 gotm - Some Game"),

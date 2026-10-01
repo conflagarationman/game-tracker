@@ -78,9 +78,10 @@ export function monthsLeft(pickYm, nowYm) {
 // (Dreamcast)". Starting Sep 2026 the club alternates that with a second host-picked format
 // — "hbi2k Presents SEP '26 GotM - Civilization Revolution (DS)" — for months where a
 // randomly-chosen mod gets carte blanche instead of the usual by-committee pick. The platform
-// is optional in both: not every month has carried one.
+// is optional in both: not every month has carried one. The "<host> Presents" prefix is
+// optional too: the Oct 2026 post was plain "OCT '26 GotM - Parasite Eve (PS1)".
 const STANDARD_TITLE_RE = /^([A-Za-z]+)\s+(\d{4})\s+Game of the Month\s*[-–—]\s*(.+?)\s*$/;
-const HOST_TITLE_RE = /^.+?\s+Presents\s+([A-Za-z]+)\s*['’](\d{2})\s+GotM\s*[-–—]\s*(.+?)\s*$/i;
+const HOST_TITLE_RE = /^(?:.+?\s+Presents\s+)?([A-Za-z]+)\s*['’](\d{2})\s+GotM\s*[-–—]\s*(.+?)\s*$/i;
 
 export function parseTitle(title) {
   const t = String(title || "");

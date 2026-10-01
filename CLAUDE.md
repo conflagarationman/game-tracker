@@ -201,7 +201,7 @@ and exits non-zero on failure.
 ```
 node scripts/sync-apis.test.mjs        # 32
 node scripts/backfill-covers.test.mjs  # 12
-node scripts/fetch-gotm.test.mjs       # 19
+node scripts/fetch-gotm.test.mjs       # 20
 cd worker && node index.test.mjs       # 27
 ```
 
