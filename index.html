@@ -337,7 +337,7 @@ section:first-of-type .slabel{margin-top:0;}
   <div class="queue-grid" id="queue"></div>
 </section>
 <section aria-label="Soon">
-  <div class="cr" id="so-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="so-panel" onclick="tog('so')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('so');}"><span id="so-arr" aria-hidden="true">▶</span><span id="so-lbl">Soon™ (0)</span></div>
+  <div class="cr" id="so-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="so-panel" onclick="tog('so')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('so');}"><span id="so-arr" aria-hidden="true">▶</span><span id="so-lbl">Someday (0)</span></div>
   <div id="so-panel" style="display:none;margin-top:0.75rem;">
     <div class="queue-grid" id="soon"></div>
   </div>
@@ -701,7 +701,7 @@ function paintPanel(k){
   document.getElementById(`${k}-toggle`).setAttribute('aria-expanded', open[k]?'true':'false');
 }
 
-// Which panels are open survives a reload. Soon™ now defaults closed (42 cards otherwise sit
+// Which panels are open survives a reload. Someday now defaults closed (42 cards otherwise sit
 // between Up Next and everything below it), and having that choice reset on every refresh
 // would be its own annoyance — same localStorage-with-try/catch approach as the edit-mode
 // toggle below.
@@ -799,7 +799,7 @@ function gotmRow(pick){
   } else if(g.s === 'done'){
     state = 'played · verify flair'; stateCls = 'act';
   } else {
-    state = g.s === 'playing' ? 'playing' : g.s === 'queue' ? 'up next' : g.s === 'soon' ? 'soon' : g.s;
+    state = g.s === 'playing' ? 'playing' : g.s === 'queue' ? 'up next' : g.s === 'soon' ? 'someday' : g.s;
   }
   const name = pick.url
     ? `<a href="${esc(pick.url)}" target="_blank" rel="noopener noreferrer">${esc(pick.game)}</a>`
@@ -882,7 +882,7 @@ function render(){
   document.getElementById('now').innerHTML=playing.length?playing.map(nowC).join(''):'<div class="empty">Nothing playing.</div>';
   document.getElementById('queue').innerHTML=queue.length?queue.map((g,i)=>qC(g,i+1,true)).join(''):'<div class="empty">Nothing up next.</div>';
   document.getElementById('ongoing').innerHTML=ongoing.length?ongoing.map(ongC).join(''):'<div class="empty">Nothing ongoing.</div>';
-  document.getElementById('so-lbl').textContent=`Soon™ (${soon.length})`;
+  document.getElementById('so-lbl').textContent=`Someday (${soon.length})`;
   document.getElementById('soon').innerHTML=soon.length?soon.map(g=>qC(g,0,false)).join(''):'<div class="empty">Nothing here yet.</div>';
   renderPlayCheck();
   renderGotm();
