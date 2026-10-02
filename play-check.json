@@ -6,6 +6,12 @@
     },
     "523": {
       "mins": 403
+    },
+    "527": {
+      "mins": 180
+    },
+    "528": {
+      "mins": 210
     }
   },
   "offList": [
@@ -14,6 +20,18 @@
       "t": "The Universim",
       "s": "soon",
       "mins": 403
+    },
+    {
+      "id": 528,
+      "t": "Steep",
+      "s": "soon",
+      "mins": 210
+    },
+    {
+      "id": 527,
+      "t": "Minishoot' Adventures",
+      "s": "queue",
+      "mins": 180
     }
   ],
   "untracked": [
@@ -21,11 +39,6 @@
       "title": "HELLDIVERS™ 2",
       "source": "steam",
       "mins": 107
-    },
-    {
-      "title": "Vampire Survivors",
-      "source": "steam",
-      "mins": 60
     }
   ]
 }
