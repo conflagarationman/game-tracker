@@ -11,21 +11,21 @@
       "mins": 180
     },
     "528": {
-      "mins": 210
+      "mins": 420
     }
   },
   "offList": [
+    {
+      "id": 528,
+      "t": "Steep",
+      "s": "soon",
+      "mins": 420
+    },
     {
       "id": 523,
       "t": "The Universim",
       "s": "soon",
       "mins": 403
-    },
-    {
-      "id": 528,
-      "t": "Steep",
-      "s": "soon",
-      "mins": 210
     },
     {
       "id": 527,
