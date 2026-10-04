@@ -7,7 +7,7 @@ framework — plain HTML/CSS/JS served by GitHub Pages, and Node scripts run by 
 This file is reference material about how the data and the moving parts fit together. It
 exists because several of the rules below are not recoverable by reading the JSON — they were
 re-derived from scratch more than once, and one of them (the difference between "finished" and
-"flair earned") is not representable in the data at all yet.
+"flair earned") lives in two independent fields, `s` and `gotmFlair`.
 
 **This is a public repo.** Nothing secret belongs in this file, in the tracked JSON, or in any
 comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secrets; see
@@ -177,7 +177,7 @@ interpreting it:
   `(PICO-8)` — is deliberately kept, since those have their own art. Titles it still can't
   place are listed on the workflow's run summary alongside what the catalogue offered, so
   the fix is an `SGDB_TITLE_ALIASES` entry.
-- `fetch-gotm.mjs` — daily, alongside the Steam sync. Rebuilds `gotm.json` from the club's
+- `fetch-gotm.mjs` — daily, alongside the Steam sync. Refreshes `gotm.json` from the club's
   newest post, read from **Arctic Shift** (a free Reddit archive, no key) rather than Reddit.
   Reddit is a dead end here: unauthenticated requests are refused from cloud IP ranges, which
   is where Actions runners live, and since late 2025 every new OAuth app needs manual
