@@ -491,7 +491,7 @@
   {
     "id": 529,
     "t": "Castlevania: Belmont's Curse",
-    "p": "switch2",
+    "p": "steam",
     "s": "queue",
     "r": 0,
     "g": "Metroidvania",
@@ -508,7 +508,7 @@
     "actualHours": null,
     "lastPlayed": null,
     "casual": false,
-    "note": "Day one. Switch 1 release (no native Switch 2 edition announced), playing on Switch 2.",
+    "note": "Day one.",
     "start": null,
     "queued": "2026-10-04",
     "release": "2026-10-15"
