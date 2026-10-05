@@ -12,13 +12,18 @@
 // guessed — search returns {success, data:[{id,name,types,verified,release_date}]}, grids
 // returns {success, data:[{id,score,style,url,thumb,...}]}.
 //
-// Not part of the daily sync-games workflow: box art doesn't change day-to-day, and
-// re-searching already-resolved or already-known-unmatched titles on every run would just
-// burn API quota for nothing. Run manually via `node scripts/backfill-covers.mjs` or the
-// backfill-covers workflow's "Run workflow" button whenever new games need art.
+// Steam and Steam Deck games try the Steam store FIRST (see findSteamCover), since an appid
+// is unambiguous and a store page exists months before release, while SteamGridDB often has
+// no art for a game until after launch. That gap is what left day-one and upcoming Steam
+// games blank for weeks.
+//
+// Runs daily and on every push that touches games.json (backfill-covers.yml). It only ever
+// looks at titles with no entry yet, so a daily run costs a handful of requests, not a
+// library's worth. Run manually via `node scripts/backfill-covers.mjs` too.
 
 import fs from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { STEAM_NAME_ALIASES } from "./sync-apis.mjs";
 
 const SGDB_BASE = "https://www.steamgriddb.com/api/v2";
 
@@ -145,6 +150,62 @@ export async function findCoverDetailed(title) {
   };
 }
 
+const STEAM_STORE = "https://store.steampowered.com";
+const STEAM_PLATFORMS = new Set(["steam", "steamdeck"]);
+
+// Steam store lookup for a Steam-platform title: exact normalized name -> appid -> the store's
+// own header image (the same landscape capsule most of covers.json already holds). Same
+// exact-match rule as the SteamGridDB path, and for the same reason: the ITTA / Tomb Raider
+// incidents were exactly this storefront search trusted by top result. Only type "app" is
+// considered, so a bundle or DLC of the same name can't be picked either.
+export async function findSteamCover(title) {
+  const name = STEAM_NAME_ALIASES[title] || title;
+  const res = await fetch(`${STEAM_STORE}/api/storesearch/?term=${encodeURIComponent(name)}&l=english&cc=US`);
+  if (!res.ok) throw new Error(`Steam store search -> ${res.status}`);
+  const items = ((await res.json()).items || []).filter(i => i.type === "app");
+  const seen = items.map(i => i.name);
+  const match = items.find(i => normalize(i.name) === normalize(name));
+  if (!match) {
+    return { url: null, matchedAs: null, seen, reason: seen.length ? "no exact title match on the Steam store" : "the Steam store search returned nothing" };
+  }
+
+  // appdetails carries the real header URL; newer apps keep their art under hashed paths the
+  // legacy CDN pattern doesn't reach. The pattern is only the fallback, and the caller
+  // HEAD-checks whichever comes back before accepting it.
+  let url = `https://cdn.cloudflare.steamstatic.com/steam/apps/${match.id}/header.jpg`;
+  try {
+    const d = await fetch(`${STEAM_STORE}/api/appdetails?appids=${match.id}&filters=basic`);
+    const entry = d.ok ? (await d.json())[match.id] : null;
+    if (entry && entry.success && entry.data && entry.data.header_image) url = entry.data.header_image;
+  } catch { /* keep the CDN pattern */ }
+  return { url, matchedAs: match.name, seen, reason: null, appid: match.id };
+}
+
+// Every source for one game, most reliable first. Each candidate URL is HEAD-checked, and a
+// source that declines or fails falls through to the next instead of ending the search.
+async function resolveCover(g) {
+  const tried = [];
+  const sources = STEAM_PLATFORMS.has(g.p) ? [findSteamCover, findCoverDetailed] : [findCoverDetailed];
+  for (const source of sources) {
+    let found;
+    try {
+      found = await source(g.t);
+    } catch (e) {
+      tried.push({ reason: e.message, seen: [] });
+      continue;
+    }
+    if (!found.url) { tried.push(found); continue; }
+    const check = await fetch(found.url, { method: "HEAD" });
+    if (check.ok) return found;
+    tried.push({ reason: `image URL returned ${check.status}`, seen: [] });
+  }
+  return {
+    url: null,
+    reason: tried.map(t => t.reason).join("; then "),
+    seen: [...new Set(tried.flatMap(t => t.seen || []))],
+  };
+}
+
 // Kept as the simple boolean-ish form the tests and any existing callers use.
 export async function findCover(title) {
   return (await findCoverDetailed(title)).url;
@@ -161,16 +222,11 @@ export async function backfillCovers(games, covers, log) {
 
   for (const g of missing) {
     try {
-      const found = await findCoverDetailed(g.t);
+      const found = await resolveCover(g);
       if (!found.url) {
         // Carry the near-misses through. Turning an alias into a one-line fix depends on
         // knowing what the catalogue actually calls the thing.
         stillMissing.push({ title: g.t, reason: found.reason, candidates: found.seen.slice(0, 5) });
-        continue;
-      }
-      const check = await fetch(found.url, { method: "HEAD" });
-      if (!check.ok) {
-        stillMissing.push({ title: g.t, reason: `image URL returned ${check.status}`, candidates: [] });
         continue;
       }
       covers[g.t.toLowerCase()] = found.url;

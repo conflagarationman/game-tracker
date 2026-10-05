@@ -3,7 +3,7 @@
 // storefront search API once matched "ITTA" to an unrelated "It Takes Two" bundle, and
 // "Tomb Raider I Remastered" to the wrong remaster pack, both silently. That must not
 // happen again here, so the exact-match rule gets its own test, not just a happy path.
-import { normalize, findCover, findCoverDetailed, candidateQueries, backfillCovers, SGDB_TITLE_ALIASES } from "./backfill-covers.mjs";
+import { normalize, findCover, findCoverDetailed, findSteamCover, candidateQueries, backfillCovers, SGDB_TITLE_ALIASES } from "./backfill-covers.mjs";
 import assert from "node:assert/strict";
 
 process.env.STEAMGRIDDB_API_KEY = "fake-key";
@@ -194,6 +194,86 @@ await test("backfillCovers reports a still-missing title with the reason it fail
   assert.match(stillMissing[0].reason, /returned nothing/, "a decline must say why, not just that it declined");
   assert.deepEqual(stillMissing[0].candidates, []);
   assert.equal(Object.keys(covers).length, 0);
+});
+
+// Steam store stub. `items` is the storesearch result list; `details` the appdetails body.
+function stubSteam({ items, details = null, sgdb = { searchResults: [], grids: [] }, headStatus = () => 200 }) {
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    calls.push(u);
+    if (opts && opts.method === "HEAD") return new Response(null, { status: headStatus(u) });
+    if (u.includes("/api/storesearch/")) return new Response(JSON.stringify({ total: items.length, items }), { status: 200 });
+    if (u.includes("/api/appdetails")) return new Response(JSON.stringify(details || {}), { status: 200 });
+    if (u.includes("/search/autocomplete/")) return new Response(JSON.stringify({ success: true, data: sgdb.searchResults }), { status: 200 });
+    if (u.includes("/grids/game/")) return new Response(JSON.stringify({ success: true, data: sgdb.grids }), { status: 200 });
+    throw new Error(`unexpected fetch ${u}`);
+  };
+  return calls;
+}
+
+await test("a Steam game takes the store's own header image, ahead of SteamGridDB", async () => {
+  const calls = stubSteam({
+    items: [{ type: "app", id: 3200, name: "Castlevania: Belmont's Curse" }],
+    details: { 3200: { success: true, data: { header_image: "https://steam.example/3200/abc/header.jpg" } } },
+  });
+  const covers = {};
+  const left = await backfillCovers([{ t: "Castlevania: Belmont's Curse", p: "steam" }], covers, []);
+  assert.deepEqual(left, []);
+  assert.equal(covers["castlevania: belmont's curse"], "https://steam.example/3200/abc/header.jpg");
+  assert.ok(!calls.some(u => u.includes("steamgriddb")), "SteamGridDB isn't asked once Steam answered");
+});
+
+await test("the Steam store path keeps the exact-match rule: a bundle or near name is declined", async () => {
+  stubSteam({
+    items: [
+      { type: "bundle", id: 1, name: "It Takes Two" },
+      { type: "app", id: 2, name: "It Takes Two Friend's Pass" },
+    ],
+  });
+  const found = await findSteamCover("ITTA");
+  assert.equal(found.url, null);
+  assert.deepEqual(found.seen, ["It Takes Two Friend's Pass"], "only apps are considered, and reported");
+});
+
+await test("the Steam lookup uses the sync's own name aliases", async () => {
+  const calls = stubSteam({
+    items: [{ type: "app", id: 368260, name: "Marvel's Midnight Suns" }],
+    details: { 368260: { success: true, data: { header_image: "https://steam.example/ms.jpg" } } },
+  });
+  const found = await findSteamCover("Midnight Suns");
+  assert.equal(found.url, "https://steam.example/ms.jpg");
+  assert.ok(calls[0].includes(encodeURIComponent("Marvel's Midnight Suns")));
+});
+
+await test("a Steam miss falls through to SteamGridDB, and a non-Steam game never asks Steam", async () => {
+  let calls = stubSteam({
+    items: [],
+    sgdb: { searchResults: [{ id: 4, name: "Animal Well" }], grids: [{ id: 1, score: 1, url: "https://example.com/aw.jpg" }] },
+  });
+  const covers = {};
+  await backfillCovers([{ t: "Animal Well", p: "steam" }], covers, []);
+  assert.equal(covers["animal well"], "https://example.com/aw.jpg");
+
+  calls = stubSteam({
+    items: [{ type: "app", id: 9, name: "Deltarune" }],
+    sgdb: { searchResults: [{ id: 5, name: "Deltarune" }], grids: [{ id: 1, score: 1, url: "https://example.com/dr.jpg" }] },
+  });
+  await backfillCovers([{ t: "Deltarune", p: "switch2" }], covers, []);
+  assert.equal(covers["deltarune"], "https://example.com/dr.jpg");
+  assert.ok(!calls.some(u => u.includes("store.steampowered.com")), "a Switch copy must not borrow Steam art lookups");
+});
+
+await test("a dead Steam image URL falls through instead of being saved", async () => {
+  stubSteam({
+    items: [{ type: "app", id: 7, name: "Steep" }],
+    details: { 7: { success: true, data: { header_image: "https://steam.example/dead.jpg" } } },
+    sgdb: { searchResults: [{ id: 6, name: "Steep" }], grids: [{ id: 1, score: 1, url: "https://example.com/steep.jpg" }] },
+    headStatus: u => (u.includes("dead") ? 404 : 200),
+  });
+  const covers = {};
+  await backfillCovers([{ t: "Steep", p: "steam" }], covers, []);
+  assert.equal(covers["steep"], "https://example.com/steep.jpg");
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);
