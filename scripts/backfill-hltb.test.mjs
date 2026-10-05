@@ -1,5 +1,5 @@
 // Stubbed-fetch tests, same pattern as the other suites: no network, no HLTB.
-import { backfillHltb, pickMatch, formatHours, hltbCandidates, HltbClient, discoverSearchApi } from "./backfill-hltb.mjs";
+import { backfillHltb, parseInit, pickMatch, formatHours, hltbCandidates, HltbClient, discoverSearchApi } from "./backfill-hltb.mjs";
 import assert from "node:assert/strict";
 
 let pass = 0, fail = 0;
@@ -166,6 +166,30 @@ await test("one failed lookup among working ones doesn't fail the run", async ()
   const { filled, errors } = await run(games, { client });
   assert.equal(filled, 1);
   assert.equal(errors, 1);
+});
+
+await test("init fields are found by name, not hardcoded (the first live run's failure)", () => {
+  assert.deepEqual(parseInit({ token: "t", hpKey: "k", hpVal: "v" }), { token: "t", hpKey: "k", hpVal: "v" });
+  assert.deepEqual(parseInit({ token: "t", abcKey: "k2", someVal: "v2" }), { token: "t", hpKey: "k2", hpVal: "v2" });
+  assert.deepEqual(parseInit({ token: "t" }), { token: "t", hpKey: null, hpVal: null }, "the hp pair is optional");
+  assert.throws(() => parseInit({ auth: "x", hpKey: "k" }), /without a token \(fields: auth, hpKey\)/,
+    "a failure names the fields it did get, so the next fix is evidence-based");
+});
+
+await test("a token-only init still searches, without an hp pair", async () => {
+  const sent = [];
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes("/init?t=")) return new Response(JSON.stringify({ token: "only" }), { status: 200 });
+    sent.push({ headers: opts.headers, body: JSON.parse(opts.body) });
+    return new Response(JSON.stringify({ data: [{ game_name: "Steep", comp_main: hrs(9) }] }), { status: 200 });
+  };
+  const games = [{ t: "Steep", s: "soon", h: null, y: 2016 }];
+  await run(games);
+  assert.equal(games[0].h, "9h");
+  assert.equal(sent[0].headers["x-auth-token"], "only");
+  assert.ok(!("x-hp-key" in sent[0].headers));
+  assert.ok(!("null" in sent[0].body) && !("undefined" in sent[0].body));
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);

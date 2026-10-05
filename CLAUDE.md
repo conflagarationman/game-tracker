@@ -191,7 +191,9 @@ interpreting it:
   `playing`/`queue`/`soon`/`done` games. Exact normalized title only; same-named games are
   told apart by the record's `y` or declined. HLTB has no public API and renames its search
   endpoint every few months (`/api/find` -> `/api/bleed` -> `/api/search/site`); on a 404 the
-  script reads the new name out of the site's own JS. If no lookup succeeds at all, the run
+  script reads the new name out of the site's own JS. The init response's field names move
+  too (the first live run got a 200 with no `hpKey`/`hpVal`), so `parseInit()` takes `token`
+  plus any field named like `*key*`/`*val*`, and on failure logs the field names it got. If no lookup succeeds at all, the run
   goes red (covers still commit) rather than quietly filling nothing. An unreleased game
   matches with no times yet and is simply retried the next day.
 - `fetch-gotm.mjs` — daily, alongside the Steam sync. Refreshes `gotm.json` from the club's
@@ -222,7 +224,7 @@ and exits non-zero on failure.
 ```
 node scripts/sync-apis.test.mjs        # 32
 node scripts/backfill-covers.test.mjs  # 17
-node scripts/backfill-hltb.test.mjs    # 12
+node scripts/backfill-hltb.test.mjs    # 14
 node scripts/fetch-gotm.test.mjs       # 23
 cd worker && node index.test.mjs       # 27
 ```
