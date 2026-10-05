@@ -3688,10 +3688,13 @@
     "gotmFlair": false,
     "mastery": null,
     "diff": null,
-    "achPct": null,
-    "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
+    "achPct": 0,
+    "achCount": [
+      0,
+      34
+    ],
+    "actualHours": 3,
+    "lastPlayed": "2026-10-04",
     "casual": false,
     "note": "Free with Belmont's Curse preorder (Fanatical).",
     "start": null,

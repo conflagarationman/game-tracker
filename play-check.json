@@ -12,6 +12,9 @@
     },
     "528": {
       "mins": 420
+    },
+    "530": {
+      "mins": 181
     }
   },
   "offList": [
@@ -28,10 +31,22 @@
       "mins": 403
     },
     {
+      "id": 530,
+      "t": "Zombie Night Terror",
+      "s": "soon",
+      "mins": 181
+    },
+    {
       "id": 527,
       "t": "Minishoot' Adventures",
       "s": "queue",
       "mins": 180
+    },
+    {
+      "id": 507,
+      "t": "Fall of Porcupine",
+      "s": "queue",
+      "mins": 30
     }
   ],
   "untracked": [
