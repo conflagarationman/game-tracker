@@ -10,7 +10,7 @@
 //
 // HowLongToBeat has no public API. This speaks the same protocol its own site does, verified
 // against a maintained client (srsholmes/loadout's HLTB plugin, Sept 2026):
-//   GET  {SEARCH_API}/init?t=<ms>  -> { token, hpKey, hpVal }
+//   GET  {SEARCH_API}/init?t=<ms>  -> { token, <a *key* field>, <a *val* field> } (names vary; see parseInit)
 //   POST {SEARCH_API}              -> { data: [{ game_name, comp_main, comp_plus, release_world, profile_steam, ... }] }
 // with the token and the hp pair sent as headers AND the hp pair mirrored into the body.
 // HLTB renames SEARCH_API every few months to shake off scrapers (/api/search -> /api/find ->
@@ -89,6 +89,23 @@ export async function discoverSearchApi() {
   throw new Error(`couldn't find the search endpoint in ${scripts.length} site script(s)`);
 }
 
+// The init body's field names move too: the first live run got a 200 with no hpKey/hpVal.
+// Read it the way the maintained Python client does: `token`, then whichever other field's
+// name contains "key" and whichever contains "val". The hp pair is optional; with none, the
+// search goes out with the token alone. Only field NAMES are ever logged, never values.
+export function parseInit(d) {
+  const fields = d && typeof d === "object" ? Object.keys(d) : [];
+  const token = d && d.token;
+  if (!token) throw new Error(`HLTB init answered without a token (fields: ${fields.join(", ") || "none"})`);
+  const keyField = fields.find(f => f !== "token" && /key/i.test(f));
+  const valField = fields.find(f => f !== "token" && f !== keyField && /val/i.test(f));
+  return {
+    token: String(token),
+    hpKey: keyField && d[keyField] != null ? String(d[keyField]) : null,
+    hpVal: valField && d[valField] != null ? String(d[valField]) : null,
+  };
+}
+
 export class HltbClient {
   constructor(searchApi = DEFAULT_SEARCH_API) {
     this.searchApi = searchApi;
@@ -105,16 +122,18 @@ export class HltbClient {
       return this.init();
     }
     if (!res.ok) throw new Error(`HLTB init ${this.searchApi} -> ${res.status}`);
-    const d = await res.json();
-    if (!d.token || !d.hpKey || !d.hpVal) throw new Error("HLTB init answered without token/hpKey/hpVal");
-    this.auth = { token: d.token, hpKey: d.hpKey, hpVal: d.hpVal };
+    this.auth = parseInit(await res.json());
   }
 
   async search(query) {
     if (!this.auth) await this.init();
     const send = () => fetch(`${HLTB_BASE}${this.searchApi}`, {
       method: "POST",
-      headers: { ...HEADERS, "x-auth-token": this.auth.token, "x-hp-key": this.auth.hpKey, "x-hp-val": this.auth.hpVal },
+      headers: {
+        ...HEADERS,
+        "x-auth-token": this.auth.token,
+        ...(this.auth.hpKey ? { "x-hp-key": this.auth.hpKey, "x-hp-val": this.auth.hpVal ?? "" } : {}),
+      },
       body: JSON.stringify({
         searchType: "games",
         searchTerms: query.split(/\s+/).filter(Boolean),
@@ -129,7 +148,7 @@ export class HltbClient {
           },
           users: {}, filter: "", sort: 0, randomizer: 0,
         },
-        [this.auth.hpKey]: this.auth.hpVal,
+        ...(this.auth.hpKey ? { [this.auth.hpKey]: this.auth.hpVal ?? "" } : {}),
       }),
     });
     let res = await send();
