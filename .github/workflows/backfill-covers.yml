@@ -1,40 +1,75 @@
-name: Backfill Cover Art
+name: Backfill Cover Art & HLTB
 
-# Weekly, not daily — box art doesn't change day to day, and re-checking already-resolved
-# or already-known-unmatched titles more often than that would just burn API quota for
-# nothing. This exists so a game added via add.html/the Worker gets real art within a week
-# with zero manual step; workflow_dispatch is still there for "I don't want to wait."
+# Fills blanks a new game arrives with: cover art (covers.json) and the HowLongToBeat estimate
+# and release year (games.json). Both scripts only look at records still missing something, so
+# a run with nothing to do costs a few requests at most.
+#
+# This used to be weekly, on the theory that re-checking unmatched titles daily would burn
+# quota. In practice it left every new game blank for up to a week, and games added by a
+# direct commit (not through add.html, so no Worker dispatch) waited the full week every time.
+# Now it runs:
+#   - on any push to main that touches games.json, which catches direct commits. Pushes made
+#     by this workflow and the sync bot use GITHUB_TOKEN, which GitHub never re-triggers on,
+#     so this can't loop on its own commit;
+#   - daily, to retry what wasn't available yet (unreleased games get HLTB times and store
+#     art over time);
+#   - on demand from add.html via the Worker, and from the Actions tab.
+# The filename stays backfill-covers.yml because the deployed Worker dispatches it by name.
 on:
+  push:
+    branches: [main]
+    paths: [games.json]
   schedule:
-    - cron: '0 14 * * 0'   # Sundays ~2pm UTC — offset from sync-games.yml's 1pm daily run
+    - cron: '0 14 * * *'   # daily ~2pm UTC, an hour after sync-games.yml
   workflow_dispatch: {}
 
 permissions:
   contents: write
 
+# An add through the Worker fires both the dispatch and the push trigger. Queue rather than
+# run them side by side; the second finds nothing left to do.
+concurrency:
+  group: backfill
+  cancel-in-progress: false
+
 jobs:
   backfill:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
 
-      # GITHUB_STEP_SUMMARY lets the script publish the unmatched titles, and what the
-      # catalogue called them instead, onto the run page — so a leftover is an actionable
-      # one-line alias rather than something buried in step logs.
-      - name: Backfill missing cover art from SteamGridDB
+      # GITHUB_STEP_SUMMARY lets each script publish what it couldn't place, and what the source
+      # called it instead, onto the run page, so a leftover is a one-line alias rather than
+      # something buried in step logs.
+      - name: Backfill missing cover art (Steam store, then SteamGridDB)
         env:
           STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}
         run: node scripts/backfill-covers.mjs
+
+      # continue-on-error so a broken HLTB protocol never costs the covers their commit. It is
+      # reported red at the end instead, same pattern as the GOTM fetch in sync-games.yml.
+      - name: Backfill missing HowLongToBeat estimates
+        id: hltb
+        continue-on-error: true
+        run: node scripts/backfill-hltb.mjs
 
       - name: Commit results if anything changed
         run: |
           git config user.name "game-tracker-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add covers.json
-          git diff --staged --quiet || git commit -m "Backfill cover art from SteamGridDB"
-          git pull --rebase origin main
+          git add covers.json games.json
+          git diff --staged --quiet || git commit -m "Backfill cover art and HLTB estimates"
+          # Bare pull, not "origin main": see the note in sync-games.yml about manual runs on
+          # other branches.
+          git pull --rebase
           git push
+
+      - name: Fail the run if the HLTB lookup failed
+        if: steps.hltb.outcome == 'failure'
+        run: |
+          echo "::error::HowLongToBeat lookups failed - its search protocol has probably changed. See scripts/backfill-hltb.mjs."
+          exit 1

@@ -18,7 +18,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | File | Written by | Notes |
 |---|---|---|
 | `games.json` | you, via `add.html` → Worker; **and** the sync bot | The whole library. Human-owned fields and bot-owned fields share each record — see below. |
-| `covers.json` | bot only (`backfill-covers.yml`, Sundays) | Cover art URLs, **keyed by lowercase title**. |
+| `covers.json` | bot only (`backfill-covers.yml`, daily + on `games.json` push) | Cover art URLs, **keyed by lowercase title**. |
 | `gotm.json` | bot only (`fetch-gotm.mjs`, daily) | Mirror of the r/SBCGaming club's pick list. Overwritten wholesale — never put human state here. |
 | `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page. |
 | `play-check.json` | bot only (`sync-games.yml`, daily) | Recent real play vs. status — see "Play check" below. Keyed by `id`. |
@@ -48,7 +48,9 @@ One flat array. Every record carries every key, with `null` for unset.
                           // estimate, by design. See "Ongoing vs a boolean flag" below.
   "g": "FPS",             // genre, free text
   "y": 2026,              // release year
-  "h": "20h",             // HowLongToBeat estimate, free text ("20h", "10-15h", "40+")
+  "h": "20h",             // HowLongToBeat estimate, free text ("20h", "10-15h", "40+").
+                          // Filled by the bot only while blank (backfill-hltb.mjs); a typed
+                          // value is never overwritten. Same for a blank "y".
   "r": 0,                 // rating 0-10. 0 means UNRATED, not "rated zero" — see below
   "cy": null,             // completion year
   "cm": null,             // completion month, ZERO-INDEXED (0 = January)
@@ -168,7 +170,14 @@ interpreting it:
   `PLAY_CHECK_IGNORE` (Bongo Cat, from the first real run), and titles match across
   every platform, so a game tracked as `switch` but played on Steam isn't called untracked.
   This replaces a Mac scheduled task that did a local version of this and died silently.
-- `backfill-covers.yml` — Sundays. Fills gaps in `covers.json` from SteamGridDB. It declines
+- `backfill-covers.yml` — daily, **and on every push to main that touches `games.json`**, so a
+  game added by a direct commit (no Worker dispatch) gets art and an estimate within minutes
+  instead of waiting for a weekly run, which is what left Up Next full of blanks. Bot pushes
+  use `GITHUB_TOKEN`, which never re-triggers a workflow, so it can't loop on itself.
+  **Steam/Steam Deck games ask the Steam store first** (exact name -> appid -> the store's
+  header image, `STEAM_NAME_ALIASES` shared with the sync): a store page exists months before
+  release, while SteamGridDB often has nothing until launch. Everything else, and any Steam
+  miss, goes to SteamGridDB. It declines
   uncertain matches rather than guessing, so some titles stay uncovered on purpose; the pages
   fall back to a coloured platform glyph. Matching folds diacritics (the catalogue writes
   "Pokémon", this library writes "Pokemon") and tries a few derived search terms — the
@@ -177,6 +186,14 @@ interpreting it:
   `(PICO-8)` — is deliberately kept, since those have their own art. Titles it still can't
   place are listed on the workflow's run summary alongside what the catalogue offered, so
   the fix is an `SGDB_TITLE_ALIASES` entry.
+  The same workflow runs **`backfill-hltb.mjs`**, which fills a blank `h` (main story, else
+  main + extras, never completionist) and a blank `y` from HowLongToBeat for
+  `playing`/`queue`/`soon`/`done` games. Exact normalized title only; same-named games are
+  told apart by the record's `y` or declined. HLTB has no public API and renames its search
+  endpoint every few months (`/api/find` -> `/api/bleed` -> `/api/search/site`); on a 404 the
+  script reads the new name out of the site's own JS. If no lookup succeeds at all, the run
+  goes red (covers still commit) rather than quietly filling nothing. An unreleased game
+  matches with no times yet and is simply retried the next day.
 - `fetch-gotm.mjs` — daily, alongside the Steam sync. Refreshes `gotm.json` from the club's
   newest post, read from **Arctic Shift** (a free Reddit archive, no key) rather than Reddit.
   Reddit is a dead end here: unauthenticated requests are refused from cloud IP ranges, which
@@ -204,14 +221,15 @@ and exits non-zero on failure.
 
 ```
 node scripts/sync-apis.test.mjs        # 32
-node scripts/backfill-covers.test.mjs  # 12
+node scripts/backfill-covers.test.mjs  # 17
+node scripts/backfill-hltb.test.mjs    # 12
 node scripts/fetch-gotm.test.mjs       # 23
 cd worker && node index.test.mjs       # 27
 ```
 
-`tests.yml` runs all four on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all five on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so the workflow is just checkout, Node 20, and the
-four commands above. Before it existed nothing ran them on a change — the same shape as the
+five commands above. Before it existed nothing ran them on a change — the same shape as the
 Home List regression in the Home Hub repo, where good tests existed and nothing watched them.
 
 `fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the

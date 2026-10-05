@@ -38,7 +38,8 @@ function normalize(title) {
 // A handful of tracker titles genuinely differ from their Steam store listing beyond
 // case/punctuation (a real subtitle, not just formatting) — normalize() alone can't bridge
 // these. Kept intentionally small: everything else matches automatically, no map upkeep.
-const STEAM_NAME_ALIASES = {
+// Exported for backfill-covers.mjs, which looks the same titles up on the Steam store.
+export const STEAM_NAME_ALIASES = {
   "Ori and the Blind Forest": "Ori and the Blind Forest: Definitive Edition",
   "Shadow of Mordor": "Middle-earth: Shadow of Mordor",
   "Midnight Suns": "Marvel's Midnight Suns",

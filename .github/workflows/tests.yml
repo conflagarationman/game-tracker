@@ -39,6 +39,9 @@ jobs:
       - name: SteamGridDB cover backfill
         run: node scripts/backfill-covers.test.mjs
 
+      - name: HowLongToBeat backfill
+        run: node scripts/backfill-hltb.test.mjs
+
       - name: Game of the Month fetch
         run: node scripts/fetch-gotm.test.mjs
 
