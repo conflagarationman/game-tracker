@@ -11,10 +11,10 @@
       "mins": 180
     },
     "528": {
-      "mins": 420
+      "mins": 529
     },
     "530": {
-      "mins": 181
+      "mins": 361
     }
   },
   "offList": [
@@ -22,7 +22,7 @@
       "id": 528,
       "t": "Steep",
       "s": "soon",
-      "mins": 420
+      "mins": 529
     },
     {
       "id": 523,
@@ -34,7 +34,7 @@
       "id": 530,
       "t": "Zombie Night Terror",
       "s": "soon",
-      "mins": 181
+      "mins": 361
     },
     {
       "id": 527,
@@ -53,7 +53,7 @@
     {
       "title": "HELLDIVERS™ 2",
       "source": "steam",
-      "mins": 107
+      "mins": 203
     }
   ]
 }
