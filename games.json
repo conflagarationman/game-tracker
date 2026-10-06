@@ -3438,10 +3438,10 @@
     "id": 519
   },
   {
-    "r": 0,
+    "r": 10,
     "h": null,
-    "cy": null,
-    "cm": null,
+    "cy": 2026,
+    "cm": 9,
     "gotm": null,
     "gotmFlair": false,
     "mastery": null,
@@ -3457,7 +3457,7 @@
     "release": null,
     "t": "Warcraft III: Reforged - Forsaken Kingdom",
     "p": "pc",
-    "s": "playing",
+    "s": "done",
     "g": null,
     "y": null,
     "id": 520
@@ -3650,7 +3650,7 @@
     "id": 528,
     "t": "Steep",
     "p": "steam",
-    "s": "soon",
+    "s": "playing",
     "r": 0,
     "g": "Sports",
     "y": 2016,
@@ -3670,7 +3670,7 @@
     "lastPlayed": "2026-10-02",
     "casual": false,
     "note": null,
-    "start": null,
+    "start": "2026-10-05",
     "queued": "2026-10-02",
     "release": null
   },
@@ -3700,6 +3700,31 @@
     "note": "Free with Belmont's Curse preorder (Fanatical).",
     "start": null,
     "queued": "2026-10-04",
+    "release": null
+  },
+  {
+    "id": 531,
+    "t": "HELLDIVERS 2",
+    "p": "steam",
+    "s": "ongoing",
+    "r": 0,
+    "g": "Shooter",
+    "y": 2024,
+    "h": null,
+    "cy": null,
+    "cm": null,
+    "gotm": null,
+    "gotmFlair": false,
+    "mastery": null,
+    "diff": null,
+    "achPct": null,
+    "achCount": null,
+    "actualHours": null,
+    "lastPlayed": null,
+    "casual": true,
+    "note": "Co-op with buddy",
+    "start": null,
+    "queued": null,
     "release": null
   }
 ]
