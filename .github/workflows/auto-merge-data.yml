@@ -1,0 +1,115 @@
+name: Auto-merge data edits
+
+# Lets a chat-style Claude session update the tracker on its own: "I finished X, mark it 10/10
+# and archive it" becomes a PR that edits games.json, and this merges it without anyone
+# clicking. Before this, those PRs sat open until someone noticed, and the page looked stale
+# even though the edit had been made (PR #24 waited a day and a half).
+#
+# It merges only a PR that:
+#   - comes from a branch in this repo (never a fork),
+#   - is not a draft and has no "hold" label (either one is the way to opt out),
+#   - changes games.json and NOTHING else, so code changes always get a human, and
+#   - passes scripts/validate-games.mjs: every record well-formed, no duplicate ids, the array
+#     not re-sorted (its order is the Up Next priority), and no mass deletion.
+# Anything else is simply left for a person; this never fails a PR for being out of scope.
+#
+# pull_request_target, so the workflow and the validator both come from main, not from the PR.
+# The PR's games.json is only ever read as data, never executed. That keeps the write token
+# out of reach of code a PR brings with it.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, unlabeled]
+    branches: [main]
+
+permissions:
+  contents: write        # merge
+  pull-requests: write   # merge
+  actions: write         # dispatch the sync and backfill afterwards
+
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  merge:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft &&
+      !contains(github.event.pull_request.labels.*.name, 'hold')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v5   # main, under pull_request_target
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Is this a data-only change?
+        id: scope
+        run: |
+          files=$(gh pr view "$PR" --json files --jq '.files[].path')
+          echo "Changed files:"; echo "$files"
+          if [ "$files" = "games.json" ]; then
+            echo "data_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "data_only=false" >> "$GITHUB_OUTPUT"
+            echo "Touches more than games.json, so it waits for a person." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Validate what would actually land: GitHub's test merge of the PR into main, not the
+      # branch on its own. A branch cut before today's sync would otherwise be judged against
+      # yesterday's file. GitHub computes that merge asynchronously, so wait for it.
+      - name: Fetch the merge result
+        if: steps.scope.outputs.data_only == 'true'
+        id: fetch
+        run: |
+          for i in $(seq 1 12); do
+            state=$(gh pr view "$PR" --json mergeable --jq .mergeable)
+            [ "$state" != "UNKNOWN" ] && break
+            sleep 5
+          done
+          if [ "$state" != "MERGEABLE" ]; then
+            echo "::error::PR #$PR can't be merged cleanly into main (mergeable: $state). Rebase it on main."
+            exit 1
+          fi
+          head=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+          # depth 2: the checkout is shallow, and both of the merge's parents are needed.
+          git fetch --no-tags --depth=2 origin "refs/pull/$PR/merge"
+          if [ "$(git rev-parse FETCH_HEAD^2)" != "$head" ]; then
+            echo "::error::GitHub's merge preview is behind the PR's head; re-run this job."
+            exit 1
+          fi
+          # Judge it against the main it would merge into (^1), which may be newer than the
+          # main this job checked out if the sync committed in between.
+          git show FETCH_HEAD^1:games.json > "$RUNNER_TEMP/base-games.json"
+          git show FETCH_HEAD:games.json > "$RUNNER_TEMP/merged-games.json"
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+
+      - name: Validate games.json
+        if: steps.scope.outputs.data_only == 'true'
+        run: |
+          {
+            echo "### Data edit in #$PR"
+            echo '```'
+            node scripts/validate-games.mjs "$RUNNER_TEMP/base-games.json" "$RUNNER_TEMP/merged-games.json" 2>&1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY" || true
+          node scripts/validate-games.mjs "$RUNNER_TEMP/base-games.json" "$RUNNER_TEMP/merged-games.json"
+
+      # --match-head-commit: if anything was pushed after validation, the merge is refused and
+      # the new push triggers its own run.
+      - name: Merge
+        if: steps.scope.outputs.data_only == 'true'
+        run: gh pr merge "$PR" --merge --delete-branch --match-head-commit "${{ steps.fetch.outputs.head }}"
+
+      # A merge made with this job's token fires no push event, so backfill-covers.yml's
+      # push trigger never sees it. Dispatch is allowed, so ask for both runs directly: the
+      # backfill fills art and HLTB for anything new, the sync refreshes achievements.
+      - name: Kick the backfill and sync
+        if: steps.scope.outputs.data_only == 'true'
+        run: |
+          gh workflow run backfill-covers.yml --ref main
+          gh workflow run sync-games.yml --ref main
