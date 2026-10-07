@@ -17,7 +17,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 
 | File | Written by | Notes |
 |---|---|---|
-| `games.json` | you, via `add.html` → Worker; **and** the sync bot | The whole library. Human-owned fields and bot-owned fields share each record — see below. |
+| `games.json` | you, via `add.html` → Worker, or a session's PR (auto-merged); **and** the sync bot | The whole library. Human-owned fields and bot-owned fields share each record — see below. |
 | `covers.json` | bot only (`backfill-covers.yml`, daily + on `games.json` push) | Cover art URLs, **keyed by lowercase title**. |
 | `gotm.json` | bot only (`fetch-gotm.mjs`, daily) | Mirror of the r/SBCGaming club's pick list. Overwritten wholesale — never put human state here. |
 | `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page. |
@@ -29,6 +29,25 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 
 Bot-written files are overwritten wholesale on each run. Anything a human needs to edit and
 keep belongs in `games.json`, never in `covers.json` or `last-synced.json`.
+
+## Updating the tracker from a session
+
+"I finished X, mark it 10/10 and archive it" needs no code and no click. **Edit `games.json`
+only, and open a PR against `main`.** `auto-merge-data.yml` validates it and merges it within
+a minute or two, then dispatches the backfill and sync so new games get art, an HLTB estimate
+and achievements. Before this, such PRs sat open until someone noticed, and the page looked
+stale although the edit had been made.
+
+It merges only when the PR changes `games.json` and nothing else, comes from a branch in this
+repo, is not a draft, has no `hold` label, merges cleanly into `main`, and passes
+`scripts/validate-games.mjs`: every record has every key with a legal value (the rules below),
+ids are unique, no more than 6 records change position (so a re-sorted or regenerated file
+is refused), and no more than 3 are removed. Anything else waits for a person, and the run
+summary says why. Draft or `hold` is the way to stop it.
+
+So when editing: change records in place, add new ones at the end of the array (or where they
+belong in Up Next), and never rewrite the file from a sorted or filtered copy. "Archive" means
+`s: "done"` with `cy`/`cm` set (`cm` zero-indexed), and a rating in `r`.
 
 ## `games.json` record shape
 
@@ -225,13 +244,14 @@ and exits non-zero on failure.
 node scripts/sync-apis.test.mjs        # 32
 node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
+node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
 cd worker && node index.test.mjs       # 27
 ```
 
-`tests.yml` runs all five on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all six on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so the workflow is just checkout, Node 20, and the
-five commands above. Before it existed nothing ran them on a change — the same shape as the
+six commands above. Before it existed nothing ran them on a change — the same shape as the
 Home List regression in the Home Hub repo, where good tests existed and nothing watched them.
 
 `fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the

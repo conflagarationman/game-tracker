@@ -42,6 +42,9 @@ jobs:
       - name: HowLongToBeat backfill
         run: node scripts/backfill-hltb.test.mjs
 
+      - name: games.json validator (the auto-merge gate)
+        run: node scripts/validate-games.test.mjs
+
       - name: Game of the Month fetch
         run: node scripts/fetch-gotm.test.mjs
 
