@@ -11,30 +11,27 @@
       "mins": 180
     },
     "528": {
-      "mins": 529
+      "mins": 549
     },
     "530": {
-      "mins": 361
+      "mins": 724
+    },
+    "531": {
+      "mins": 203
     }
   },
   "offList": [
     {
-      "id": 528,
-      "t": "Steep",
+      "id": 530,
+      "t": "Zombie Night Terror",
       "s": "soon",
-      "mins": 529
+      "mins": 724
     },
     {
       "id": 523,
       "t": "The Universim",
       "s": "soon",
       "mins": 403
-    },
-    {
-      "id": 530,
-      "t": "Zombie Night Terror",
-      "s": "soon",
-      "mins": 361
     },
     {
       "id": 527,
@@ -49,11 +46,5 @@
       "mins": 30
     }
   ],
-  "untracked": [
-    {
-      "title": "HELLDIVERS™ 2",
-      "source": "steam",
-      "mins": 203
-    }
-  ]
+  "untracked": []
 }
