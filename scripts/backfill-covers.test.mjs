@@ -90,6 +90,17 @@ await test("no alias points two library entries at the same catalogue game", () 
     "the 2019 remake must not borrow the Game Boy original's art");
 });
 
+await test("no alias target is itself a record in games.json", async () => {
+  // Checked against the real library, not a fixture: aliasing "World of Warcraft: Forever" to
+  // "World of Warcraft" looks harmless until you notice the library tracks both.
+  const { readFile } = await import("node:fs/promises");
+  const games = JSON.parse(await readFile(new URL("../games.json", import.meta.url), "utf8"));
+  const titles = new Set(games.map(g => g.t.toLowerCase()));
+  for (const [from, to] of Object.entries(SGDB_TITLE_ALIASES)) {
+    assert.ok(!titles.has(to.toLowerCase()), `"${from}" would borrow the art of the separate record "${to}"`);
+  }
+});
+
 await test("a Pokemon title now resolves against the catalogue's accented name", async () => {
   stubSgdb({
     searchResults: [{ id: 5, name: "Pokémon Pokopia", types: ["nswitch"], verified: true }],
