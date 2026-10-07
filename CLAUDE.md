@@ -223,7 +223,7 @@ and exits non-zero on failure.
 
 ```
 node scripts/sync-apis.test.mjs        # 32
-node scripts/backfill-covers.test.mjs  # 17
+node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
 node scripts/fetch-gotm.test.mjs       # 23
 cd worker && node index.test.mjs       # 27

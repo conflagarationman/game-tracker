@@ -62,9 +62,14 @@ export const SGDB_TITLE_ALIASES = {
   // The PICO-8 build has its own catalogue entry under its own name, which is why refusing to
   // strip "(PICO-8)" was right: this gets the prototype's art, not the 2018 game's.
   "Celeste (PICO-8)": "Celeste Classic",
+  // Same game, newer build: the catalogue only carries the base title, and the library has no
+  // separate record for it, so nothing else can end up sharing this art.
+  "The Witcher 3: Wild Hunt - Remastered": "The Witcher 3: Wild Hunt",
+  // A custom campaign played inside Reforged; it has no catalogue entry of its own.
+  "Warcraft III: Reforged - Forsaken Kingdom": "Warcraft III: Reforged",
 };
 
-// The five titles that remain uncovered after all of the above, and why. Recorded so the next
+// The titles that remain uncovered after all of the above, and why. Recorded so the next
 // person doesn't re-investigate them — none is fixable by another alias:
 //   999: Nine Hours, Nine Persons -> the "999" alias DOES match, but the catalogue holds no
 //                           grids for that entry. Only a hand-picked URL in covers.json, or
@@ -75,6 +80,10 @@ export const SGDB_TITLE_ALIASES = {
 //   Zelda: Link's Awakening (2019) -> the catalogue's "The Legend of Zelda: Link's Awakening"
 //                           is the Game Boy original, also in this library.
 //   Tetris, Sesame St: Elmo's Number Journey -> no matching catalogue entry at all.
+//   World of Warcraft: Forever -> only "World of Warcraft", which is already its own record.
+//   Zelda: Ocarina of Time (2026) -> the Switch 2 remake. The catalogue only has the N64 game
+//                           (also in this library, twice). It should get its own entry near
+//                           its Nov 2026 release; until then an alias would borrow the wrong art.
 
 // Parenthetical suffixes safe to drop, because they name a fan PORT of the same game and the
 // catalogue only lists the original: 2 Ship 2 Harkinian (Majora's Mask) and Ship of Harkinian
