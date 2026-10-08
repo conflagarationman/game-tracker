@@ -1,9 +1,6 @@
 {
   "windowDays": 14,
   "recent": {
-    "507": {
-      "mins": 30
-    },
     "523": {
       "mins": 403
     },
@@ -38,13 +35,13 @@
       "t": "Minishoot' Adventures",
       "s": "queue",
       "mins": 180
-    },
-    {
-      "id": 507,
-      "t": "Fall of Porcupine",
-      "s": "queue",
-      "mins": 30
     }
   ],
-  "untracked": []
+  "untracked": [
+    {
+      "title": "Yoshi's Story",
+      "source": "ra",
+      "lastPlayed": "2026-10-08"
+    }
+  ]
 }
