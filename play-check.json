@@ -1,9 +1,6 @@
 {
   "windowDays": 14,
   "recent": {
-    "523": {
-      "mins": 403
-    },
     "527": {
       "mins": 180
     },
@@ -23,12 +20,6 @@
       "t": "Zombie Night Terror",
       "s": "soon",
       "mins": 724
-    },
-    {
-      "id": 523,
-      "t": "The Universim",
-      "s": "soon",
-      "mins": 403
     },
     {
       "id": 527,
