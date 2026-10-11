@@ -26,8 +26,6 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
 | `wrapped.html` | you | Year in review (`?year=2026`), with a canvas-drawn share image. Read-only. |
-| `steam-replay.json` | bot only (`fetch-steam-replay.mjs`, in `sync-games.yml`) | Steam's own year in review, per year. Never overwritten by a failed fetch. |
-| `recaps.json` + `recaps/` | you | PlayStation Wrap-Up and Nintendo Year in Review, entered by hand (no API). Shape in its `_example`; checked by `recaps.test.mjs`. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` from a browser. |
 
@@ -236,15 +234,6 @@ interpreting it:
   plus any field named like `*key*`/`*val*`, and on failure logs the field names it got. If no lookup succeeds at all, the run
   goes red (covers still commit) rather than quietly filling nothing. An unreleased game
   matches with no times yet and is simply retried the next day.
-- `fetch-steam-replay.mjs` — same run, best-effort. Reads Steam Replay from
-  `ISaleFeatureService/GetUserYearInReview`, the undocumented endpoint the Replay page itself
-  uses; it answers only once Valve builds the year (mid-December) and only if that year's
-  Replay is set public on the profile. Fetches the current year in December and last year
-  until one January fetch has the final numbers; `node scripts/fetch-steam-replay.mjs 2025`
-  forces a year. Steam usually withholds absolute hours from this view, so `totalHours` is
-  often null and wrapped.html leads with sessions instead. PlayStation and Nintendo have no
-  equivalent: their recaps are login-only pages, so `recaps.json` is filled by hand, typically
-  by a session given screenshots of the recap.
 - `fetch-gotm.mjs` — daily, alongside the Steam sync. Refreshes `gotm.json` from the club's
   newest post, read from **Arctic Shift** (a free Reddit archive, no key) rather than Reddit.
   Reddit is a dead end here: unauthenticated requests are refused from cloud IP ranges, which
@@ -277,15 +266,12 @@ node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
 node scripts/pick.test.mjs             # 14
-node scripts/fetch-steam-replay.test.mjs  # 7
-node scripts/recaps.test.mjs           # 4
 cd worker && node index.test.mjs       # 27
 ```
 
-`tests.yml` runs all nine on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all seven on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-nine commands above. The Steam Replay fixture is built from the response schema, not
-captured from a live call; if a real response disagrees, capture it into that test.
+seven commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails

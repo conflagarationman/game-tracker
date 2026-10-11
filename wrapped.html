@@ -76,34 +76,6 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .note{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);line-height:1.6;}
 .note a{color:var(--text);}
 .empty{color:var(--dim);font-family:'DM Mono',monospace;font-size:0.8rem;padding:2rem 0;text-align:center;}
-
-/* Platform recaps: Steam Replay (fetched), PlayStation Wrap-Up and Nintendo Year in Review
-   (hand-entered). Each card carries its platform's own colour as a top rule. */
-.recaps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:1rem;margin-bottom:1rem;}
-.rc{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--rc);border-radius:12px;padding:1rem;min-width:0;display:flex;flex-direction:column;gap:0.7rem;}
-.rc-head{display:flex;align-items:baseline;gap:0.5rem;}
-.rc-name{font-size:0.95rem;font-weight:800;color:var(--rc);}
-.rc-src{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;}
-.rc-big{display:flex;gap:1.1rem;flex-wrap:wrap;}
-.rc-n{font-size:1.5rem;font-weight:800;line-height:1;}
-.rc-l{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:3px;}
-.rc-games{list-style:none;display:flex;flex-direction:column;gap:6px;}
-.rc-games li{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:0.5rem;min-width:0;}
-.rc-art{width:60px;height:28px;border-radius:3px;object-fit:cover;background:var(--surface2);}
-.rc-gt{font-size:0.78rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.rc-bar{grid-column:2 / 4;height:3px;background:var(--surface2);border-radius:2px;margin-top:-3px;}
-.rc-bar div{height:3px;border-radius:2px;background:var(--rc);opacity:0.8;}
-.rc-v{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);white-space:nowrap;}
-.rc-chips{display:flex;flex-wrap:wrap;gap:5px;}
-.rc-chip{font-family:'DM Mono',monospace;font-size:0.62rem;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--muted);}
-.rc-chip b{color:var(--text);font-weight:500;}
-.rc-split{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--surface2);}
-.rc-imgs{display:flex;gap:6px;overflow-x:auto;}
-.rc-imgs a{flex-shrink:0;}
-.rc-imgs img{height:96px;border-radius:6px;border:1px solid var(--border);display:block;}
-.rc-empty{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);line-height:1.6;}
-.rc-empty a,.rc a.rc-link{color:var(--text);}
-.rc a.rc-link{font-family:'DM Mono',monospace;font-size:0.62rem;margin-top:auto;}
 .err{color:#f54242;font-family:'DM Mono',monospace;font-size:0.75rem;}
 </style>
 </head>
@@ -125,16 +97,7 @@ const PL={steam:'Steam',steamdeck:'Steam Deck',pc:'PC',ps5:'PS5',switch:'Switch'
 const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
 const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const MAST={mastered:'RA mastered',platinum:'Platinum','100pct':'100%'};
-let G=[], COVERS={}, Y=null, D=null, REPLAY={}, RECAPS={};
-
-// The platforms' own year-end recaps. Steam's is fetched by the daily Action into
-// steam-replay.json; PlayStation and Nintendo have no API, so recaps.json is filled in by hand
-// (or by a Claude session from screenshots of the recap).
-const RECAP_INFO = {
-  steam:       { name:'Steam Replay', color:'#00e5ff', url:'https://store.steampowered.com/replay', when:'mid-December' },
-  playstation: { name:'PlayStation Wrap-Up', color:'#4d7cff', url:'https://wrapup.playstation.com', when:'early to mid-December' },
-  nintendo:    { name:'Nintendo Year in Review', color:'#ff4a6b', url:'https://year-in-review.nintendo.com', when:'mid-December' },
-};
+let G=[], COVERS={}, Y=null, D=null;
 
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function parseHltb(h){
@@ -244,101 +207,11 @@ function render(){
     </div>
   </section>
 
-  ${recapsSection(Y)}
-
   <div class="share">
     <button type="button" class="btn" onclick="shareImage()">Save share image</button>
     <span class="note" id="share-msg" role="status"></span>
   </div>
   ${d.undated||d.undatedMonth?`<p class="note">${d.undated?`${d.undated} finished game${d.undated===1?' has':'s have'} no year, so ${d.undated===1?'it isn’t':'they aren’t'} counted in any year. `:''}${d.undatedMonth?`${d.undatedMonth} from ${Y} ${d.undatedMonth===1?'has':'have'} no month. `:''}Fix them from the Archive’s “Fill in” button on the <a href="index.html">game log</a>.</p>`:''}`;
-}
-
-// ─── Platform recaps ───────────────────────────────────
-const fmtN = n => Number(n).toLocaleString();
-const fmtPct = p => `${Math.round(p)}%`;
-const chip = (label, value) => `<span class="rc-chip">${label} <b>${value}</b></span>`;
-
-function recapCard(key, body, src){
-  const i = RECAP_INFO[key];
-  return `<section class="rc" style="--rc:${i.color}" aria-label="${i.name}">
-    <div class="rc-head"><span class="rc-name">${i.name}</span><span class="rc-src">${src}</span></div>${body}</section>`;
-}
-
-function notYet(key, year, extra){
-  const i = RECAP_INFO[key], now = new Date();
-  const pending = year === now.getFullYear() || (year === now.getFullYear() - 1 && now.getMonth() === 0);
-  return `<p class="rc-empty">${pending ? `${year}’s usually arrives ${i.when}. ` : ''}${extra} <a href="${i.url}" target="_blank" rel="noopener">${i.url.replace('https://','')}</a></p>`;
-}
-
-function steamCard(year){
-  const r = REPLAY[String(year)];
-  if (!r || !r.available) return recapCard('steam', notYet('steam', year,
-    r && r.reason ? `${esc(r.reason)}. Once it’s public, the next daily sync picks it up.` : 'Picked up by the daily sync once it’s out and set to public on your profile.'), 'auto');
-  const big = [
-    r.totalHours ? [`${fmtN(r.totalHours)}h`, 'played'] : null,
-    r.sessions ? [fmtN(r.sessions), 'sessions'] : null,
-    r.gamesPlayed ? [r.gamesPlayed, 'games'] : null,
-    r.achievements ? [fmtN(r.achievements.total), 'achievements'] : null,
-  ].filter(Boolean);
-  const top = (r.topGames || []).slice(0, 5);
-  const chips = [
-    r.streak ? chip('Streak', `${r.streak.days} days`) : '',
-    r.achievements && r.achievements.rare ? chip('Rare', r.achievements.rare) : '',
-    r.newGames ? chip('New to you', `${r.newGames} games${r.newGamesPct != null ? ` · ${fmtPct(r.newGamesPct)} of time` : ''}`) : '',
-    r.deckPct ? chip('On Deck', fmtPct(r.deckPct)) : '',
-    r.controllerPct ? chip('Controller', fmtPct(r.controllerPct)) : '',
-    r.percentiles && r.percentiles.gamesPlayed != null ? chip('More games than', `${r.percentiles.gamesPlayed}% of players`) : '',
-  ].join('');
-  const rel = r.releases;
-  const split = rel ? `<div><div class="rc-split" role="img" aria-label="Playtime: ${fmtPct(rel.newPct)} new releases, ${fmtPct(rel.recentPct)} recent, ${fmtPct(rel.classicPct)} classics">
-      <div style="width:${rel.newPct}%;background:#c8f542"></div><div style="width:${rel.recentPct}%;background:#42c8f5"></div><div style="width:${rel.classicPct}%;background:#a06bff"></div></div>
-      <div class="rc-chips" style="margin-top:5px">${chip('New', fmtPct(rel.newPct))}${chip('Recent', fmtPct(rel.recentPct))}${chip(`Classic${rel.recentCutoff ? ' (pre-' + rel.recentCutoff + ')' : ''}`, fmtPct(rel.classicPct))}</div></div>` : '';
-  return recapCard('steam', `
-    ${big.length ? `<div class="rc-big">${big.map(([n,l]) => `<div><div class="rc-n">${n}</div><div class="rc-l">${l}</div></div>`).join('')}</div>` : ''}
-    ${top.length ? `<ol class="rc-games">${top.map(g => `<li><img class="rc-art" src="${esc(g.art)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-      <span class="rc-gt" title="${esc(g.name)}">${esc(g.name)}</span><span class="rc-v">${g.pct != null ? fmtPct(g.pct) : ''}</span>
-      <div class="rc-bar"><div style="width:${Math.min(100, (g.pct || 0) / (top[0].pct || 1) * 100)}%"></div></div></li>`).join('')}</ol>` : ''}
-    ${chips ? `<div class="rc-chips">${chips}</div>` : ''}${split}
-    <a class="rc-link" href="${RECAP_INFO.steam.url}" target="_blank" rel="noopener">Open Steam Replay ↗</a>`, 'auto');
-}
-
-function manualCard(key, year){
-  const r = (RECAPS[String(year)] || {})[key];
-  if (!r) return recapCard(key, notYet(key, year, 'It has no API: send its screenshots to a Claude session and they’ll be added to recaps.json.'), 'by hand');
-  const big = [
-    r.hours != null ? [`${fmtN(r.hours)}h`, 'played'] : null,
-    r.gamesPlayed != null ? [r.gamesPlayed, 'games'] : null,
-  ].filter(Boolean);
-  const top = (r.topGames || []).slice(0, 5);
-  const maxH = Math.max(...top.map(g => g.hours || 0), 1);
-  return recapCard(key, `
-    ${big.length ? `<div class="rc-big">${big.map(([n,l]) => `<div><div class="rc-n">${n}</div><div class="rc-l">${l}</div></div>`).join('')}</div>` : ''}
-    ${top.length ? `<ol class="rc-games">${top.map((g, i) => `<li><span class="rc-v">${i + 1}</span>
-      <span class="rc-gt" title="${esc(g.name)}">${esc(g.name)}</span><span class="rc-v">${g.hours != null ? fmtN(g.hours) + 'h' : ''}</span>
-      ${g.hours != null ? `<div class="rc-bar"><div style="width:${g.hours / maxH * 100}%"></div></div>` : ''}</li>`).join('')}</ol>` : ''}
-    ${(r.highlights || []).length ? `<div class="rc-chips">${r.highlights.map(h => chip(esc(h.label), esc(h.value))).join('')}</div>` : ''}
-    ${r.note ? `<p class="rc-empty">${esc(r.note)}</p>` : ''}
-    ${(r.images || []).length ? `<div class="rc-imgs">${r.images.map(src => `<a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="${RECAP_INFO[key].name} ${year}" loading="lazy"></a>`).join('')}</div>` : ''}
-    <a class="rc-link" href="${RECAP_INFO[key].url}" target="_blank" rel="noopener">Open ${RECAP_INFO[key].name} ↗</a>`, 'by hand');
-}
-
-// Shown for the current and previous year (the ones a recap can still arrive for), and for
-// any older year that has recap data.
-function recapsSection(year){
-  const now = new Date().getFullYear();
-  const has = REPLAY[String(year)]?.available || RECAPS[String(year)]?.playstation || RECAPS[String(year)]?.nintendo;
-  if (year < now - 1 && !has) return '';
-  return `<h2 class="kicker" style="margin:1.5rem 0 0.75rem">From the platforms</h2>
-    <div class="recaps">${steamCard(year)}${manualCard('playstation', year)}${manualCard('nintendo', year)}</div>`;
-}
-
-function platformLine(year){
-  const s = REPLAY[String(year)], rc = RECAPS[String(year)] || {};
-  const parts = [];
-  if (s && s.available) parts.push(s.totalHours ? `Steam ${fmtN(s.totalHours)}h` : s.sessions ? `Steam ${fmtN(s.sessions)} sessions` : null);
-  if (rc.playstation && rc.playstation.hours != null) parts.push(`PlayStation ${fmtN(rc.playstation.hours)}h`);
-  if (rc.nintendo && rc.nintendo.hours != null) parts.push(`Nintendo ${fmtN(rc.nintendo.hours)}h`);
-  return parts.filter(Boolean).join('  ·  ');
 }
 
 // ─── Share image ───────────────────────────────────────
@@ -381,9 +254,6 @@ function drawShareCard(){
   x.font=font(500,22,'mono'); let lx=P;
   d.plats.slice(0,5).forEach(([p,n])=>{ const s=`${PL[p]||p} ${n}`; x.fillStyle=PC[p]||'#888'; x.fillRect(lx,by+48,14,14); x.fillStyle='#888890'; x.fillText(s,lx+22,by+62); lx+=x.measureText(s).width+52; });
 
-  // One line from the platforms' own recaps, when any are in.
-  const pl = platformLine(d.year);
-  if (pl){ x.fillStyle='#888890'; x.font=font(500,22,'mono'); x.fillText(fit(pl, W-P*2-170), P+170, H-60); }
   x.fillStyle='#555560'; x.font=font(500,22,'mono'); x.fillText('GAME LOG',P,H-60);
   return c;
 }
@@ -402,9 +272,8 @@ async function shareImage(){
 }
 
 const fresh=f=>fetch(`${f}?_=${Date.now()}`);
-const optional=f=>fresh(f).then(r=>r.ok?r.json():{}).catch(()=>({}));
-Promise.all([fresh('games.json').then(r=>r.json()), optional('covers.json'), optional('steam-replay.json'), optional('recaps.json')])
-  .then(([g,c,sr,rc])=>{ G=g; COVERS=c; REPLAY=sr; RECAPS=rc; render(); })
+Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({}))])
+  .then(([g,c])=>{ G=g; COVERS=c; render(); })
   .catch(e=>{ document.getElementById('main').innerHTML=`<p class="err">Couldn’t load game data (${esc(e.message)}).</p>`; });
 </script>
 </body>
