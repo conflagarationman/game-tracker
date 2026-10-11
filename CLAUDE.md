@@ -35,8 +35,7 @@ keep belongs in `games.json`, never in `covers.json` or `last-synced.json`.
 "I finished X, mark it 10/10 and archive it" needs no code and no click. **Edit `games.json`
 only, and open a PR against `main`.** `auto-merge-data.yml` validates it and merges it within
 a minute or two, then dispatches the backfill and sync so new games get art, an HLTB estimate
-and achievements. Before this, such PRs sat open until someone noticed, and the page looked
-stale although the edit had been made.
+and achievements.
 
 It merges only when the PR changes `games.json` and nothing else, comes from a branch in this
 repo, is not a draft, has no `hold` label, merges cleanly into `main`, and passes
@@ -100,7 +99,7 @@ One flat array. Every record carries every key, with `null` for unset.
 - **`casual: true` suppresses achievement display**, it does not mean the game has no
   achievements.
 - **A finished game with `cy: null` is invisible in the Year Log**, which filters on a truthy
-  `cy`, and lands in the Archive's "Unknown" group. 13 records are in that state; `add.html`
+  `cy`, and lands in the Archive's "Unknown" group. `add.html`
   lists them in a "Needs attention" group at the top of its dropdown, alongside `done` games
   with `r: 0` and `playing`/`queue`/`soon` games with no `h`, with counts under the dropdown.
 - **`achPct` / `achCount` / `actualHours` / `lastPlayed` are bot-owned.** Editing them by hand
@@ -162,20 +161,19 @@ interpreting it:
 - `sync-games.yml` — daily. Pulls Steam playtime/achievements and RetroAchievements progress
   into `games.json` and writes `last-synced.json`.
   **RetroAchievements needs two endpoints, not one.** `API_GetUserCompletedGames` carries
-  achievement counts but no play date, so for a long time nothing wrote `lastPlayed` on an RA
-  game at all — only the Steam path ever did. An actively-played game therefore read as
-  "dormant" here and "stale" on the Home Hub while its achievement counts kept updating, which
-  is what made it look synced. `API_GetUserRecentlyPlayedGames` supplies `LastPlayed`;
+  achievement counts but no play date; without the second endpoint an actively-played RA game
+  reads as "dormant" here and "stale" on the Home Hub while its achievement counts keep
+  updating. `API_GetUserRecentlyPlayedGames` supplies `LastPlayed`;
   `syncRA()` merges the two, and only ever moves `lastPlayed` **forward** — that endpoint is a
   rolling window, so an old row from it must never drag a newer date backwards. The two are
   handled independently, so a freshly-started game with no awards row still gets a date.
   Steam games are matched by normalised title against the owned-games list rather than a
   hand-maintained map, so a new game only needs the right title and platform to start syncing.
-  **RA games are matched the same way now** (`resolveRaTitles()`), for `ayn`/`retro` only:
+  **RA games are matched the same way** (`resolveRaTitles()`), for `ayn`/`retro` only:
   diacritics folded, "Zelda: X" tried as "The Legend of Zelda: X", RA's `~Hack~ `-style
-  prefixes stripped as a fallback that never beats an exact title. `RA_TITLE_MAP` is down to
-  the one real rename (999). It used to be a 22-entry allow-list covering under half the retro
-  library, so the next retro game started would never have synced. A `playing`/`ongoing`
+  prefixes stripped as a fallback that never beats an exact title. `RA_TITLE_MAP` holds only
+  renames no rule can derive (999); don't grow it into an allow-list, because any retro game
+  missing from an allow-list silently never syncs. A `playing`/`ongoing`
   retro game that still doesn't match is named in the sync log.
   Playtime is skipped for any app currently being idled for trading cards, since idling inflates
   Steam's own counters; achievements are unaffected and still sync.
@@ -186,12 +184,11 @@ interpreting it:
   tracker at all. `index.html` shows the recent hours on Now Playing cards and a note under
   them only when there's a mismatch. It does **not** re-flag idle Now Playing games; the page's
   "dormant" pill already does that. ASF-idled appids are excluded, as are background apps in
-  `PLAY_CHECK_IGNORE` (Bongo Cat, from the first real run), and titles match across
+  `PLAY_CHECK_IGNORE` (e.g. Bongo Cat), and titles match across
   every platform, so a game tracked as `switch` but played on Steam isn't called untracked.
-  This replaces a Mac scheduled task that did a local version of this and died silently.
 - `backfill-covers.yml` — daily, **and on every push to main that touches `games.json`**, so a
-  game added by a direct commit (no Worker dispatch) gets art and an estimate within minutes
-  instead of waiting for a weekly run, which is what left Up Next full of blanks. Bot pushes
+  game added by a direct commit (no Worker dispatch) gets art and an estimate within minutes.
+  Bot pushes
   use `GITHUB_TOKEN`, which never re-triggers a workflow, so it can't loop on itself.
   **Steam/Steam Deck games ask the Steam store first** (exact name -> appid -> the store's
   header image, `STEAM_NAME_ALIASES` shared with the sync): a store page exists months before
@@ -211,7 +208,7 @@ interpreting it:
   told apart by the record's `y` or declined. HLTB has no public API and renames its search
   endpoint every few months (`/api/find` -> `/api/bleed` -> `/api/search/site`); on a 404 the
   script reads the new name out of the site's own JS. The init response's field names move
-  too (the first live run got a 200 with no `hpKey`/`hpVal`), so `parseInit()` takes `token`
+  too (a 200 can arrive without `hpKey`/`hpVal`), so `parseInit()` takes `token`
   plus any field named like `*key*`/`*val*`, and on failure logs the field names it got. If no lookup succeeds at all, the run
   goes red (covers still commit) rather than quietly filling nothing. An unreleased game
   matches with no times yet and is simply retried the next day.
@@ -222,9 +219,9 @@ interpreting it:
   pre-approval that personal scripts rarely get. **It looks up the host's recent posts
   first** (`GOTM_HOSTS`, an indexed `author=` filter) and matches titles locally; the
   full-text title searches ("Game of the Month", "GotM") are only a fallback for a new
-  host. Probed from an Actions runner, the host lookup answered in ~1s while the title
-  searches sat at 5-8s and intermittently hit Arctic Shift's "Timeout. Maybe slow down a
-  bit" 422, with or without a date range; they failed the first three live runs. A pick
+  host. From an Actions runner the host lookup answers in ~1s, while the title searches take
+  5-8s and intermittently hit Arctic Shift's "Timeout. Maybe slow down a bit" 422, with or
+  without a date range. A pick
   older than the newest known month is refused, so an incomplete fallback search can't
   move "current" backwards.
   **Picks are merged, never rebuilt:** the host-presented months carry no "Previous Games
@@ -251,8 +248,7 @@ cd worker && node index.test.mjs       # 27
 
 `tests.yml` runs all six on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so the workflow is just checkout, Node 20, and the
-six commands above. Before it existed nothing ran them on a change — the same shape as the
-Home List regression in the Home Hub repo, where good tests existed and nothing watched them.
+six commands above.
 
 `fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the
 12-month rule, applied from scratch, reproduces every RETIRED / LAST CHANCE marker the host
