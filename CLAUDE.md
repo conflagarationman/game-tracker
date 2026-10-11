@@ -24,6 +24,8 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `play-check.json` | bot only (`sync-games.yml`, daily) | Recent real play vs. status — see "Play check" below. Keyed by `id`. |
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
+| `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
+| `wrapped.html` | you | Year in review (`?year=2026`), with a canvas-drawn share image. Read-only. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` from a browser. |
 
@@ -121,6 +123,26 @@ so a new enum value excludes itself from all of them for free, while a boolean w
 remembering — and excluding — in every one of those places, with silent over-counting as the
 failure mode. Don't relitigate this by proposing a `continuous: true` flag; it was already
 weighed and it's the wrong shape for how this codebase reads status.
+
+### In-page writes from `index.html`
+
+Everything below goes through the Worker's existing `/games/edit` and `/games/delete`; none of
+it needed a Worker change. Per-viewer choices (picker chips, dismissed play-check rows, Someday
+games you chose to keep) live in `localStorage` only.
+
+- **What should I play?** ranks Now Playing and Up Next (plus Ongoing for a 30-minute session,
+  and Someday games whose club pick has 3 months or less left) by time left to the credits
+  (`h` minus `actualHours`), recent real play, Up Next position and GOTM deadline, filtered by
+  device. The device-to-platform map is `DEVICES` in `pick.js`. "Start" sets `s:"playing"`.
+- **Play check rows act**: Playing, Finished (date + rating sheet), or ✕, which hides a row
+  until that game's `lastPlayed` changes. "Add as playing" deep-links to
+  `add.html?t=…&s=playing&p=…`.
+- **Someday triage** (Someday panel): one game at a time, oldest first: Up Next, Keep (hidden
+  from triage for 90 days), Already played, Remove. Remove waits 6 seconds with an Undo before
+  the delete is sent. **Fill in finished games** (Archive panel) walks the done/dropped records
+  missing a year or rating.
+- The "Up next ETA" stat is Up Next + Now Playing hours left divided by the hours finished per
+  month over the last 12 months; the whole-backlog figure is in its tooltip.
 
 ### Array order is meaningful
 
@@ -243,12 +265,21 @@ node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
+node scripts/pick.test.mjs             # 14
 cd worker && node index.test.mjs       # 27
 ```
 
-`tests.yml` runs all six on every pull request and on pushes to `main`. They need no
-install step, no secrets and no network, so the workflow is just checkout, Node 20, and the
-six commands above.
+`tests.yml` runs all seven on every pull request and on pushes to `main`. They need no
+install step, no secrets and no network, so that job is just checkout, Node 20, and the
+seven commands above.
+
+A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html` and
+`wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
+on sideways scroll, page errors, or a broken picker/triage/play-check/share-image flow. The
+Worker is stubbed inside the test (writes are recorded, never sent), and every other off-site
+request is aborted except web fonts, which are let through because the phone header only
+overflowed once Syne loaded. Locally: `npm i --no-save playwright@1.56.1 && npx playwright
+install chromium`, then `node scripts/smoke.browser.mjs`.
 
 `fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the
 12-month rule, applied from scratch, reproduces every RETIRED / LAST CHANCE marker the host
@@ -258,6 +289,6 @@ rather than against itself.
 The Worker tests run against a stubbed GitHub contents API, including its sha-conflict retry,
 so they need no token and no network.
 
-The browser pages have no unit tests; they are verified by driving them in a headless browser.
+Beyond the smoke test, page changes are verified by driving them in a headless browser.
 That has caught real bugs that reading the code did not — a date defaulting on form load rather
 than on status change, and focus being lost when a button disabled itself mid-list.

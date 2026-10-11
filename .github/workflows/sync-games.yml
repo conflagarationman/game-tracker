@@ -8,6 +8,14 @@ on:
 permissions:
   contents: write
 
+# Every status change made through the Worker dispatches this workflow, and the tracker's
+# triage flow can make a dozen of those in a minute. Without a group they'd all run at once
+# and race each other to push games.json; with one, a burst collapses to one run plus one
+# queued run (GitHub keeps only the newest pending run in a group).
+concurrency:
+  group: sync-games
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
