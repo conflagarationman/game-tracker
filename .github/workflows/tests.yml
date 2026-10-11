@@ -51,6 +51,12 @@ jobs:
       - name: What-should-I-play picker
         run: node scripts/pick.test.mjs
 
+      - name: Steam Replay fetch
+        run: node scripts/fetch-steam-replay.test.mjs
+
+      - name: Hand-entered platform recaps (recaps.json)
+        run: node scripts/recaps.test.mjs
+
       - name: Admin Worker
         run: node index.test.mjs
         working-directory: worker

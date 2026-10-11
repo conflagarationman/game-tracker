@@ -195,6 +195,7 @@ for (const width of [390, 1280]) {
     const { page, errors, ctx } = await open("wrapped.html", width);
     await page.waitForSelector("#wr-hero .wr-big");
     ok(await noSideScroll(page), "page scrolls sideways");
+    ok(await page.locator(".recaps .rc").count() === 3, "platform recap cards (Steam, PlayStation, Nintendo) missing");
     const png = await page.evaluate(() => drawShareCard().toDataURL("image/png").length);
     ok(png > 20000, `share image looks empty (${png} bytes)`);
     ok(errors.length === 0, errors.join(" | "));
