@@ -29,8 +29,12 @@
     if (s.includes('-')) { const [a, b] = s.replace(/h/g, '').split('-'); const v = (parseFloat(a) + parseFloat(b)) / 2; return Number.isFinite(v) ? v : null; }
     return parseFloat(s.replace('h', '').replace('+', '')) || null;
   }
-  // Real Steam playtime where the sync has it, else the HowLongToBeat estimate.
-  const hours = (g) => g.actualHours || parseHltb(g.h) || 0;
+  // Idle games (genre "Idle": desk pets, clickers left running) still count as finished, but
+  // their hours say nothing about play, so they're left out of every hours figure.
+  const isIdle = (g) => /\bidle\b/i.test(g.g || '');
+  // Real Steam playtime where the sync has it (already net of ASF card idling, see
+  // sync-apis.mjs), else the HowLongToBeat estimate.
+  const hours = (g) => isIdle(g) ? 0 : (g.actualHours || parseHltb(g.h) || 0);
   const median = (xs) => { const s = [...xs].sort((a, b) => a - b); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null; };
   const isPerfect = (g) => PERFECT.has(g.mastery) || g.achPct === 100;
   const deviceOf = (p) => Object.keys(DEVICE).find(k => DEVICE[k].includes(p)) || 'desk';
@@ -45,7 +49,7 @@
   // Best first: rating, then hours, then title so ties don't shuffle between loads.
   const byStanding = (a, b) => (b.r || 0) - (a.r || 0) || hours(b) - hours(a) || a.t.localeCompare(b.t);
 
-  function yearStats(games, year, now = new Date()) {
+  function yearStats(games, year, now = new Date(), asfIdle = null) {
     const { done, rated, totalH, avg } = basic(games, year);
     const current = year === now.getFullYear();
     const monthsElapsed = current ? now.getMonth() + 1 : 12;
@@ -113,6 +117,10 @@
       achievements, perfect, vsPrev, bestYear,
       medianHours: median(done.map(hours).filter(Boolean)),
       flairs: done.filter(g => g.gotm && g.gotmFlair),
+      idleGames: done.filter(isIdle),
+      // ASF card farming that year, from asf-idle.json (the hub's farm ledger, via the sync).
+      asf: asfIdle && asfIdle.years && asfIdle.years[year] ? { ...asfIdle.years[year], coverageFrom: asfIdle.coverageFrom } : null,
+      asfCoverageFrom: asfIdle ? asfIdle.coverageFrom || null : null,
       dropped: games.filter(g => g.cy === year && g.s === 'dropped'),
       genres: Object.entries(done.reduce((o, g) => { if (g.g) o[g.g] = (o[g.g] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]),
     };
@@ -148,7 +156,7 @@
     return { title: 'The Explorer', line: `${n} games across ${genres} genre${genres === 1 ? '' : 's'}`, also: null };
   }
 
-  const api = { yearStats, persona, hours, parseHltb, DEVICE, RECENT_YEARS };
+  const api = { yearStats, persona, hours, isIdle, parseHltb, DEVICE, RECENT_YEARS };
   root.GTWrapped = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

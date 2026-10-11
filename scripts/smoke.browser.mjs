@@ -195,7 +195,7 @@ for (const width of [390, 1280]) {
     const { page, errors, ctx } = await open("wrapped.html", width);
     await page.waitForSelector("#wr-hero .wr-big");
     ok(await noSideScroll(page), "page scrolls sideways");
-    for (const sel of [".persona-t", "#h-hours", "#h-eras", ".standouts li", "#h-how", "#h-ach"])
+    for (const sel of [".persona-t", "#h-hours", "#h-eras", ".standouts li", "#h-how", "#h-ach", "#h-asf"])
       ok(await page.locator(sel).count() > 0, `${sel} missing`);
     const png = await page.evaluate(() => drawShareCard().toDataURL("image/png").length);
     ok(png > 20000, `share image looks empty (${png} bytes)`);

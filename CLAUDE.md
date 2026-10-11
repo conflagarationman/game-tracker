@@ -22,6 +22,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `gotm.json` | bot only (`fetch-gotm.mjs`, daily) | Mirror of the r/SBCGaming club's pick list. Overwritten wholesale — never put human state here. |
 | `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page. |
 | `play-check.json` | bot only (`sync-games.yml`, daily) | Recent real play vs. status — see "Play check" below. Keyed by `id`. |
+| `asf-idle.json` | bot only (`sync-games.yml`, daily) | ASF card farming per year, and per tracked game how much idling was taken out of its hours. Kept as-is when the hub doesn't answer. |
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
@@ -80,7 +81,8 @@ One flat array. Every record carries every key, with `null` for unset.
   "diff": null,           // 1-5 (Easy..Brutal)
   "achPct": null,         // bot-owned
   "achCount": null,       // bot-owned, [earned, total]
-  "actualHours": null,    // bot-owned
+  "actualHours": null,    // bot-owned. Steam playtime MINUS the ASF card idling the hub's
+                          // farm ledger has recorded for that appid (see Automation)
   "lastPlayed": null,     // bot-owned, YYYY-MM-DD
   "casual": false,        // true = deliberately excluded from achievement display
   "note": null,
@@ -100,6 +102,10 @@ One flat array. Every record carries every key, with `null` for unset.
   treating 0 as a real score would silently drag the average down.
 - **`casual: true` suppresses achievement display**, it does not mean the game has no
   achievements.
+- **Genre `"Idle"`** (any `g` containing the word) marks a desk pet or clicker left running.
+  The game still counts as finished, but its hours are left out of every hours figure
+  (year in review, the "Up next ETA" pace). It's a genre on purpose: editable in `add.html`,
+  and a data-only PR still auto-merges.
 - **A finished game with `cy: null` is invisible in the Year Log**, which filters on a truthy
   `cy`, and lands in the Archive's "Unknown" group. `add.html`
   lists them in a "Needs attention" group at the top of its dropdown, alongside `done` games
@@ -210,7 +216,13 @@ interpreting it:
   missing from an allow-list silently never syncs. A `playing`/`ongoing`
   retro game that still doesn't match is named in the sync log.
   Playtime is skipped for any app currently being idled for trading cards, since idling inflates
-  Steam's own counters; achievements are unaffected and still sync.
+  Steam's own counters; achievements are unaffected and still sync. **Past idling is
+  subtracted too:** the hub's `/asf/farm-ledger` (built from ASF's own log, per appid per
+  day) is taken out of `playtime_forever` for `actualHours`, out of `playtime_2weeks` for the
+  play check, and a last-played day ASF spent idling with no real play left in the window
+  doesn't move `lastPlayed`. Idling from before the ledger existed can't be known, so older
+  farmed games may still carry some. If the hub is down the sync logs it and uses raw playtime
+  for that run.
 - **Play check**, same run. `buildPlayCheck()` compares status against real recent play and
   writes `play-check.json` plus a section on the workflow's run summary: each tracked game's
   Steam minutes over the last 14 days (`playtime_2weeks`), tracked games played in that window
@@ -272,13 +284,13 @@ No test runner, no dependencies — each suite is a plain Node script that print
 and exits non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 32
+node scripts/sync-apis.test.mjs        # 39
 node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
 node scripts/pick.test.mjs             # 14
-node scripts/wrapped.test.mjs          # 12
+node scripts/wrapped.test.mjs          # 14
 cd worker && node index.test.mjs       # 27
 ```
 

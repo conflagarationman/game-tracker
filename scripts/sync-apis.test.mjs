@@ -4,7 +4,7 @@
 // the fake API responses and mutate `games` correctly. A commented-out placeholder loop
 // (which is what the first version of this idea shipped with, before it was caught and
 // rebuilt) would fail every test here immediately.
-import { syncSteam, syncRA, getRecentlyFarmedAppids, buildPlayCheck, playCheckSummary, resolveRaTitles } from "./sync-apis.mjs";
+import { syncSteam, syncRA, getRecentlyFarmedAppids, buildPlayCheck, playCheckSummary, resolveRaTitles, summarizeLedger, getAsfLedger, buildAsfIdle } from "./sync-apis.mjs";
 import assert from "node:assert/strict";
 
 process.env.STEAM_API_KEY = "fake";
@@ -414,6 +414,85 @@ await test("buildPlayCheck resolves RA titles with the same rules, so a Zelda ga
   const c = buildPlayCheck(games, { raPlayed: new Map([["The Legend of Zelda: Oracle of Seasons", "2026-09-24"]]) }, TODAY);
   assert.deepEqual(c.untracked, []);
   assert.deepEqual(c.recent[29], { lastPlayed: "2026-09-24" });
+});
+
+// ─── ASF farm ledger ───
+const LEDGER = { coverage_from: "2026-07-14T10:00:00", apps: {
+  1942280: { name: "Brotato", days: { "2026-07-20": 120, "2026-10-08": 60 }, finished: "2026-10-08" },
+  555: { name: "Untracked Idler", days: { "2025-12-31": 30, "2026-01-01": 90 }, finished: null },
+} };
+const LEDGER_TODAY = new Date("2026-10-11T12:00:00Z");
+
+await test("summarizeLedger totals each appid and its last 14 days", () => {
+  const { byAppid, coverageFrom } = summarizeLedger(LEDGER, LEDGER_TODAY);
+  assert.equal(coverageFrom, "2026-07-14");
+  assert.equal(byAppid.get(1942280).total, 180);
+  assert.equal(byAppid.get(1942280).recent, 60);
+  assert.equal(byAppid.get(555).recent, 0);
+});
+
+await test("syncSteam takes ledger idling out of actualHours", async () => {
+  globalThis.fetch = async (url) => String(url).includes("GetOwnedGames")
+    ? new Response(JSON.stringify({ response: { games: [{ appid: 1942280, name: "Brotato", playtime_forever: 754, rtime_last_played: 1785000000 }] } }))
+    : new Response(JSON.stringify({ playerstats: { success: false } }));
+  const games = [baseGame()];
+  const log = [];
+  await syncSteam(games, log, new Set(), summarizeLedger(LEDGER, LEDGER_TODAY));
+  assert.equal(games[0].actualHours, 9.6, "754 min - 180 idle = 574 min -> 9.6h");
+  assert.ok(log.some(l => l.includes("3h of ASF idling taken out")));
+});
+
+await test("a game that was only ever idled ends up with no hours, not a stale old value", async () => {
+  globalThis.fetch = async (url) => String(url).includes("GetOwnedGames")
+    ? new Response(JSON.stringify({ response: { games: [{ appid: 1942280, name: "Brotato", playtime_forever: 170, rtime_last_played: 1785000000 }] } }))
+    : new Response(JSON.stringify({ playerstats: { success: false } }));
+  const games = [baseGame({ actualHours: 2.8 })];
+  await syncSteam(games, [], new Set(), summarizeLedger(LEDGER, LEDGER_TODAY));
+  assert.equal(games[0].actualHours, null);
+});
+
+await test("a last-played day ASF spent idling doesn't move lastPlayed; real play the same fortnight does", async () => {
+  const lastPlayedUnix = Date.parse("2026-10-08T15:00:00Z") / 1000;
+  const run = async (twoWeeks) => {
+    globalThis.fetch = async (url) => String(url).includes("GetOwnedGames")
+      ? new Response(JSON.stringify({ response: { games: [{ appid: 1942280, name: "Brotato", playtime_forever: 900, playtime_2weeks: twoWeeks, rtime_last_played: lastPlayedUnix }] } }))
+      : new Response(JSON.stringify({ playerstats: { success: false } }));
+    const games = [baseGame({ lastPlayed: "2026-09-01" })];
+    await syncSteam(games, [], new Set(), summarizeLedger(LEDGER, LEDGER_TODAY));
+    return games[0].lastPlayed;
+  };
+  assert.equal(await run(60), "2026-09-01", "60 min in 14 days, all of it idling");
+  assert.equal(await run(200), "2026-10-08", "140 real minutes on top of the idling");
+});
+
+await test("the play check's 14-day minutes are net of idling", () => {
+  const games = [baseGame({ id: 7, s: "queue" })];
+  const check = buildPlayCheck(games, {
+    steamOwned: [{ appid: 1942280, name: "Brotato", playtime_2weeks: 100 }, { appid: 555, name: "Untracked Idler", playtime_2weeks: 0 }],
+    asf: summarizeLedger(LEDGER, LEDGER_TODAY),
+  }, LEDGER_TODAY);
+  assert.equal(check.recent[7].mins, 40);
+  const allIdle = buildPlayCheck(games, { steamOwned: [{ appid: 1942280, name: "Brotato", playtime_2weeks: 60 }], asf: summarizeLedger(LEDGER, LEDGER_TODAY) }, LEDGER_TODAY);
+  assert.equal(allIdle.offList.length, 0, "a fortnight of pure idling isn't play");
+});
+
+await test("buildAsfIdle summarizes farming by year and maps tracked games", () => {
+  const games = [baseGame({ id: 7 })];
+  const out = buildAsfIdle(games, [{ appid: 1942280, name: "Brotato" }], summarizeLedger(LEDGER, LEDGER_TODAY), LEDGER_TODAY);
+  assert.deepEqual(out.byGame, { 7: { appid: 1942280, idleHours: 3, lastIdle: "2026-10-08", finished: "2026-10-08" } });
+  assert.equal(out.years["2026"].hours, 4.5);
+  assert.equal(out.years["2026"].gameCount, 2);
+  assert.equal(out.years["2026"].finished, 1);
+  assert.deepEqual(out.years["2026"].games.map(g => [g.name, g.hours, g.id]), [["Brotato", 3, 7], ["Untracked Idler", 1.5, null]]);
+  assert.equal(out.years["2025"].hours, 0.5);
+  assert.equal(buildAsfIdle(games, [], null), null);
+});
+
+await test("getAsfLedger fails safe to null on a hub error", async () => {
+  globalThis.fetch = async (url) => { assert.ok(String(url).includes("/asf/farm-ledger?token=fake-hub-token")); return new Response("nope", { status: 404 }); };
+  const log = [];
+  assert.equal(await getAsfLedger(log), null);
+  assert.ok(log.some(l => l.includes("ASF farm ledger failed")));
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);

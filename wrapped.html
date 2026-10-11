@@ -100,6 +100,8 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .so-img,.so-img-ph{width:54px;height:25px;border-radius:3px;object-fit:cover;flex-shrink:0;font-size:0.8rem;}
 .so-t{flex:1;min-width:0;font-size:0.76rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .score.sm{font-size:0.7rem;}
+.farm-list{list-style:none;display:flex;flex-direction:column;gap:5px;margin-top:0.75rem;}
+.farm-list li{display:flex;gap:0.5rem;align-items:baseline;min-width:0;}
 .empty{color:var(--dim);font-family:'DM Mono',monospace;font-size:0.8rem;padding:2rem 0;text-align:center;}
 .err{color:#f54242;font-family:'DM Mono',monospace;font-size:0.75rem;}
 </style>
@@ -123,7 +125,7 @@ const PL={steam:'Steam',steamdeck:'Steam Deck',pc:'PC',ps5:'PS5',switch:'Switch'
 const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
 const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DEV_COL={handheld:'#ff4af0',hybrid:'#4aff8c',desk:'#00e5ff'};
-let G=[], COVERS={}, Y=null, D=null;
+let G=[], COVERS={}, Y=null, D=null, ASF=null;
 
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const hours = g => GTWrapped.hours(g);
@@ -131,7 +133,7 @@ const fmtH = h => h >= 100 ? Math.round(h).toLocaleString() : Math.round(h*10)/1
 
 // The numbers come from wrapped-stats.js (unit-tested); this adds the few page-only extras.
 function yearData(year){
-  const s=GTWrapped.yearStats(G,year,new Date());
+  const s=GTWrapped.yearStats(G,year,new Date(),ASF);
   const byPlat={}; s.done.forEach(g=>{ byPlat[g.p]=(byPlat[g.p]||0)+1; });
   const timed=s.done.filter(hours);
   return Object.assign(s,{
@@ -151,6 +153,7 @@ function cover(g, cls='cov'){
 }
 const fact=(l,g,s)=>g?`<div class="fact"><div class="fact-l">${l}</div><div class="fact-v" title="${esc(g.t)}">${esc(g.t)}</div><div class="fact-s">${s}</div></div>`:'';
 const factN=(l,n,s,tip='')=>`<div class="fact"${tip?` title="${esc(tip)}"`:''}><div class="fact-l">${l}</div><div class="fact-v">${n}</div><div class="fact-s">${s}</div></div>`;
+const fmtDay=iso=>{ const [y,m,dd]=String(iso).split('-').map(Number); return m?`${M[m-1]} ${dd}, ${y}`:esc(iso); };
 const signed=n=>n>0?`+${n}`:String(n);
 const monthSpan=(a,b)=>a===b?M[a]:`${M[a]}–${M[b]}`;
 
@@ -210,7 +213,7 @@ function render(){
     <section class="panel" aria-labelledby="h-hours"><h2 id="h-hours">Where the hours went</h2>
       ${share.map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}</span><span class="sval">${Math.round(x.pct)}%${x.real?'':'<span class="dim" title="HowLongToBeat estimate, not tracked playtime">*</span>'}</span>
         <div class="strack"><div style="width:${x.pct/maxS*100}%;background:${PC[x.g.p]||'#888'}"></div></div></div>`).join('')||'<div class="note">No hours recorded.</div>'}
-      <p class="note" style="margin-top:0.6rem">Share of ${fmtH(d.totalH)}h across ${d.done.length} finished games. Steam hours are real (lifetime, for that game); <span class="dim">*</span> is a HowLongToBeat estimate.</p>
+      <p class="note" style="margin-top:0.6rem">Share of ${fmtH(d.totalH)}h across ${d.done.length} finished games. Steam hours are real play (lifetime, with ASF card idling taken out); <span class="dim">*</span> is a HowLongToBeat estimate.${d.idleGames.length?` Idle games left out: ${d.idleGames.map(g=>esc(g.t)).join(', ')}.`:''}</p>
     </section>
     <section class="panel" aria-labelledby="h-eras"><h2 id="h-eras">Old and new</h2>
       <div class="stack" role="img" aria-label="Hours by release age: new ${Math.round(e.new.pct)}%, recent ${Math.round(e.recent.pct)}%, classic ${Math.round(e.classic.pct)}%">
@@ -230,12 +233,14 @@ function render(){
   </section>
 
   <div class="grid">
-    <section class="panel" aria-labelledby="h-how"><h2 id="h-how">How you played</h2>
-      ${d.deviceSplit.length?`<div class="stack" role="img" aria-label="${d.deviceSplit.map(x=>`${x.label}: ${Math.round(x.pct)}%`).join(', ')}">${d.deviceSplit.map(x=>`<div style="width:${x.pct}%;background:${DEV_COL[x.k]}"></div>`).join('')}</div>
-      <div class="legend" style="margin-bottom:0.9rem">${d.deviceSplit.map(x=>`<span class="lg"><span class="dot" style="background:${DEV_COL[x.k]}"></span>${x.label} ${Math.round(x.pct)}%</span>`).join('')}</div>`:''}
-      <div class="stack thin" role="img" aria-label="${d.plats.map(([p,n])=>`${PL[p]||p}: ${n}`).join(', ')}">${d.plats.map(([p,n])=>`<div style="width:${n/totalP*100}%;background:${PC[p]||'#888'}"></div>`).join('')}</div>
-      <div class="legend">${d.plats.map(([p,n])=>`<span class="lg"><span class="dot" style="background:${PC[p]||'#888'}"></span>${PL[p]||p} ${n}</span>`).join('')}</div>
-      <p class="note" style="margin-top:0.6rem">By hours, then by games. Steam counts as PC: the tracker can't tell Deck play from desk play.</p>
+    <section class="panel" aria-labelledby="h-asf"><h2 id="h-asf">Card farming</h2>
+      ${d.asf?`<div class="facts">
+          ${factN('Idled by ASF',`${fmtH(d.asf.hours)}h`,'not counted as play')}
+          ${factN('Games farmed',d.asf.gameCount,d.asf.finished?`${d.asf.finished} farmed out`:'')}
+        </div>
+        <ol class="farm-list">${d.asf.games.slice(0,5).map(x=>`<li><span class="so-t" title="${esc(x.name)}">${esc(x.name)}</span><span class="sval">${fmtH(x.hours)}h</span></li>`).join('')}</ol>`
+      :`<p class="note">No card farming on record for ${Y}.</p>`}
+      <p class="note" style="margin-top:0.6rem">${d.asfCoverageFrom?`From ASF’s own log, recorded since ${fmtDay(d.asfCoverageFrom)}. `:'From ASF’s own log once the hub’s farm ledger is running. '}That time is taken out of every hours figure here and in the tracker.</p>
     </section>
     <section class="panel" aria-labelledby="h-ach"><h2 id="h-ach">Trophies and achievements</h2>
       <div class="facts">
@@ -248,10 +253,19 @@ function render(){
   </div>
 
   <div class="grid">
+    <section class="panel" aria-labelledby="h-how"><h2 id="h-how">How you played</h2>
+      ${d.deviceSplit.length?`<div class="stack" role="img" aria-label="${d.deviceSplit.map(x=>`${x.label}: ${Math.round(x.pct)}%`).join(', ')}">${d.deviceSplit.map(x=>`<div style="width:${x.pct}%;background:${DEV_COL[x.k]}"></div>`).join('')}</div>
+      <div class="legend" style="margin-bottom:0.9rem">${d.deviceSplit.map(x=>`<span class="lg"><span class="dot" style="background:${DEV_COL[x.k]}"></span>${x.label} ${Math.round(x.pct)}%</span>`).join('')}</div>`:''}
+      <div class="stack thin" role="img" aria-label="${d.plats.map(([p,n])=>`${PL[p]||p}: ${n}`).join(', ')}">${d.plats.map(([p,n])=>`<div style="width:${n/totalP*100}%;background:${PC[p]||'#888'}"></div>`).join('')}</div>
+      <div class="legend">${d.plats.map(([p,n])=>`<span class="lg"><span class="dot" style="background:${PC[p]||'#888'}"></span>${PL[p]||p} ${n}</span>`).join('')}</div>
+      <p class="note" style="margin-top:0.6rem">By hours, then by games. Steam counts as PC: the tracker can't tell Deck play from desk play.</p>
+    </section>
     <section class="panel" aria-labelledby="h-genre"><h2 id="h-genre">Genres</h2>
       ${genres.map(([gn,n])=>`<div class="brow"><span class="bname" title="${esc(gn)}">${esc(gn)}</span><div class="btrack"><div class="bfill" style="width:${n/maxG*100}%"></div></div><span class="bval">${n}</span></div>`).join('')||'<div class="note">No genres recorded.</div>'}
     </section>
-    <section class="panel" aria-labelledby="h-facts"><h2 id="h-facts">The details</h2>
+  </div>
+
+  <section class="panel" aria-labelledby="h-facts" style="margin-bottom:1rem"><h2 id="h-facts">The details</h2>
       <div class="facts">
         ${fact('Longest',d.longest,d.longest?`${fmtH(hours(d.longest))}h`:'')}
         ${fact('Quickest',d.shortest&&d.shortest!==d.longest?d.shortest:null,d.shortest?`${fmtH(hours(d.shortest))}h`:'')}
@@ -259,7 +273,6 @@ function render(){
         ${d.dropped.length?factN('Dropped',d.dropped.length,'no shame',d.dropped.map(g=>g.t).join(', ')):''}
       </div>
     </section>
-  </div>
 
   <div class="share">
     <button type="button" class="btn" onclick="shareImage()">Save share image</button>
@@ -334,8 +347,9 @@ async function shareImage(){
 }
 
 const fresh=f=>fetch(`${f}?_=${Date.now()}`);
-Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({}))])
-  .then(([g,c])=>{ G=g; COVERS=c; render(); })
+Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  fresh('asf-idle.json').then(r=>r.ok?r.json():null).catch(()=>null)])
+  .then(([g,c,a])=>{ G=g; COVERS=c; ASF=a; render(); })
   .catch(e=>{ document.getElementById('main').innerHTML=`<p class="err">Couldn’t load game data (${esc(e.message)}).</p>`; });
 </script>
 </body>

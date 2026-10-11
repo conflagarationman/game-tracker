@@ -1065,7 +1065,8 @@ function byId(id){ return G.find(x => x.id === Number(id)); }
 // else the HLTB estimate). Null with too little history to mean anything.
 function paceHoursPerMonth(){
   const nowIdx = NOW.getFullYear()*12 + NOW.getMonth();
-  const recent = G.filter(g => g.s==='done' && g.cy && g.cm!=null && nowIdx-(g.cy*12+g.cm) < 12);
+  // Idle games (genre "Idle") are left out: their hours aren't play.
+  const recent = G.filter(g => g.s==='done' && g.cy && g.cm!=null && nowIdx-(g.cy*12+g.cm) < 12 && !/\bidle\b/i.test(g.g || ''));
   const hrs = recent.reduce((s,g) => s + (g.actualHours || parseHltb(g.h) || 0), 0);
   return recent.length >= 3 && hrs > 0 ? { perMonth: hrs/12, games: recent.length } : null;
 }

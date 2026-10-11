@@ -75,6 +75,25 @@ await test("game of the year is the top rating, ties broken by hours", () => {
   assert.equal(s.goty.t, "B");
 });
 
+await test("idle games count as finished but are left out of every hours figure", () => {
+  const s = yearStats([g({ t: "Duck", g: "Idle", actualHours: 44 }), g({ t: "Real", actualHours: 10 })], 2026, NOW);
+  assert.equal(s.done.length, 2);
+  assert.equal(s.totalH, 10);
+  assert.deepEqual(plain(s.hoursShare.map(x => x.g.t)), ["Real"]);
+  assert.deepEqual(plain(s.idleGames.map(x => x.t)), ["Duck"]);
+  assert.equal(yearStats([g({ g: "Idle Clicker" })], 2026, NOW).idleGames.length, 1);
+  assert.equal(yearStats([g({ g: "Incremental" })], 2026, NOW).idleGames.length, 0, "only an explicit Idle tag");
+});
+
+await test("card farming for the year comes from asf-idle.json", () => {
+  const asf = { coverageFrom: "2026-07-14", years: { 2026: { hours: 46.5, gameCount: 12, finished: 8, games: [] } } };
+  const s = yearStats([g()], 2026, NOW, asf);
+  assert.equal(s.asf.hours, 46.5);
+  assert.equal(s.asf.coverageFrom, "2026-07-14");
+  assert.equal(yearStats([g({ cy: 2025 })], 2025, NOW, asf).asf, null);
+  assert.equal(yearStats([g()], 2026, NOW).asf, null);
+});
+
 await test("persona: the strongest trait wins and says why", () => {
   const classics = [1990, 1991, 1995, 1998].map(y => g({ y, p: "ps5" }));
   const p = yearStats(classics, 2026, NOW).persona;
