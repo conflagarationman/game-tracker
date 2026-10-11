@@ -48,6 +48,32 @@ jobs:
       - name: Game of the Month fetch
         run: node scripts/fetch-gotm.test.mjs
 
+      - name: What-should-I-play picker
+        run: node scripts/pick.test.mjs
+
+      - name: Year in review numbers
+        run: node scripts/wrapped.test.mjs
+
       - name: Admin Worker
         run: node index.test.mjs
         working-directory: worker
+
+  # The pages themselves, in a real browser. Separate from the job above because it is the
+  # only thing here that needs an install step (Playwright + Chromium) and network for it.
+  # The Worker is stubbed inside the test, so this can never write to games.json.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Pages smoke test (index, add, wrapped at phone and desktop widths)
+        run: node scripts/smoke.browser.mjs

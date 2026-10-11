@@ -22,8 +22,11 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `gotm.json` | bot only (`fetch-gotm.mjs`, daily) | Mirror of the r/SBCGaming club's pick list. Overwritten wholesale — never put human state here. |
 | `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page. |
 | `play-check.json` | bot only (`sync-games.yml`, daily) | Recent real play vs. status — see "Play check" below. Keyed by `id`. |
+| `asf-idle.json` | bot only (`sync-games.yml`, daily) | ASF card farming per year, and per tracked game how much idling was taken out of its hours. Kept as-is when the hub doesn't answer. |
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
+| `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
+| `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` from a browser. |
 
@@ -78,7 +81,8 @@ One flat array. Every record carries every key, with `null` for unset.
   "diff": null,           // 1-5 (Easy..Brutal)
   "achPct": null,         // bot-owned
   "achCount": null,       // bot-owned, [earned, total]
-  "actualHours": null,    // bot-owned
+  "actualHours": null,    // bot-owned. Steam playtime MINUS the ASF card idling the hub's
+                          // farm ledger has recorded for that appid (see Automation)
   "lastPlayed": null,     // bot-owned, YYYY-MM-DD
   "casual": false,        // true = deliberately excluded from achievement display
   "note": null,
@@ -98,6 +102,10 @@ One flat array. Every record carries every key, with `null` for unset.
   treating 0 as a real score would silently drag the average down.
 - **`casual: true` suppresses achievement display**, it does not mean the game has no
   achievements.
+- **Genre `"Idle"`** (any `g` containing the word) marks a desk pet or clicker left running.
+  The game still counts as finished, but its hours are left out of every hours figure
+  (year in review, the "Up next ETA" pace). It's a genre on purpose: editable in `add.html`,
+  and a data-only PR still auto-merges.
 - **A finished game with `cy: null` is invisible in the Year Log**, which filters on a truthy
   `cy`, and lands in the Archive's "Unknown" group. `add.html`
   lists them in a "Needs attention" group at the top of its dropdown, alongside `done` games
@@ -121,6 +129,38 @@ so a new enum value excludes itself from all of them for free, while a boolean w
 remembering — and excluding — in every one of those places, with silent over-counting as the
 failure mode. Don't relitigate this by proposing a `continuous: true` flag; it was already
 weighed and it's the wrong shape for how this codebase reads status.
+
+### In-page writes from `index.html`
+
+Everything below goes through the Worker's existing `/games/edit` and `/games/delete`; none of
+it needed a Worker change. Per-viewer choices (picker chips, dismissed play-check rows, Someday
+games you chose to keep) live in `localStorage` only.
+
+- **What should I play?** ranks Now Playing and Up Next (plus Ongoing for a 30-minute session,
+  and Someday games whose club pick has 3 months or less left) by time left to the credits
+  (`h` minus `actualHours`), recent real play, Up Next position and GOTM deadline, filtered by
+  device. The device-to-platform map is `DEVICES` in `pick.js`. "Start" sets `s:"playing"`.
+- **Play check rows act**: Playing, Finished (date + rating sheet), or ✕, which hides a row
+  until that game's `lastPlayed` changes. "Add as playing" deep-links to
+  `add.html?t=…&s=playing&p=…`.
+- **Someday triage** (Someday panel): one game at a time, oldest first: Up Next, Keep (hidden
+  from triage for 90 days), Already played, Remove. Remove waits 6 seconds with an Undo before
+  the delete is sent. **Fill in finished games** (Archive panel) walks the done/dropped records
+  missing a year or rating.
+- The "Up next ETA" stat is Up Next + Now Playing hours left divided by the hours finished per
+  month over the last 12 months; the whole-backlog figure is in its tooltip.
+
+### Year in review
+
+`wrapped-stats.js` borrows the ideas behind Steam Replay, PlayStation Wrap-Up and Nintendo
+Year in Review but computes them from this file's own fields; nothing is fetched from the
+platforms. Hours are `actualHours` (lifetime Steam playtime for that game) else the HLTB
+estimate, and the page marks which. New / recent / classic splits at 8 years back, like
+Steam's. "Played at launch" means `y === cy`. The streak is consecutive months with a
+finish (there's no daily play data). Devices: handheld = steamdeck/ayn/retro, Switch =
+switch/switch2, everything else PC & TV (Steam can't be told apart from Deck play). The
+persona is whichever trait clears its threshold by the most, with the number behind it, and
+"vs last year" compares with the closest earlier year that has finishes.
 
 ### Array order is meaningful
 
@@ -176,7 +216,13 @@ interpreting it:
   missing from an allow-list silently never syncs. A `playing`/`ongoing`
   retro game that still doesn't match is named in the sync log.
   Playtime is skipped for any app currently being idled for trading cards, since idling inflates
-  Steam's own counters; achievements are unaffected and still sync.
+  Steam's own counters; achievements are unaffected and still sync. **Past idling is
+  subtracted too:** the hub's `/asf/farm-ledger` (built from ASF's own log, per appid per
+  day) is taken out of `playtime_forever` for `actualHours`, out of `playtime_2weeks` for the
+  play check, and a last-played day ASF spent idling with no real play left in the window
+  doesn't move `lastPlayed`. Idling from before the ledger existed can't be known, so older
+  farmed games may still carry some. If the hub is down the sync logs it and uses raw playtime
+  for that run.
 - **Play check**, same run. `buildPlayCheck()` compares status against real recent play and
   writes `play-check.json` plus a section on the workflow's run summary: each tracked game's
   Steam minutes over the last 14 days (`playtime_2weeks`), tracked games played in that window
@@ -238,17 +284,27 @@ No test runner, no dependencies — each suite is a plain Node script that print
 and exits non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 32
+node scripts/sync-apis.test.mjs        # 39
 node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
+node scripts/pick.test.mjs             # 14
+node scripts/wrapped.test.mjs          # 14
 cd worker && node index.test.mjs       # 27
 ```
 
-`tests.yml` runs all six on every pull request and on pushes to `main`. They need no
-install step, no secrets and no network, so the workflow is just checkout, Node 20, and the
-six commands above.
+`tests.yml` runs all eight on every pull request and on pushes to `main`. They need no
+install step, no secrets and no network, so that job is just checkout, Node 20, and the
+eight commands above.
+
+A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html` and
+`wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
+on sideways scroll, page errors, or a broken picker/triage/play-check/share-image flow. The
+Worker is stubbed inside the test (writes are recorded, never sent), and every other off-site
+request is aborted except web fonts, which are let through because the phone header only
+overflowed once Syne loaded. Locally: `npm i --no-save playwright@1.56.1 && npx playwright
+install chromium`, then `node scripts/smoke.browser.mjs`.
 
 `fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the
 12-month rule, applied from scratch, reproduces every RETIRED / LAST CHANCE marker the host
@@ -258,6 +314,6 @@ rather than against itself.
 The Worker tests run against a stubbed GitHub contents API, including its sha-conflict retry,
 so they need no token and no network.
 
-The browser pages have no unit tests; they are verified by driving them in a headless browser.
+Beyond the smoke test, page changes are verified by driving them in a headless browser.
 That has caught real bugs that reading the code did not — a date defaulting on form load rather
 than on status change, and focus being lost when a button disabled itself mid-list.

@@ -310,10 +310,109 @@ section:first-of-type .slabel{margin-top:0;}
 .mg{margin-bottom:1rem;}
 .mh{font-size:0.6rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;}
 .empty{color:var(--dim);font-size:0.8rem;font-family:'DM Mono',monospace;padding:0.5rem 0;}
+
+/* ─── Tonight picker ─────────────────────────────────────
+   Answers "what should I play?" from what's already decided (Now Playing, Up Next, plus
+   Ongoing for short sessions and Someday club picks about to expire). Scoring lives in
+   pick.js so it's unit-tested in Node; this is only the chips and the rows. */
+.tonight{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.85rem 0.9rem;margin-bottom:1.5rem;}
+.tn-head{display:flex;align-items:baseline;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem;}
+.tn-head h2{font-size:0.72rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.12em;color:var(--playing);font-weight:700;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.5rem;}
+.chip{font-family:'DM Mono',monospace;font-size:0.68rem;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--border2);
+  background:transparent;color:var(--muted);cursor:pointer;touch-action:manipulation;}
+.chip:hover{color:var(--text);border-color:var(--muted);}
+.chip[aria-pressed="true"]{background:#42c8f522;color:var(--playing);border-color:#42c8f560;font-weight:700;}
+.chip:focus-visible,.mini-btn:focus-visible,.tn-go:focus-visible,.pc-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.tn-list{display:flex;flex-direction:column;gap:6px;margin-top:0.35rem;}
+.tn-row{display:flex;align-items:center;gap:0.65rem;background:var(--surface2);border-radius:8px;padding:6px 8px;min-width:0;}
+.tn-row .thumb,.tn-row .thumb-placeholder{width:64px;min-width:64px;height:30px;margin:0;font-size:1rem;}
+.tn-rank{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--dim);min-width:12px;text-align:center;}
+.tn-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.tn-title{font-size:0.85rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);text-decoration:none;}
+a.tn-title:hover{text-decoration:underline;}
+.tn-why{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tn-go{font-family:'DM Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.4rem 0.65rem;min-height:32px;border-radius:99px;
+  border:1px solid #42c8f560;background:#42c8f514;color:var(--playing);cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.tn-go:hover{background:#42c8f530;}
+
+/* Play check actions: the note used to only describe the mismatch; now each row fixes it. */
+.pc-item{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;margin-right:0.5rem;}
+.pc-btn{font-family:'DM Mono',monospace;font-size:0.6rem;padding:3px 8px;min-height:26px;border-radius:99px;border:1px solid var(--border2);
+  background:transparent;color:var(--muted);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;}
+.pc-btn:hover{color:var(--text);border-color:var(--muted);}
+.pc-btn.go{color:var(--playing);border-color:#42c8f560;}
+.pc-btn.x{border-color:transparent;padding:3px 6px;}
+
+/* Small action buttons that sit at the top of a collapsible panel. */
+.panel-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.75rem;}
+.mini-btn{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;
+  border-radius:99px;border:1px solid #c8f54250;background:#c8f54212;color:var(--accent);cursor:pointer;}
+.mini-btn:hover{background:#c8f54226;}
+
+/* ─── Triage / finish dialogs ──────────────────────────── */
+dialog.sheet{background:var(--surface);color:var(--text);border:1px solid var(--border2);border-radius:14px;padding:0;
+  width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;margin:auto;}
+dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
+.sh-top{display:flex;align-items:center;gap:0.5rem;padding:0.75rem 0.9rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:2;}
+.sh-kicker{flex:1;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);}
+.sh-close{background:transparent;border:0;color:var(--muted);font-size:1.2rem;cursor:pointer;min-width:36px;min-height:36px;border-radius:8px;}
+.sh-close:hover{color:var(--text);background:var(--surface2);}
+.sh-art{position:relative;aspect-ratio:460/215;background:var(--surface2);overflow:hidden;}
+.sh-art.no-cover{aspect-ratio:auto;height:64px;}
+.sh-body{padding:0.85rem 0.9rem 1rem;display:flex;flex-direction:column;gap:0.6rem;}
+.sh-title{font-size:1.15rem;font-weight:800;line-height:1.2;}
+.sh-q{font-size:0.72rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:0.25rem;}
+.sh-chips{display:flex;gap:5px;flex-wrap:wrap;}
+.sh-chips .chip{min-width:40px;}
+.sh-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:0.35rem;}
+.sh-btn{font-family:'Syne',sans-serif;font-size:0.85rem;font-weight:700;padding:0.7rem 0.6rem;min-height:44px;border-radius:10px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text);cursor:pointer;}
+.sh-btn:hover{border-color:var(--muted);}
+.sh-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.sh-btn.primary{background:var(--accent);color:#0e0e10;border-color:var(--accent);}
+.sh-btn.up{border-color:#42c8f560;color:var(--playing);}
+.sh-btn.bad{border-color:#f5424250;color:#f57272;}
+.sh-btn kbd{font-family:'DM Mono',monospace;font-size:0.6rem;opacity:0.55;margin-left:4px;}
+.sh-btn:disabled{opacity:0.5;cursor:default;}
+.sh-done{text-align:center;padding:1.5rem 0.5rem;font-size:0.9rem;color:var(--muted);}
+.sh-done b{display:block;font-size:1.4rem;color:var(--accent);margin-bottom:0.4rem;}
+.sh-sel{background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:0.4rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.72rem;min-height:32px;}
+@media (hover:none){ .sh-btn kbd{display:none;} }
+
+/* Undo toast for removals: the delete is held back until the toast expires. */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:max(1rem,env(safe-area-inset-bottom));z-index:1100;display:none;align-items:center;gap:0.75rem;
+  background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:0.6rem 0.6rem 0.6rem 0.9rem;box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  font-size:0.8rem;max-width:calc(100vw - 32px);}
+.toast span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.toast button{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;padding:0.45rem 0.8rem;min-height:32px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;}
+
+/* ─── Look and feel ─────────────────────────────────────
+   Covers: a hero card with art gets a blurred copy of it behind its text panel, so the card
+   reads as that game rather than as a grey box. A hero with no art no longer reserves a full
+   capsule-sized empty band for one emoji. */
+.hero-card{position:relative;}
+.hero-blur{position:absolute;left:0;right:0;bottom:0;top:30%;width:100%;height:70%;object-fit:cover;filter:blur(28px) saturate(1.3);opacity:0.22;pointer-events:none;transform:scale(1.2);}
+.hero-content{position:relative;z-index:1;}
+.hero-art.no-cover{aspect-ratio:auto;height:72px;}
+.stat-u{font-size:0.55em;font-weight:700;margin-left:2px;letter-spacing:0;}
+/* On a phone the picker's reasons get two lines instead of an ellipsis halfway through. */
+@media (max-width:480px){
+  /* Six stats as 3+3 rather than 4+2, which squeezed the widest figure out of its box. */
+  .stats-row .stat{flex:1 1 calc(33.333% - 0.5rem);padding:0.7rem 0.4rem;}
+  .tn-why{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.5;}
+  .tn-row .thumb,.tn-row .thumb-placeholder{width:44px;min-width:44px;height:44px;}
+}
+.hero-art.no-cover .hero-bg-fallback{font-size:1.8rem;}
+.narrow-only{display:none;}
+@media (max-width:480px){
+  .wide-only{display:none;}
+  .narrow-only{display:inline;}
+}
 </style>
 </head>
 <body>
-<div class="header"><h1>GAME LOG</h1><a id="add-link" class="add-link" href="add.html" style="display:none;">+ Add game</a><button id="edit-toggle" class="edit-toggle" style="display:none;" onclick="setEditMode(!editMode)">Edit mode: Off</button></div>
+<div class="header"><h1>GAME LOG</h1><a id="add-link" class="add-link" href="add.html" style="display:none;">+ Add<span class="wide-only"> game</span></a><button id="edit-toggle" class="edit-toggle" style="display:none;" aria-pressed="false" onclick="setEditMode(!editMode)">Edit mode: Off</button></div>
 <div class="move-bar" id="move-bar" style="display:none;" role="status">
   <span class="move-bar-title" id="move-bar-title"></span>
   <span class="move-bar-hint">Tap a section, or</span>
@@ -322,6 +421,12 @@ section:first-of-type .slabel{margin-top:0;}
 <div class="updated" id="updated-stamp">loading…</div>
 <div class="banner" id="load-error" role="alert"></div>
 <div class="stats-row" id="stats"></div>
+<section class="tonight" id="tonight-sec" style="display:none;" aria-labelledby="tonight-heading">
+  <div class="tn-head"><h2 id="tonight-heading">What should I play?</h2></div>
+  <div class="chips" id="tn-time" role="group" aria-label="How long have you got"></div>
+  <div class="chips" id="tn-device" role="group" aria-label="Which device"></div>
+  <div class="tn-list" id="tn-list" aria-live="polite"></div>
+</section>
 <section class="gotm-sec" id="gotm-sec" style="display:none;" aria-labelledby="gotm-heading"></section>
 <section aria-labelledby="now-playing-heading">
   <h2 class="slabel" id="now-playing-heading">Now playing</h2>
@@ -339,6 +444,7 @@ section:first-of-type .slabel{margin-top:0;}
 <section aria-label="Soon">
   <div class="cr" id="so-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="so-panel" onclick="tog('so')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('so');}"><span id="so-arr" aria-hidden="true">▶</span><span id="so-lbl">Someday (0)</span></div>
   <div id="so-panel" style="display:none;margin-top:0.75rem;">
+    <div class="panel-actions" id="so-actions"></div>
     <div class="queue-grid" id="soon"></div>
   </div>
 </section>
@@ -346,6 +452,7 @@ section:first-of-type .slabel{margin-top:0;}
 <section aria-label="Archive">
   <div class="cr" id="ar-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="ar-panel" onclick="tog('ar')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('ar');}"><span id="ar-arr" aria-hidden="true">▶</span><span id="ar-lbl">Archive (0)</span></div>
   <div id="ar-panel" style="display:none;margin-top:0.75rem;">
+    <div class="panel-actions" id="ar-actions"></div>
     <input type="text" id="ar-search" class="search-box" placeholder="Search archive by title…" aria-label="Search archive by title" oninput="renderPanels()">
     <div id="ar-list"></div>
   </div>
@@ -355,7 +462,11 @@ section:first-of-type .slabel{margin-top:0;}
   <div id="yl-panel" style="display:none;margin-top:0.75rem;"></div>
 </section>
 
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-kicker"></dialog>
+<div class="toast" id="toast" role="status"></div>
+
 <script src="worker-config.js"></script>
+<script src="pick.js"></script>
 <script>
 // Data lives in games.json/covers.json, kept current by the daily GitHub Action
 // (scripts/sync-apis.mjs) instead of being hand-edited into a `const G=[...]` here.
@@ -412,7 +523,7 @@ function heroArt(g) {
   const emoji = PLAT_EMOJI[g.p] || '🎮';
   const fallback = `<div class="hero-bg-fallback" style="background:linear-gradient(160deg, ${color}40, ${color}10);color:${color}${url ? ';display:none' : ''}">${emoji}</div>`;
   if (url) {
-    return `<img class="hero-bg-img" src="${url}" alt="${esc(g.t)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${fallback}`;
+    return `<img class="hero-bg-img" src="${url}" alt="${esc(g.t)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.parentNode.classList.add('no-cover')">${fallback}`;
   }
   return fallback;
 }
@@ -547,23 +658,42 @@ function playAmt(x){
 
 function renderPlayCheck(){
   const el=document.getElementById('play-check');
-  const off=(PLAY&&PLAY.offList)||[], un=(PLAY&&PLAY.untracked)||[];
+  const dis=pcDismissed();
+  const off=((PLAY&&PLAY.offList)||[]).filter(x=>byId(x.id)&&byId(x.id).s!=='playing'&&dis['id:'+x.id]!==pcSig(x));
+  const un=((PLAY&&PLAY.untracked)||[]).filter(x=>!G.some(g=>g.t.toLowerCase()===String(x.title).toLowerCase())&&dis['t:'+x.title]!==unSig(x));
   if(!off.length&&!un.length){ el.style.display='none'; el.innerHTML=''; return; }
   const days=PLAY.windowDays||14;
   const link=(href,text)=>CAN_EDIT?`<a href="${href}">${text}</a>`:text;
+  // Each row fixes itself: Playing moves it to Now Playing, Finished opens the finish sheet,
+  // and ✕ hides it until you play it again (see pcSig). Titles are passed by index, never
+  // spliced into an onclick, so a quote in a title can't break the handler.
+  PC_ROWS={off,un};
+  const offItem=(x,i)=>`<span class="pc-item">${link(`add.html?id=${x.id}`,esc(x.t))} <span>(${esc(x.s)}, ${playAmt(x)})</span>${CAN_EDIT?`
+    <button type="button" class="pc-btn go" onclick="startGame(${x.id})">▶ Playing</button>
+    <button type="button" class="pc-btn" onclick="openFinish(${x.id})">✓ Finished</button>
+    <button type="button" class="pc-btn x" onclick="pcHide('off',${i})" aria-label="Not now: hide ${esc(x.t)} until it's played again">✕</button>`:''}</span>`;
+  const unItem=(x,i)=>`<span class="pc-item">${esc(x.title)} <span>(${playAmt(x)})</span>${CAN_EDIT?`
+    <a class="pc-btn go" href="add.html?t=${encodeURIComponent(x.title)}&s=playing&p=${untrackedPlat(x)}">+ Add as playing</a>
+    <button type="button" class="pc-btn x" onclick="pcHide('un',${i})" aria-label="Not now: hide ${esc(x.title)} until it's played again">✕</button>`:''}</span>`;
   const rows=[];
-  if(off.length) rows.push(`<div><b>Played in the last ${days} days, not marked playing:</b> ${off.map(x=>
-    `${link(`add.html?id=${x.id}`,esc(x.t))} (${esc(x.s)}, ${playAmt(x)})`).join(' · ')}</div>`);
-  if(un.length) rows.push(`<div><b>Not in the tracker:</b> ${un.map(x=>
-    `${link(`add.html?t=${encodeURIComponent(x.title)}`,esc(x.title))} (${playAmt(x)})`).join(' · ')}</div>`);
+  if(off.length) rows.push(`<div><b>Played in the last ${days} days, not marked playing:</b> ${off.map(offItem).join(' ')}</div>`);
+  if(un.length) rows.push(`<div><b>Not in the tracker:</b> ${un.map(unItem).join(' ')}</div>`);
   el.innerHTML=rows.join('');
   el.style.display='flex';
+}
+let PC_ROWS={off:[],un:[]};
+function unSig(x){ return String(x.lastPlayed||x.mins||''); }
+function pcHide(kind,i){
+  const x=PC_ROWS[kind][i]; if(!x) return;
+  if(kind==='off') pcDismiss('id:'+x.id, pcSig(x)); else pcDismiss('t:'+x.title, unSig(x));
 }
 
 function nowC(g){
   const dormant=isDormant(g);
+  const cover=getCover(g);
   return cardLink(g, `<div class="hero-card ${dormant?'dormant':'now'}" data-id="${g.id}">
-    <div class="hero-art">
+    ${cover?`<img class="hero-blur" src="${cover}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">`:''}
+    <div class="hero-art${cover?'':' no-cover'}">
       ${heroArt(g)}
       <div class="hero-top">${pb(g.p)}</div>
     </div>
@@ -740,7 +870,7 @@ function renderPanels(){
     // quietly contradict each other.
     const undated=G.filter(g=>(g.s==='done'||g.s==='dropped')&&!g.cy).length;
     const note=undated?`<div class="empty">+ ${undated} finished ${undated===1?'game has':'games have'} no completion date, so ${undated===1?'it isn’t':'they aren’t'} counted here — add one via <a href="add.html" style="color:var(--muted)">Add / Edit</a> (marked “needs date”).</div>`:'';
-    document.getElementById('yl-panel').innerHTML=(yrs.length?yrs.map(yr=>{const list=by[yr];return `<div class="yg"><div class="yhead">${yr}<span class="ysub">${list.filter(g=>g.s==='done').length} completed</span></div>${ystats(list)}<div class="game-list">${list.map(aC).join('')}</div></div>`;}).join(''):'<div class="empty">No completed games yet.</div>')+note;
+    document.getElementById('yl-panel').innerHTML=(yrs.length?yrs.map(yr=>{const list=by[yr];return `<div class="yg"><div class="yhead">${yr}<span class="ysub">${list.filter(g=>g.s==='done').length} completed</span><a class="ysub" style="margin-left:auto;color:var(--accent);text-decoration:none" href="wrapped.html?year=${yr}">Year in review →</a></div>${ystats(list)}<div class="game-list">${list.map(aC).join('')}</div></div>`;}).join(''):'<div class="empty">No completed games yet.</div>')+note;
   }
 }
 
@@ -874,7 +1004,7 @@ function render(){
   document.getElementById('stats').innerHTML=`
     <div class="stat"><div class="stat-n" style="color:#42c8f5">${playing.length}</div><div class="stat-l">Playing</div></div>
     <div class="stat"><div class="stat-n" style="color:#888">${queue.length+soon.length}</div><div class="stat-l">Backlog</div></div>
-    <div class="stat"><div class="stat-n" style="color:#42c8f5;font-size:1.1rem">${Math.round(backlogHrs)}h</div><div class="stat-l">Backlog hrs</div></div>
+    ${paceStat(backlogHrs, playing, queue)}
     <div class="stat"><div class="stat-n" style="color:#42f5a0">${done.length}</div><div class="stat-l">Done</div></div>
     <div class="stat"><div class="stat-n" style="color:#ffb84a">${mastTotal}</div><div class="stat-l">Mastered</div></div>
     <div class="stat"><div class="stat-n" style="color:#c8f542">${avg}</div><div class="stat-l">Avg${rated.length?` · ${rated.length} rated`:' rating'}</div></div>
@@ -886,7 +1016,358 @@ function render(){
   document.getElementById('soon').innerHTML=soon.length?soon.map(g=>qC(g,0,false)).join(''):'<div class="empty">Nothing here yet.</div>';
   renderPlayCheck();
   renderGotm();
+  renderTonight();
+  renderPanelActions();
   renderPanels();
+}
+
+// "1153h of backlog" says nothing you can act on. How long Up Next takes at the rate you
+// actually finish games does; the whole-backlog figure stays in the tooltip.
+function paceStat(backlogHrs, playing, queue){
+  const pace = paceHoursPerMonth();
+  if (!pace || typeof GTPick === 'undefined')
+    return `<div class="stat"><div class="stat-n" style="color:#42c8f5;font-size:1.1rem">${Math.round(backlogHrs)}h</div><div class="stat-l">Backlog hrs</div></div>`;
+  const upHrs = [...playing, ...queue].reduce((s,g) => s + (GTPick.remaining(g) || 0), 0);
+  const tip = `Time to clear Up Next and Now Playing at your pace: about ${Math.round(upHrs)}h left. You finished ~${Math.round(pace.perMonth)}h a month over the last 12 months (${pace.games} games). Whole backlog: ${Math.round(backlogHrs)}h, about ${fmtMonths(backlogHrs/pace.perMonth)} at that pace.`;
+  return `<div class="stat" title="${esc(tip)}" tabindex="0" aria-label="${esc(tip)}"><div class="stat-n" style="color:#42c8f5">${fmtMonthsHtml(upHrs/pace.perMonth)}</div><div class="stat-l">Up next ETA</div></div>`;
+}
+
+// ─── Writes ────────────────────────────────────────────
+// One optimistic-update-then-rollback path for every in-page edit (moves, the picker's Start,
+// play-check fixes, triage, the finish sheet). Resolves true on success, false after rolling
+// back and saying why.
+async function saveEdit(g, patch){
+  const prev = {};
+  for (const k of Object.keys(patch)) prev[k] = g[k];
+  Object.assign(g, patch);
+  render();
+  try {
+    const res = await fetch(WORKER.url + '/games/edit', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Sync-Key': WORKER.key },
+      body: JSON.stringify({ id: g.id, ...patch }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
+    return true;
+  } catch (err) {
+    Object.assign(g, prev);
+    render();
+    alert(`Couldn't save "${g.t}": ${err.message}`);
+    return false;
+  }
+}
+
+function byId(id){ return G.find(x => x.id === Number(id)); }
+
+// ─── Pace ──────────────────────────────────────────────
+// Hours finished per month over the last 12 months (real playtime where the sync has it,
+// else the HLTB estimate). Null with too little history to mean anything.
+function paceHoursPerMonth(){
+  const nowIdx = NOW.getFullYear()*12 + NOW.getMonth();
+  // Idle games (genre "Idle") are left out: their hours aren't play.
+  const recent = G.filter(g => g.s==='done' && g.cy && g.cm!=null && nowIdx-(g.cy*12+g.cm) < 12 && !/\bidle\b/i.test(g.g || ''));
+  const hrs = recent.reduce((s,g) => s + (g.actualHours || parseHltb(g.h) || 0), 0);
+  return recent.length >= 3 && hrs > 0 ? { perMonth: hrs/12, games: recent.length } : null;
+}
+// No "~" here: in Syne it renders like a dash, so "~2.4mo" read as "-2.4mo".
+function fmtMonths(m){
+  if (m < 1) return `${Math.max(1, Math.round(m*4.3))} wk`;
+  return m < 10 ? `${Math.round(m*10)/10} mo` : `${Math.round(m)} mo`;
+}
+function fmtMonthsHtml(m){
+  const [n, u] = fmtMonths(m).split(' ');
+  return `${n}<span class="stat-u">${u}</span>`;
+}
+
+// ─── Tonight picker ────────────────────────────────────
+let PICK = { time:'evening', device:'any' };
+try { Object.assign(PICK, JSON.parse(localStorage.getItem('gt_pick') || '{}')); } catch(e){}
+
+function setPick(k, v){
+  PICK[k] = v;
+  try { localStorage.setItem('gt_pick', JSON.stringify(PICK)); } catch(e){}
+  renderTonight();
+}
+
+function renderTonight(){
+  const sec = document.getElementById('tonight-sec');
+  if (typeof GTPick === 'undefined' || !G.length){ sec.style.display='none'; return; }
+  const { TIMES, DEVICES, pickGames, devicesWithGames } = GTPick;
+  const devs = devicesWithGames(G);
+  if (!devs.includes(PICK.device)) PICK.device = 'any';
+  if (!TIMES[PICK.time]) PICK.time = 'evening';
+  const chip = (k, v, label) => `<button type="button" class="chip" aria-pressed="${PICK[k]===v}" onclick="setPick('${k}','${v}')">${label}</button>`;
+  document.getElementById('tn-time').innerHTML = Object.entries(TIMES).map(([v,t]) => chip('time', v, t.label)).join('');
+  document.getElementById('tn-device').innerHTML = devs.map(v => chip('device', v, DEVICES[v].label)).join('');
+  const picks = pickGames(G, { time: PICK.time, device: PICK.device, play: PLAY, gotm: GOTM, now: NOW });
+  document.getElementById('tn-list').innerHTML = picks.length ? picks.map((p, i) => {
+    const g = p.g;
+    const title = CAN_EDIT ? `<a class="tn-title" href="add.html?id=${g.id}" title="${esc(g.t)}">${esc(g.t)}</a>` : `<span class="tn-title" title="${esc(g.t)}">${esc(g.t)}</span>`;
+    const go = CAN_EDIT && g.s !== 'playing' && g.s !== 'ongoing'
+      ? `<button type="button" class="tn-go" onclick="startGame(${g.id})" aria-label="Start ${esc(g.t)}: move it to Now Playing">▶ Start</button>` : '';
+    return `<div class="tn-row"><span class="tn-rank">${i+1}</span>${thumbEl(g)}
+      <div class="tn-main">${title}<span class="tn-why">${pb(g.p)} ${p.reasons.map(esc).join(' · ')}</span></div>${go}</div>`;
+  }).join('') : `<div class="empty">Nothing in Now Playing or Up Next plays on ${esc(DEVICES[PICK.device].label)}.</div>`;
+  sec.style.display = 'block';
+}
+
+function startGame(id){
+  const g = byId(id);
+  if (g) saveEdit(g, { s:'playing', start: todayStr() });
+}
+
+// ─── Play check fixes ──────────────────────────────────
+// "Not now" hides a row until you play that game again: the key is the game's latest play
+// signal, so new play brings it back, and the list doesn't nag about a one-off evening.
+function pcSig(x){ const g = byId(x.id); return String((g && g.lastPlayed) || x.lastPlayed || x.mins || ''); }
+function pcDismissed(){ try { return JSON.parse(localStorage.getItem('gt_pc_dismiss') || '{}'); } catch(e){ return {}; } }
+function pcDismiss(key, sig){
+  const d = pcDismissed(); d[key] = sig;
+  try { localStorage.setItem('gt_pc_dismiss', JSON.stringify(d)); } catch(e){}
+  renderPlayCheck();
+}
+function untrackedPlat(x){ return x.source === 'ra' ? 'retro' : 'steam'; }
+
+// ─── Sheet: one dialog, three uses ─────────────────────
+// Finish (mark a game done with a date and rating), Someday triage, and fixing finished games
+// that are missing a year or rating. <dialog> brings focus trapping, Escape and the backdrop.
+const sheet = document.getElementById('sheet');
+let SHEET = null;   // { mode, queue, i, g, onDone }
+
+function closeSheet(){ if (sheet.open) sheet.close(); }
+sheet.addEventListener('close', () => { document.body.appendChild(toast); const s = SHEET; SHEET = null; if (s) render(); });
+sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });   // backdrop
+
+function sheetArt(g){
+  const url = getCover(g);
+  return `<div class="sh-art${url?'':' no-cover'}">${heroArt(g)}<div class="hero-top">${pb(g.p)}</div></div>`;
+}
+
+function gameFacts(g){
+  const bits = [];
+  if (g.y) bits.push(`<span class="yr">${g.y}</span>`);
+  if (g.g) bits.push(`<span class="genre-tag">${esc(g.g)}</span>`);
+  if (g.h) bits.push(`<span class="hltb">⏱ ${esc(g.h)}<span class="hltb-sm"> est</span></span>`);
+  if (g.actualHours) bits.push(`<span class="actual-time">▶ ${g.actualHours}h</span>`);
+  if (g.queued){ const d = daysSince(g.queued); if (d != null) bits.push(`<span class="queued-pill">waiting ${d < 60 ? d+' days' : Math.round(d/30)+' months'}</span>`); }
+  bits.push(gotmBadge(g.gotm), releaseEl(g));
+  if (g.note) bits.push(`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`);
+  return `<div class="hero-meta">${bits.join('')}</div>`;
+}
+
+// Year/month/rating chips. Defaults: this month for a game you're finishing now; nothing
+// for a back-fill, where guessing a date would be worse than leaving it blank.
+let FIN = { cy:null, cm:null, r:0 };
+function finishFields(g, { defaultNow }){
+  const nowY = NOW.getFullYear();
+  FIN = { cy: g.cy || (defaultNow ? nowY : null), cm: g.cm != null ? g.cm : (defaultNow ? NOW.getMonth() : null), r: g.r || 0 };
+  const lo = Math.max(g.y || nowY - 8, nowY - 8);
+  const years = []; for (let y = nowY; y >= lo; y--) years.push(y);
+  return `<div><div class="sh-q">Finished in</div><div class="sh-chips" id="fin-y">${years.map(y =>
+      `<button type="button" class="chip" data-y="${y}" aria-pressed="${FIN.cy===y}" onclick="finSet('cy',${y})">${y}</button>`).join('')}</div></div>
+    <div><select class="sh-sel" id="fin-m" aria-label="Month finished" onchange="finSet('cm', this.value==='' ? null : Number(this.value))">
+      <option value="">Month: not sure</option>${M.map((m,i) => `<option value="${i}"${FIN.cm===i?' selected':''}>${m}</option>`).join('')}</select></div>
+    ${g.s==='dropped' ? '' : `<div><div class="sh-q">Rating</div><div class="sh-chips" id="fin-r">${[1,2,3,4,5,6,7,8,9,10].map(n =>
+      `<button type="button" class="chip" data-r="${n}" aria-pressed="${FIN.r===n}" onclick="finSet('r',${n})">${n}</button>`).join('')}</div></div>`}`;
+}
+function finSet(k, v){
+  FIN[k] = (k === 'r' && FIN.r === v) ? 0 : v;    // tapping the chosen rating clears it
+  sheet.querySelectorAll('#fin-y .chip').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.y) === FIN.cy)));
+  sheet.querySelectorAll('#fin-r .chip').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.r) === FIN.r)));
+}
+function finPatch(){
+  const p = {};
+  if (FIN.cy) { p.cy = FIN.cy; p.cm = FIN.cm; }
+  if (FIN.r) p.r = FIN.r;
+  return p;
+}
+
+function paintSheet(html){
+  sheet.innerHTML = html;
+  // The toast has to live inside the modal while it's open: everything outside a modal
+  // <dialog> is inert, so an Undo button left in <body> couldn't be pressed.
+  sheet.appendChild(toast);
+  if (!sheet.open) sheet.showModal();
+  const first = sheet.querySelector('[data-autofocus]') || sheet.querySelector('.sh-btn');
+  if (first) first.focus();
+}
+
+function sheetTop(kicker){
+  return `<div class="sh-top"><span class="sh-kicker" id="sheet-kicker">${kicker}</span><button type="button" class="sh-close" onclick="closeSheet()" aria-label="Close">✕</button></div>`;
+}
+
+// Finish: from the play check, the picker's rows, or triage's "Already played".
+function openFinish(id, then){
+  const g = byId(id); if (!g) return;
+  SHEET = { mode:'finish', g, onDone: then || null };
+  paintSheet(`${sheetTop('Mark finished')}${sheetArt(g)}<div class="sh-body">
+    <div class="sh-title">${esc(g.t)}</div>${finishFields(g, { defaultNow: !then })}
+    <div class="sh-actions"><button type="button" class="sh-btn" onclick="${then ? 'SHEET.onDone()' : 'closeSheet()'}">Cancel</button>
+      <button type="button" class="sh-btn primary" id="fin-save" data-autofocus onclick="saveFinish()">Save as done</button></div></div>`);
+  finSet('cy', FIN.cy);
+}
+async function saveFinish(){
+  const { g, onDone } = SHEET;
+  if (onDone) onDone();                       // triage moves on right away; the save is optimistic
+  else closeSheet();
+  await saveEdit(g, { s:'done', ...finPatch() });
+}
+
+// ─── Triage queues ─────────────────────────────────────
+function keptRecently(){ try { return JSON.parse(localStorage.getItem('gt_triage_kept') || '{}'); } catch(e){ return {}; } }
+const KEEP_DAYS = 90;
+function triageSomeday(){
+  const kept = keptRecently();
+  // Oldest first: an undated entry is assumed oldest, since dates started being recorded later.
+  return G.filter(g => g.s==='soon' && !(kept[g.id] && daysSince(kept[g.id]) < KEEP_DAYS))
+    .sort((a,b) => (a.queued||'') < (b.queued||'') ? -1 : (a.queued||'') > (b.queued||'') ? 1 : 0);
+}
+function fixSkipped(){ try { return JSON.parse(localStorage.getItem('gt_fix_skip') || '{}'); } catch(e){ return {}; } }
+function needsFix(g){ return (g.s==='done'||g.s==='dropped') && (!g.cy || (g.s==='done' && !g.r)); }
+function triageFix(){ const sk = fixSkipped(); return G.filter(g => needsFix(g) && !sk[g.id]); }
+
+function openTriage(mode){
+  const queue = (mode === 'someday' ? triageSomeday() : triageFix()).map(g => g.id);
+  SHEET = { mode, queue, i:0, done:0 };
+  paintTriage();
+}
+
+function paintTriage(){
+  const s = SHEET;
+  const total = s.queue.length;
+  const kicker = s.mode === 'someday' ? 'Someday triage' : 'Fill in finished games';
+  if (s.i >= total){
+    paintSheet(`${sheetTop(kicker)}<div class="sh-body"><div class="sh-done"><b>${total ? 'All caught up' : 'Nothing to do'}</b>
+      ${s.mode === 'someday' ? (total ? `You went through ${total}. Games you kept won't come back here for ${KEEP_DAYS} days.` : `Everything in Someday was kept in the last ${KEEP_DAYS} days.`)
+                            : (total ? `${s.done} filled in.` : 'Every finished game has a year and a rating.')}</div>
+      <button type="button" class="sh-btn primary" data-autofocus onclick="closeSheet()">Done</button></div>`);
+    return;
+  }
+  const g = byId(s.queue[s.i]);
+  if (!g){ s.i++; return paintTriage(); }
+  s.g = g;
+  const progress = `${kicker} · ${s.i+1} of ${total}`;
+  if (s.mode === 'someday'){
+    paintSheet(`${sheetTop(progress)}${sheetArt(g)}<div class="sh-body">
+      <div class="sh-title">${esc(g.t)}</div>${gameFacts(g)}
+      <div class="sh-q">Still want to play this?</div>
+      <div class="sh-actions">
+        <button type="button" class="sh-btn up" onclick="triageAct('up')">↑ Up Next<kbd>U</kbd></button>
+        <button type="button" class="sh-btn" data-autofocus onclick="triageAct('keep')">Keep in Someday<kbd>K</kbd></button>
+        <button type="button" class="sh-btn" onclick="triageAct('played')">Already played<kbd>P</kbd></button>
+        <button type="button" class="sh-btn bad" onclick="triageAct('remove')">Remove<kbd>R</kbd></button>
+      </div></div>`);
+  } else {
+    const missing = [!g.cy && 'year', g.s==='done' && !g.r && 'rating'].filter(Boolean).join(' and ');
+    paintSheet(`${sheetTop(progress)}${sheetArt(g)}<div class="sh-body">
+      <div class="sh-title">${esc(g.t)}</div><div class="sh-q">Missing: ${missing}${g.s==='dropped' ? ' (dropped)' : ''}</div>
+      ${finishFields(g, { defaultNow:false })}
+      <div class="sh-actions"><button type="button" class="sh-btn" onclick="triageAct('skip')">Don't remember</button>
+        <button type="button" class="sh-btn primary" id="fin-save" data-autofocus onclick="triageAct('save')">Save</button></div></div>`);
+  }
+}
+
+function triageNext(){ if (!SHEET) return; SHEET.i++; paintTriage(); }
+
+function triageAct(act){
+  const s = SHEET; if (!s || !s.g) return;
+  const g = s.g;
+  if (act === 'up'){ promoteToUpNext(g); triageNext(); }
+  else if (act === 'keep'){
+    const k = keptRecently(); k[g.id] = todayStr();
+    try { localStorage.setItem('gt_triage_kept', JSON.stringify(k)); } catch(e){}
+    triageNext();
+  }
+  else if (act === 'played'){ const back = { ...s }; openFinish(g.id, () => { SHEET = back; triageNext(); }); }
+  else if (act === 'remove'){ removeWithUndo(g); triageNext(); }
+  else if (act === 'skip'){
+    const k = fixSkipped(); k[g.id] = todayStr();
+    try { localStorage.setItem('gt_fix_skip', JSON.stringify(k)); } catch(e){}
+    triageNext();
+  }
+  else if (act === 'save'){
+    const p = finPatch();
+    if (Object.keys(p).length){ s.done++; saveEdit(g, p); }
+    triageNext();
+  }
+}
+
+// Up Next numbering is array order, so a status change alone would drop a promoted game into
+// Up Next wherever it happens to sit in games.json (often mid-list). It goes to the bottom
+// instead, via the same /games/reorder the add.html panel uses. Chained so a quick run of
+// promotions reorders one at a time against an up-to-date list, rather than racing into 409s.
+let PROMOTING = Promise.resolve();
+function promoteToUpNext(g){
+  PROMOTING = PROMOTING.then(async () => {
+    if (!await saveEdit(g, { s:'queue', queued: g.queued || todayStr() })) return;
+    const pos = [], ids = [];
+    G.forEach((x, i) => { if (x.s === 'queue') { pos.push(i); ids.push(x.id); } });
+    if (ids[ids.length - 1] === g.id) return;
+    const order = ids.filter(id => id !== g.id).concat(g.id);
+    try {
+      const res = await fetch(WORKER.url + '/games/reorder', { method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Sync-Key': WORKER.key }, body: JSON.stringify({ ids: order }) });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.status);
+      const rows = order.map(id => byId(id));
+      pos.forEach((p, n) => { G[p] = rows[n]; });
+      render();
+    } catch (err) {
+      // The status change already saved; only its place in line didn't. Say so, don't undo.
+      console.warn(`"${g.t}" is in Up Next but couldn't be moved to the bottom:`, err);
+    }
+  });
+  return PROMOTING;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!SHEET || SHEET.mode !== 'someday' || !sheet.open || e.metaKey || e.ctrlKey || e.altKey) return;
+  const act = { u:'up', k:'keep', p:'played', r:'remove' }[e.key.toLowerCase()];
+  if (act){ e.preventDefault(); triageAct(act); }
+});
+
+// ─── Remove, with a grace period ───────────────────────
+// A delete is the one write here that git revert is the only way back from, so it waits:
+// the game disappears now, the request goes out when the toast expires (or the page closes).
+let PENDING_REMOVE = null;
+const toast = document.getElementById('toast');
+function sendRemove(p, keepalive){
+  clearTimeout(p.timer);
+  fetch(WORKER.url + '/games/delete', { method:'POST', keepalive,
+    headers:{ 'Content-Type':'application/json', 'X-Sync-Key': WORKER.key }, body: JSON.stringify({ id: p.g.id }) })
+    .then(async r => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status); })
+    .catch(err => { if (!keepalive){ G.splice(Math.min(p.idx, G.length), 0, p.g); render(); alert(`Couldn't remove "${p.g.t}": ${err.message}`); } });
+}
+function removeWithUndo(g){
+  if (PENDING_REMOVE) sendRemove(PENDING_REMOVE, false);
+  const idx = G.indexOf(g);
+  G.splice(idx, 1);
+  render();
+  const p = { g, idx };
+  p.timer = setTimeout(() => { if (PENDING_REMOVE === p) PENDING_REMOVE = null; sendRemove(p, false); toast.style.display='none'; }, 6000);
+  PENDING_REMOVE = p;
+  toast.innerHTML = `<span>Removed “${esc(g.t)}”</span><button type="button" onclick="undoRemove()">Undo</button>`;
+  toast.style.display = 'flex';
+}
+function undoRemove(){
+  const p = PENDING_REMOVE; if (!p) return;
+  clearTimeout(p.timer);
+  PENDING_REMOVE = null;
+  G.splice(Math.min(p.idx, G.length), 0, p.g);
+  toast.style.display = 'none';
+  render();
+}
+window.addEventListener('pagehide', () => { if (PENDING_REMOVE){ sendRemove(PENDING_REMOVE, true); PENDING_REMOVE = null; } });
+
+// The entry points: top of the Someday and Archive panels, only when the Worker can write.
+function renderPanelActions(){
+  const so = document.getElementById('so-actions'), ar = document.getElementById('ar-actions');
+  if (!CAN_EDIT){ so.style.display = ar.style.display = 'none'; return; }
+  const nSo = triageSomeday().length, nFix = triageFix().length;
+  so.innerHTML = nSo ? `<button type="button" class="mini-btn" onclick="openTriage('someday')">Triage one at a time (${nSo})</button>` : '';
+  ar.innerHTML = nFix ? `<button type="button" class="mini-btn" onclick="openTriage('fix')">Fill in ${nFix} finished game${nFix===1?'':'s'}</button>` : '';
+  so.style.display = nSo ? '' : 'none';
+  ar.style.display = nFix ? '' : 'none';
 }
 
 // ─── Edit mode + drag-and-drop ──────────────────────────
@@ -956,7 +1437,8 @@ function setEditMode(on){
   editMode = on;
   document.body.classList.toggle('edit-mode', on);
   const btn = document.getElementById('edit-toggle');
-  btn.textContent = on ? 'Edit mode: On' : 'Edit mode: Off';
+  btn.innerHTML = `<span class="wide-only">Edit mode: ${on ? 'On' : 'Off'}</span><span class="narrow-only">${on ? 'Editing' : 'Edit'}</span>`;
+  btn.setAttribute('aria-pressed', String(on));
   btn.classList.toggle('active', on);
   if (!on) cancelMoveMode();
   try { localStorage.setItem('gt_edit_mode', on ? '1' : '0'); } catch(e){}
@@ -1062,23 +1544,7 @@ function onPointerMove(e){
 // rollback implementation for "move a game to a different section," regardless of which
 // gesture triggered it.
 async function moveGameToSection(g, sectionId){
-  const patch = sectionPatch(sectionId, g);
-  const prev = { s: g.s, start: g.start, queued: g.queued };
-  Object.assign(g, patch);
-  render();                                                // optimistic
-  try {
-    const res = await fetch(WORKER.url + '/games/edit', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'X-Sync-Key': WORKER.key },
-      body: JSON.stringify({ id: g.id, ...patch }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
-  } catch (err) {
-    Object.assign(g, prev);
-    render();
-    alert(`Couldn't move "${g.t}": ${err.message}`);
-  }
+  await saveEdit(g, sectionPatch(sectionId, g));
 }
 
 async function onPointerUp(e){

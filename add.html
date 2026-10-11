@@ -734,6 +734,18 @@ function applyDeepLink() {
     $('t').value = title;
     const tag = params.get('gotm');
     if (tag) { setGotmValue(tag); syncFlairVisibility(); }
+    // ?s= / ?p= come from the play check's "Not in the tracker" row: a game you're already
+    // playing, so it starts as playing (from today) on the platform the sync saw it on.
+    const s = params.get('s'), p = params.get('p');
+    if (p && [...$('p').options].some(o => o.value === p)) $('p').value = p;
+    if (s && [...$('s').options].some(o => o.value === s)) {
+      $('s').value = s;
+      if (s === 'playing' && !$('start').value) {
+        const d = new Date();
+        $('start').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+      onStatusChange();
+    }
     const clash = games.find(g => g.t.toLowerCase() === title.toLowerCase());
     if (clash) showMsg(`“${clash.t}” is already tracked (${clash.p}, ${clash.s}) — edit it below instead of adding a second entry.`, false);
     return;

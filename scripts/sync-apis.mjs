@@ -155,7 +155,74 @@ export async function getRecentlyFarmedAppids(log) {
   }
 }
 
-export async function syncSteam(games, log, farmedAppids = new Set()) {
+// The hub's ASF farm ledger (/asf/farm-ledger): minutes ASF idled each appid, per UTC day,
+// since the ledger began. getRecentlyFarmedAppids() above only knows what's being farmed right
+// now, so before this the idled hours landed in actualHours the moment farming moved on to the
+// next game. With it, actualHours is Steam playtime minus known idling, and the play check's
+// 14-day minutes are too. Idling from before the ledger's coverage can't be known.
+export function summarizeLedger(ledger, today = new Date()) {
+  const cutoff = new Date(today.getTime() - PLAY_CHECK_DAYS * 86400000).toISOString().slice(0, 10);
+  const byAppid = new Map();
+  for (const [appid, app] of Object.entries(ledger?.apps || {})) {
+    const days = Object.entries(app.days || {});
+    const total = days.reduce((s, [, m]) => s + m, 0);
+    const recent = days.filter(([d]) => d >= cutoff).reduce((s, [, m]) => s + m, 0);
+    byAppid.set(Number(appid), { name: app.name || null, total, recent, days: new Map(days),
+      lastDay: days.map(([d]) => d).sort().pop() || null, finished: app.finished || null });
+  }
+  return { byAppid, coverageFrom: ledger?.coverage_from ? ledger.coverage_from.slice(0, 10) : null };
+}
+
+export async function getAsfLedger(log) {
+  const hubToken = process.env.HUB_STATUS_TOKEN;
+  if (!hubToken) {
+    log.push("ASF farm ledger: missing HUB_STATUS_TOKEN, skipped (hours include past idling)");
+    return null;
+  }
+  try {
+    const res = await fetch(`https://familyholocron.duckdns.org/asf/farm-ledger?token=${hubToken}`);
+    if (!res.ok) throw new Error(`-> ${res.status}`);
+    return summarizeLedger(await res.json());
+  } catch (e) {
+    log.push(`ASF farm ledger failed: ${e.message} (hours include past idling)`);
+    return null;
+  }
+}
+
+// asf-idle.json: what wrapped.html shows about card farming, and per tracked game how much
+// idling was taken out of its hours.
+export function buildAsfIdle(games, steamOwned, asf, today = new Date()) {
+  if (!asf) return null;
+  const nameOf = new Map(steamOwned.map(sg => [sg.appid, sg.name]));
+  const gameByName = new Map();
+  for (const g of games) {
+    gameByName.set(normalize(g.t), g);
+    if (STEAM_NAME_ALIASES[g.t]) gameByName.set(normalize(STEAM_NAME_ALIASES[g.t]), g);
+  }
+  const byGame = {}, years = {};
+  for (const [appid, a] of asf.byAppid) {
+    const name = nameOf.get(appid) || a.name || `App ${appid}`;
+    const g = gameByName.get(normalize(name));
+    if (g && a.total >= 6) byGame[g.id] = { appid, idleHours: Math.round(a.total / 6) / 10, lastIdle: a.lastDay, finished: a.finished };
+    const perYear = {};
+    for (const [day, m] of a.days) perYear[day.slice(0, 4)] = (perYear[day.slice(0, 4)] || 0) + m;
+    for (const [y, m] of Object.entries(perYear)) {
+      const Y = (years[y] ||= { minutes: 0, games: [], finished: 0 });
+      Y.minutes += m;
+      Y.games.push({ name, hours: Math.round(m / 6) / 10, id: g ? g.id : null });
+      if (a.finished && a.finished.startsWith(y)) Y.finished++;
+    }
+  }
+  for (const Y of Object.values(years)) {
+    Y.hours = Math.round(Y.minutes / 6) / 10;
+    Y.gameCount = Y.games.length;
+    Y.games = Y.games.sort((a, b) => b.hours - a.hours).slice(0, 8);
+    delete Y.minutes;
+  }
+  return { asOf: today.toISOString(), coverageFrom: asf.coverageFrom, years, byGame };
+}
+
+export async function syncSteam(games, log, farmedAppids = new Set(), asf = null) {
   const steamId = process.env.STEAM_ID;
   if (!process.env.STEAM_API_KEY || !steamId) {
     log.push("Steam: missing STEAM_API_KEY/STEAM_ID, skipped");
@@ -190,14 +257,23 @@ export async function syncSteam(games, log, farmedAppids = new Set()) {
     }
 
     const isFarming = farmedAppids.has(sg.appid);
-    const hours = Math.round((sg.playtime_forever / 60) * 10) / 10;
+    const idle = asf ? asf.byAppid.get(sg.appid) : null;
+    // Steam playtime minus every minute the ledger saw ASF idle this appid.
+    const rawMinutes = sg.playtime_forever || 0;
+    const netMinutes = Math.max(0, rawMinutes - (idle ? idle.total : 0));
+    const hours = Math.round((netMinutes / 60) * 10) / 10;
     const lastPlayed = toDateStr(sg.rtime_last_played);
+    // Idling bumps rtime_last_played too. A last-played day ASF spent idling, with no real
+    // play left in the 14-day window once idling is taken out, isn't a day you played.
+    const realRecentMins = (sg.playtime_2weeks || 0) - (idle ? idle.recent : 0);
+    const idleOnlyDay = idle && lastPlayed && idle.days.has(lastPlayed) && realRecentMins < 5;
     let changed = false;
     if (isFarming) {
       log.push(`Steam · ${entry.t}: skipped playtime/lastPlayed (ASF is idling appid ${sg.appid} for cards)`);
     } else {
-      if (hours && entry.actualHours !== hours) { entry.actualHours = hours; changed = true; }
-      if (lastPlayed && entry.lastPlayed !== lastPlayed) { entry.lastPlayed = lastPlayed; changed = true; }
+      if (rawMinutes && entry.actualHours !== (hours || null)) { entry.actualHours = hours || null; changed = true; }
+      if (lastPlayed && entry.lastPlayed !== lastPlayed && !idleOnlyDay) { entry.lastPlayed = lastPlayed; changed = true; }
+      if (idle && idle.total >= 6 && changed) log.push(`Steam · ${entry.t}: ${Math.round(idle.total / 6) / 10}h of ASF idling taken out of ${Math.round(rawMinutes / 6) / 10}h`);
     }
 
     // appid comes straight off the matched owned-game record now, so every matched game
@@ -337,7 +413,7 @@ export const UNTRACKED_MIN_MINUTES = 60;   // below this, a stray launch isn't w
 // (a desktop pet) logged 13.8h in the first run's window. Only affects the untracked list.
 const PLAY_CHECK_IGNORE = new Set(["Bongo Cat"].map(normalize));
 
-export function buildPlayCheck(games, { steamOwned = [], farmedAppids = new Set(), raPlayed = new Map() } = {}, today = new Date()) {
+export function buildPlayCheck(games, { steamOwned = [], farmedAppids = new Set(), raPlayed = new Map(), asf = null } = {}, today = new Date()) {
   // Title lookup across every platform: a game tracked as "switch" but played on Steam is
   // still a known game, and reporting it as untracked would be wrong.
   const byName = new Map();
@@ -351,8 +427,10 @@ export function buildPlayCheck(games, { steamOwned = [], farmedAppids = new Set(
   const recent = {};   // tracked id -> { mins?, lastPlayed? }
   const untracked = [];
   for (const sg of steamOwned) {
-    const mins = sg.playtime_2weeks || 0;
-    // ASF idling inflates playtime_2weeks exactly like playtime_forever (see above).
+    // ASF idling inflates playtime_2weeks exactly like playtime_forever (see above): skip what
+    // it's farming now, and take the ledger's last 14 days of idling out of everything else.
+    const idleRecent = asf && asf.byAppid.get(sg.appid) ? asf.byAppid.get(sg.appid).recent : 0;
+    const mins = Math.max(0, Math.round((sg.playtime_2weeks || 0) - idleRecent));
     if (!mins || farmedAppids.has(sg.appid)) continue;
     const g = byName.get(normalize(sg.name));
     if (g) recent[g.id] = { ...recent[g.id], mins };
@@ -407,9 +485,13 @@ async function main() {
   const log = [];
 
   const farmedAppids = await getRecentlyFarmedAppids(log);
-  const steamOwned = await syncSteam(games, log, farmedAppids);
+  const asf = await getAsfLedger(log);
+  const steamOwned = await syncSteam(games, log, farmedAppids, asf);
   const raPlayed = await syncRA(games, log);
-  const check = buildPlayCheck(games, { steamOwned, farmedAppids, raPlayed });
+  const check = buildPlayCheck(games, { steamOwned, farmedAppids, raPlayed, asf });
+  const asfIdle = buildAsfIdle(games, steamOwned, asf);
+  // Only rewritten when the ledger answered, so a hub outage keeps the last good copy.
+  if (asfIdle) await fs.writeFile("asf-idle.json", JSON.stringify(asfIdle, null, 2) + "\n");
 
   await fs.writeFile("games.json", JSON.stringify(games, null, 2) + "\n");
   await fs.writeFile("play-check.json", JSON.stringify(check, null, 2) + "\n");

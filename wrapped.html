@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Year in Games</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%8E%AE</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Same tokens as index.html, so this reads as part of the tracker rather than a new site. */
+:root{
+  --bg:#0e0e10;--surface:#17171a;--surface2:#1f1f24;--border:#2a2a30;--border2:#3a3a42;
+  --text:#f0f0f0;--muted:#888890;--dim:#555560;--accent:#c8f542;--playing:#42c8f5;--done:#42f5a0;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:1.5rem 1rem 3rem;}
+.wrap{max-width:820px;margin:0 auto;}
+.top{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;}
+.back{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);text-decoration:none;text-transform:uppercase;letter-spacing:0.08em;}
+.back:hover{color:var(--text);}
+.years{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;}
+.yr-chip{font-family:'DM Mono',monospace;font-size:0.7rem;padding:0.4rem 0.75rem;min-height:32px;display:inline-flex;align-items:center;border-radius:99px;border:1px solid var(--border2);color:var(--muted);text-decoration:none;}
+.yr-chip[aria-current="page"]{background:var(--accent);color:#0e0e10;border-color:var(--accent);font-weight:700;}
+.yr-chip:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+.hero{background:radial-gradient(120% 140% at 0% 0%,#c8f54222,transparent 55%),radial-gradient(120% 140% at 100% 100%,#42c8f51c,transparent 55%),var(--surface);
+  border:1px solid var(--border);border-radius:16px;padding:1.5rem 1.25rem;margin-bottom:1rem;}
+.kicker{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);}
+.hero h1{font-size:clamp(2.2rem,9vw,3.6rem);font-weight:800;letter-spacing:-0.04em;line-height:1;color:var(--accent);margin:0.35rem 0 1.1rem;}
+.wr-big{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.75rem;}
+.big-n{font-size:2rem;font-weight:800;line-height:1;}
+.big-l{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:1rem;margin-bottom:1rem;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;min-width:0;}
+.panel h2{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);font-weight:500;margin-bottom:0.75rem;}
+
+.top5{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.top5 li{display:flex;align-items:center;gap:0.65rem;min-width:0;}
+.rank{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);width:14px;text-align:center;flex-shrink:0;}
+.cov{width:72px;height:34px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--surface2);}
+.cov-ph{width:72px;height:34px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.9rem;}
+.t5-main{flex:1;min-width:0;}
+.t5-t{font-size:0.88rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.t5-s{font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--muted);}
+.score{font-family:'DM Mono',monospace;font-size:0.85rem;font-weight:700;color:var(--accent);flex-shrink:0;}
+
+.months{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:120px;}
+.mcol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;}
+.mbar{width:100%;border-radius:3px 3px 0 0;background:var(--playing);opacity:0.75;min-height:2px;}
+.mbar.zero{background:var(--border);opacity:1;}
+.mbar.future{background:transparent;border:1px dashed var(--border);border-bottom:0;height:8px!important;}
+.mn{font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--dim);}
+.mv{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);}
+
+.stack{display:flex;height:14px;border-radius:7px;overflow:hidden;margin-bottom:0.75rem;background:var(--surface2);}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;}
+.lg{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);}
+.dot{width:9px;height:9px;border-radius:50%;}
+.brow{display:flex;align-items:center;gap:8px;margin:5px 0;}
+.bname{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.btrack{flex:1;background:var(--surface2);border-radius:2px;height:5px;}
+.bfill{height:5px;border-radius:2px;background:var(--accent);opacity:0.7;}
+.bval{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--dim);min-width:16px;text-align:right;}
+
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:8px;}
+.fact{background:var(--surface2);border-radius:10px;padding:10px 12px;min-width:0;}
+.fact-l{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;}
+.fact-v{font-size:0.85rem;font-weight:700;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fact-s{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);}
+
+.share{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:1.25rem 0 0.5rem;}
+.btn{font-family:'DM Mono',monospace;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.65rem 1rem;min-height:40px;border-radius:99px;
+  border:1px solid var(--accent);background:#c8f54218;color:var(--accent);cursor:pointer;font-weight:700;}
+.btn:hover{background:#c8f54230;}
+.note{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);line-height:1.6;}
+.note a{color:var(--text);}
+.persona{margin:-0.4rem 0 1.2rem;}
+.persona-t{font-size:clamp(1.3rem,5vw,1.8rem);font-weight:800;letter-spacing:-0.02em;margin-top:2px;}
+.persona-l{font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--muted);margin-top:3px;}
+.yoys{display:flex;flex-wrap:wrap;gap:6px;margin-top:1rem;}
+.yoy{font-family:'DM Mono',monospace;font-size:0.65rem;padding:4px 10px;border-radius:99px;background:#ffffff0c;color:var(--muted);}
+.yoy.good{background:#c8f54220;color:var(--accent);}
+.goty{display:flex;flex-direction:column;gap:0.5rem;}
+.goty-art{border-radius:8px;overflow:hidden;aspect-ratio:460/215;background:var(--surface2);}
+.goty-img{width:100%;height:100%;object-fit:cover;display:block;}
+.goty-img-ph{width:100%;height:100%;font-size:2.5rem;}
+.goty-t{font-size:1.3rem;font-weight:800;line-height:1.2;}
+.srow{display:grid;grid-template-columns:1fr auto;gap:2px 8px;margin:7px 0;}
+.sname{font-size:0.8rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sval{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);}
+.strack{grid-column:1 / 3;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.strack div{height:5px;border-radius:3px;opacity:0.85;}
+.dim{color:var(--dim);}
+.hi{color:var(--text);font-weight:500;}
+.stack.thin{height:8px;}
+.standouts{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:6px;margin-top:0.9rem;}
+.standouts li{display:flex;align-items:center;gap:0.5rem;background:var(--surface2);border-radius:8px;padding:5px 8px;min-width:0;}
+.mo{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);text-transform:uppercase;width:28px;flex-shrink:0;}
+.so-img,.so-img-ph{width:54px;height:25px;border-radius:3px;object-fit:cover;flex-shrink:0;font-size:0.8rem;}
+.so-t{flex:1;min-width:0;font-size:0.76rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.score.sm{font-size:0.7rem;}
+.farm-list{list-style:none;display:flex;flex-direction:column;gap:5px;margin-top:0.75rem;}
+.farm-list li{display:flex;gap:0.5rem;align-items:baseline;min-width:0;}
+.empty{color:var(--dim);font-family:'DM Mono',monospace;font-size:0.8rem;padding:2rem 0;text-align:center;}
+.err{color:#f54242;font-family:'DM Mono',monospace;font-size:0.75rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← Game log</a>
+    <nav class="years" id="years" aria-label="Year"></nav>
+  </div>
+  <main id="main"><div class="empty">loading…</div></main>
+</div>
+
+<script src="wrapped-stats.js"></script>
+<script>
+// A year of finished games as one page you'd actually send someone, plus a share image drawn
+// straight onto a canvas (no html-to-image library: this project has no dependencies). The
+// Year Log on index.html stays the place for the full per-year list; this is the highlight reel.
+const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const PL={steam:'Steam',steamdeck:'Steam Deck',pc:'PC',ps5:'PS5',switch:'Switch',switch2:'Switch 2',ayn:'AYN Thor',retro:'Retro',wiiu:'Wii U'};
+const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
+const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
+const DEV_COL={handheld:'#ff4af0',hybrid:'#4aff8c',desk:'#00e5ff'};
+let G=[], COVERS={}, Y=null, D=null, ASF=null;
+
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const hours = g => GTWrapped.hours(g);
+const fmtH = h => h >= 100 ? Math.round(h).toLocaleString() : Math.round(h*10)/10;
+
+// The numbers come from wrapped-stats.js (unit-tested); this adds the few page-only extras.
+function yearData(year){
+  const s=GTWrapped.yearStats(G,year,new Date(),ASF);
+  const byPlat={}; s.done.forEach(g=>{ byPlat[g.p]=(byPlat[g.p]||0)+1; });
+  const timed=s.done.filter(hours);
+  return Object.assign(s,{
+    plats: Object.entries(byPlat).sort((a,b)=>b[1]-a[1]),
+    busiest: s.months.some(m=>m.n) ? s.months.reduce((a,b)=>b.n>a.n?b:a).m : null,
+    longest: timed.length ? timed.reduce((a,b)=>hours(b)>hours(a)?b:a) : null,
+    shortest: timed.length ? timed.reduce((a,b)=>hours(b)<hours(a)?b:a) : null,
+    undated: G.filter(g=>(g.s==='done'||g.s==='dropped')&&!g.cy).length,
+    undatedMonth: s.done.filter(g=>g.cm==null).length,
+  });
+}
+
+function cover(g, cls='cov'){
+  const url=COVERS[g.t.toLowerCase()], c=PC[g.p]||'#555';
+  const ph=`<div class="cov-ph ${cls}-ph" style="background:${c}22;color:${c}${url?';display:none':''}">${PLAT_EMOJI[g.p]||'🎮'}</div>`;
+  return url ? `<img class="${cls}" src="${esc(url)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${ph}` : ph;
+}
+const fact=(l,g,s)=>g?`<div class="fact"><div class="fact-l">${l}</div><div class="fact-v" title="${esc(g.t)}">${esc(g.t)}</div><div class="fact-s">${s}</div></div>`:'';
+const factN=(l,n,s,tip='')=>`<div class="fact"${tip?` title="${esc(tip)}"`:''}><div class="fact-l">${l}</div><div class="fact-v">${n}</div><div class="fact-s">${s}</div></div>`;
+const fmtDay=iso=>{ const [y,m,dd]=String(iso).split('-').map(Number); return m?`${M[m-1]} ${dd}, ${y}`:esc(iso); };
+const signed=n=>n>0?`+${n}`:String(n);
+const monthSpan=(a,b)=>a===b?M[a]:`${M[a]}–${M[b]}`;
+
+function render(){
+  const years=[...new Set(G.filter(g=>g.cy).map(g=>g.cy))].sort((a,b)=>b-a);
+  if(!years.length){ document.getElementById('main').innerHTML='<div class="empty">No finished games with a year yet.</div>'; return; }
+  const q=parseInt(new URLSearchParams(location.search).get('year'),10);
+  Y = years.includes(q) ? q : years[0];
+  document.getElementById('years').innerHTML=years.map(y=>`<a class="yr-chip" href="?year=${y}"${y===Y?' aria-current="page"':''}>${y}</a>`).join('');
+  document.title=`${Y} in Games`;
+  const d=D=yearData(Y);
+  const maxM=Math.max(...d.months.map(m=>m.n),1);
+  const totalP=d.done.length||1;
+  const genres=d.genres.slice(0,6), maxG=genres.length?genres[0][1]:1;
+  const perMonth=d.done.length/d.monthsElapsed;
+  const share=d.hoursShare.slice(0,6), maxS=share.length?share[0].pct:1;
+  const v=d.vsPrev;
+  const yoy=[
+    d.bestYear?`<span class="yoy good">Your best year on record</span>`:'',
+    v?`<span class="yoy">${signed(v.done)} games vs ${v.year}</span>`:'',
+    v&&v.hours?`<span class="yoy">${signed(v.hours)}h vs ${v.year}</span>`:'',
+    v&&v.avg?`<span class="yoy">${signed(v.avg)} avg rating</span>`:'',
+  ].join('');
+  const e=d.eras, eraRow=(k,label,col)=>`<span class="lg"><span class="dot" style="background:${col}"></span>${label} ${Math.round(e[k].pct)}% <span class="dim">(${e[k].n})</span></span>`;
+  const goty=d.goty;
+  const standouts=d.months.filter(m=>m.top);
+
+  document.getElementById('main').innerHTML=`
+  <section class="hero" id="wr-hero" aria-label="Summary">
+    <div class="kicker">${d.current?'So far this year':'Year in games'}</div>
+    <h1>${Y}</h1>
+    ${d.persona?`<div class="persona"><span class="kicker">Your play style</span><div class="persona-t">${esc(d.persona.title)}</div>
+      <div class="persona-l">${esc(d.persona.line)}${d.persona.also?` · part ${esc(d.persona.also.replace(/^The /,''))} too`:''}</div></div>`:''}
+    <div class="wr-big">
+      <div><div class="big-n" style="color:var(--done)">${d.done.length}</div><div class="big-l">Games finished</div></div>
+      <div><div class="big-n" style="color:var(--playing)">${fmtH(d.totalH)}h</div><div class="big-l">Played or estimated</div></div>
+      <div><div class="big-n" style="color:var(--accent)">${d.avg!=null?d.avg.toFixed(1):'–'}</div><div class="big-l">Avg rating${d.rated.length?` · ${d.rated.length} rated`:''}</div></div>
+      <div><div class="big-n">${Math.round(perMonth*10)/10}</div><div class="big-l">Per month</div></div>
+    </div>
+    ${yoy?`<div class="yoys">${yoy}</div>`:''}
+  </section>
+
+  <div class="grid">
+    ${goty?`<section class="panel goty" aria-labelledby="h-goty"><h2 id="h-goty">Game of the year</h2>
+      <div class="goty-art">${cover(goty,'goty-img')}</div>
+      <div class="goty-t">${esc(goty.t)}</div>
+      <div class="t5-s">${goty.r}/10 · ${PL[goty.p]||goty.p}${goty.cm!=null?' · finished '+M[goty.cm]:''}${goty.y?' · '+goty.y:''}${hours(goty)?' · '+fmtH(hours(goty))+'h':''}</div>
+    </section>`:''}
+    <section class="panel" aria-labelledby="h-top"><h2 id="h-top">Best of the year</h2>
+      ${d.top.length?`<ol class="top5">${d.top.map((g,i)=>`<li><span class="rank">${i+1}</span>${cover(g)}
+        <div class="t5-main"><div class="t5-t" title="${esc(g.t)}">${esc(g.t)}</div><div class="t5-s">${PL[g.p]||g.p}${g.cm!=null?' · '+M[g.cm]:''}${g.y?' · '+g.y:''}</div></div>
+        <span class="score">${g.r}/10</span></li>`).join('')}</ol>`:'<div class="note">Nothing rated yet this year.</div>'}
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="h-hours"><h2 id="h-hours">Where the hours went</h2>
+      ${share.map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}</span><span class="sval">${Math.round(x.pct)}%${x.real?'':'<span class="dim" title="HowLongToBeat estimate, not tracked playtime">*</span>'}</span>
+        <div class="strack"><div style="width:${x.pct/maxS*100}%;background:${PC[x.g.p]||'#888'}"></div></div></div>`).join('')||'<div class="note">No hours recorded.</div>'}
+      <p class="note" style="margin-top:0.6rem">Share of ${fmtH(d.totalH)}h across ${d.done.length} finished games. Steam hours are real play (lifetime, with ASF card idling taken out); <span class="dim">*</span> is a HowLongToBeat estimate.${d.idleGames.length?` Idle games left out: ${d.idleGames.map(g=>esc(g.t)).join(', ')}.`:''}</p>
+    </section>
+    <section class="panel" aria-labelledby="h-eras"><h2 id="h-eras">Old and new</h2>
+      <div class="stack" role="img" aria-label="Hours by release age: new ${Math.round(e.new.pct)}%, recent ${Math.round(e.recent.pct)}%, classic ${Math.round(e.classic.pct)}%">
+        <div style="width:${e.new.pct}%;background:#c8f542"></div><div style="width:${e.recent.pct}%;background:#42c8f5"></div><div style="width:${e.classic.pct}%;background:#a06bff"></div></div>
+      <div class="legend">${eraRow('new',`New (${Y})`,'#c8f542')}${eraRow('recent',`Recent (${d.cutoff}+)`,'#42c8f5')}${eraRow('classic',`Classic`,'#a06bff')}</div>
+      ${d.launchYear.length?`<p class="note" style="margin-top:0.75rem"><b class="hi">${d.launchYear.length} played in their launch year:</b> ${d.launchYear.slice(0,5).map(g=>esc(g.t)).join(', ')}${d.launchYear.length>5?` and ${d.launchYear.length-5} more`:''}.</p>`:''}
+      ${d.oldest?`<p class="note"><b class="hi">Oldest:</b> ${esc(d.oldest.t)}, from ${d.oldest.y}${d.oldest.y<Y?`, ${Y-d.oldest.y} years before you got to it`:''}.</p>`:''}
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-month" style="margin-bottom:1rem"><h2 id="h-month">Month by month</h2>
+    <div class="months" role="img" aria-label="${M.map((m,i)=>`${m}: ${d.months[i].n}`).join(', ')}">
+      ${d.months.map(m=>`<div class="mcol" title="${m.top?esc(M[m.m]+': '+m.top.t):''}"><span class="mv">${m.future?'':m.n||''}</span><div class="mbar${m.future?' future':m.n?'':' zero'}" style="height:${m.future?8:Math.max(2,m.n/maxM*84)}px"></div><span class="mn">${M[m.m][0]}</span></div>`).join('')}
+    </div>
+    <p class="note" style="margin-top:0.6rem">${d.streak.len>1?`<b class="hi">${d.streak.len}-month streak</b> (${monthSpan(d.streak.from,d.streak.to)}) with at least one game finished every month. `:''}${d.busiest!=null?`Busiest: ${M[d.busiest]}, ${d.months[d.busiest].n} finished.`:''}</p>
+    ${standouts.length?`<ol class="standouts">${standouts.map(m=>`<li><span class="mo">${M[m.m]}</span>${cover(m.top,'so-img')}<span class="so-t" title="${esc(m.top.t)}">${esc(m.top.t)}</span>${m.top.r?`<span class="score sm">${m.top.r}</span>`:''}</li>`).join('')}</ol>`:''}
+  </section>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="h-asf"><h2 id="h-asf">Card farming</h2>
+      ${d.asf?`<div class="facts">
+          ${factN('Idled by ASF',`${fmtH(d.asf.hours)}h`,'not counted as play')}
+          ${factN('Games farmed',d.asf.gameCount,d.asf.finished?`${d.asf.finished} farmed out`:'')}
+        </div>
+        <ol class="farm-list">${d.asf.games.slice(0,5).map(x=>`<li><span class="so-t" title="${esc(x.name)}">${esc(x.name)}</span><span class="sval">${fmtH(x.hours)}h</span></li>`).join('')}</ol>`
+      :`<p class="note">No card farming on record for ${Y}.</p>`}
+      <p class="note" style="margin-top:0.6rem">${d.asfCoverageFrom?`From ASF’s own log, recorded since ${fmtDay(d.asfCoverageFrom)}. `:'From ASF’s own log once the hub’s farm ledger is running. '}That time is taken out of every hours figure here and in the tracker.</p>
+    </section>
+    <section class="panel" aria-labelledby="h-ach"><h2 id="h-ach">Trophies and achievements</h2>
+      <div class="facts">
+        ${d.achievements?factN('Earned',d.achievements.earned.toLocaleString(),`across ${d.achievements.games} games`):''}
+        ${d.achievements?factN('Average completion',d.achievements.avgPct+'%','of each game’s list'):''}
+        ${factN('Mastered or 100%',d.perfect.length,d.perfect.length?esc(d.perfect.slice(0,2).map(g=>g.t).join(', '))+(d.perfect.length>2?'…':''):'not yet',d.perfect.map(g=>g.t).join(', '))}
+        ${d.flairs.length?factN('GOTM flairs',d.flairs.length,esc(d.flairs.map(g=>g.gotm).join(', '))):''}
+      </div>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="h-how"><h2 id="h-how">How you played</h2>
+      ${d.deviceSplit.length?`<div class="stack" role="img" aria-label="${d.deviceSplit.map(x=>`${x.label}: ${Math.round(x.pct)}%`).join(', ')}">${d.deviceSplit.map(x=>`<div style="width:${x.pct}%;background:${DEV_COL[x.k]}"></div>`).join('')}</div>
+      <div class="legend" style="margin-bottom:0.9rem">${d.deviceSplit.map(x=>`<span class="lg"><span class="dot" style="background:${DEV_COL[x.k]}"></span>${x.label} ${Math.round(x.pct)}%</span>`).join('')}</div>`:''}
+      <div class="stack thin" role="img" aria-label="${d.plats.map(([p,n])=>`${PL[p]||p}: ${n}`).join(', ')}">${d.plats.map(([p,n])=>`<div style="width:${n/totalP*100}%;background:${PC[p]||'#888'}"></div>`).join('')}</div>
+      <div class="legend">${d.plats.map(([p,n])=>`<span class="lg"><span class="dot" style="background:${PC[p]||'#888'}"></span>${PL[p]||p} ${n}</span>`).join('')}</div>
+      <p class="note" style="margin-top:0.6rem">By hours, then by games. Steam counts as PC: the tracker can't tell Deck play from desk play.</p>
+    </section>
+    <section class="panel" aria-labelledby="h-genre"><h2 id="h-genre">Genres</h2>
+      ${genres.map(([gn,n])=>`<div class="brow"><span class="bname" title="${esc(gn)}">${esc(gn)}</span><div class="btrack"><div class="bfill" style="width:${n/maxG*100}%"></div></div><span class="bval">${n}</span></div>`).join('')||'<div class="note">No genres recorded.</div>'}
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-facts" style="margin-bottom:1rem"><h2 id="h-facts">The details</h2>
+      <div class="facts">
+        ${fact('Longest',d.longest,d.longest?`${fmtH(hours(d.longest))}h`:'')}
+        ${fact('Quickest',d.shortest&&d.shortest!==d.longest?d.shortest:null,d.shortest?`${fmtH(hours(d.shortest))}h`:'')}
+        ${d.medianHours?factN('Typical length',`${fmtH(d.medianHours)}h`,'median finished game'):''}
+        ${d.dropped.length?factN('Dropped',d.dropped.length,'no shame',d.dropped.map(g=>g.t).join(', ')):''}
+      </div>
+    </section>
+
+  <div class="share">
+    <button type="button" class="btn" onclick="shareImage()">Save share image</button>
+    <span class="note" id="share-msg" role="status"></span>
+  </div>
+  ${d.undated||d.undatedMonth?`<p class="note">${d.undated?`${d.undated} finished game${d.undated===1?' has':'s have'} no year, so ${d.undated===1?'it isn’t':'they aren’t'} counted in any year. `:''}${d.undatedMonth?`${d.undatedMonth} from ${Y} ${d.undatedMonth===1?'has':'have'} no month. `:''}Fix them from the Archive’s “Fill in” button on the <a href="index.html">game log</a>.</p>`:''}`;
+}
+
+// ─── Share image ───────────────────────────────────────
+// 1080x1350 (4:5, what phones and most feeds show uncropped). Drawn from the data rather than
+// screenshotted, so cover art from other origins can't taint the canvas and block the export.
+function drawShareCard(){
+  const d=D, W=1080, H=1350, c=document.createElement('canvas');
+  c.width=W; c.height=H;
+  const x=c.getContext('2d');
+  const font=(w,s,fam='Syne')=>`${w} ${s}px ${fam==='mono'?"'DM Mono', monospace":"'Syne', sans-serif"}`;
+  x.fillStyle='#0e0e10'; x.fillRect(0,0,W,H);
+  let gr=x.createRadialGradient(0,0,0,0,0,900); gr.addColorStop(0,'rgba(200,245,66,0.18)'); gr.addColorStop(1,'rgba(200,245,66,0)');
+  x.fillStyle=gr; x.fillRect(0,0,W,H);
+  gr=x.createRadialGradient(W,H,0,W,H,900); gr.addColorStop(0,'rgba(66,200,245,0.16)'); gr.addColorStop(1,'rgba(66,200,245,0)');
+  x.fillStyle=gr; x.fillRect(0,0,W,H);
+
+  const P=80;
+  x.fillStyle='#888890'; x.font=font(500,26,'mono'); x.fillText((d.current?'SO FAR THIS YEAR':'MY YEAR IN GAMES'),P,120);
+  x.fillStyle='#c8f542'; x.font=font(800,190); x.fillText(String(d.year),P-8,300);
+  const fit=(t,max)=>{ if(x.measureText(t).width<=max) return t; while(t.length>1&&x.measureText(t+'…').width>max) t=t.slice(0,-1); return t+'…'; };
+  if(d.persona){
+    x.fillStyle='#f0f0f0'; x.font=font(800,40); x.fillText(fit(d.persona.title.toUpperCase(),W-P*2),P,365);
+    x.fillStyle='#888890'; x.font=font(500,24,'mono'); x.fillText(fit(d.persona.line,W-P*2),P,405);
+  }
+
+  const stats=[[String(d.done.length),'finished','#42f5a0'],[`${fmtH(d.totalH)}h`,'played','#42c8f5'],[d.avg!=null?d.avg.toFixed(1):'–','avg rating','#c8f542']];
+  stats.forEach(([n,l,col],i)=>{ const sx=P+i*320;
+    // Syne is very wide: shrink a long figure ("1,204h") to its column instead of colliding.
+    let size=84; x.font=font(800,size);
+    while(size>40&&x.measureText(n).width>270){ size-=4; x.font=font(800,size); }
+    x.fillStyle=col; x.fillText(n,sx,505);
+    x.fillStyle='#888890'; x.font=font(500,24,'mono'); x.fillText(l.toUpperCase(),sx,545); });
+
+  x.fillStyle='#888890'; x.font=font(500,24,'mono'); x.fillText('BEST OF THE YEAR',P,625);
+  (d.top.length?d.top:d.done.slice(0,5)).forEach((g,i)=>{ const y=690+i*86;
+    x.fillStyle='#555560'; x.font=font(500,30,'mono'); x.fillText(String(i+1),P,y);
+    x.fillStyle=PC[g.p]||'#888'; x.beginPath(); x.arc(P+62,y-10,9,0,Math.PI*2); x.fill();
+    x.fillStyle='#f0f0f0'; x.font=font(700,44); x.fillText(fit(g.t,W-P*2-260),P+90,y);
+    if(g.r){ x.fillStyle='#c8f542'; x.font=font(700,40,'mono'); const s=`${g.r}/10`; x.fillText(s,W-P-x.measureText(s).width,y); } });
+
+  const by=1150, bw=W-P*2, tot=d.done.length||1; let bx=P;
+  x.fillStyle='#888890'; x.font=font(500,24,'mono'); x.fillText('WHERE I PLAYED',P,by-24);
+  d.plats.forEach(([p,n])=>{ const w=n/tot*bw; x.fillStyle=PC[p]||'#888'; x.fillRect(bx,by,w,22); bx+=w; });
+  x.font=font(500,22,'mono'); let lx=P;
+  d.plats.slice(0,5).forEach(([p,n])=>{ const s=`${PL[p]||p} ${n}`; x.fillStyle=PC[p]||'#888'; x.fillRect(lx,by+48,14,14); x.fillStyle='#888890'; x.fillText(s,lx+22,by+62); lx+=x.measureText(s).width+52; });
+
+  // Footer: the year's streak and launch-year count, the Replay/Year in Review-style extras.
+  const foot=[d.streak.len>1?`${d.streak.len}-month streak`:'', d.launchYear.length?`${d.launchYear.length} played at launch`:'', d.perfect.length?`${d.perfect.length} mastered`:'']
+    .filter(Boolean).join('  ·  ').toUpperCase();
+  if(foot){ x.fillStyle='#888890'; x.font=font(500,22,'mono'); x.fillText(fit(foot,W-P*2-170),P+170,H-60); }
+  x.fillStyle='#555560'; x.font=font(500,22,'mono'); x.fillText('GAME LOG',P,H-60);
+  return c;
+}
+
+async function shareImage(){
+  const msg=document.getElementById('share-msg');
+  try{
+    await document.fonts.ready;
+    const blob=await new Promise(r=>drawShareCard().toBlob(r,'image/png'));
+    const file=new File([blob],`games-${Y}.png`,{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:`${Y} in games`}); msg.textContent=''; return; }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=file.name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    msg.textContent='Saved.';
+  }catch(e){ if(e.name!=='AbortError') msg.textContent=`Couldn’t make the image: ${e.message}`; }
+}
+
+const fresh=f=>fetch(`${f}?_=${Date.now()}`);
+Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  fresh('asf-idle.json').then(r=>r.ok?r.json():null).catch(()=>null)])
+  .then(([g,c,a])=>{ G=g; COVERS=c; ASF=a; render(); })
+  .catch(e=>{ document.getElementById('main').innerHTML=`<p class="err">Couldn’t load game data (${esc(e.message)}).</p>`; });
+</script>
+</body>
+</html>
