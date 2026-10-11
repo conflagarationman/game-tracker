@@ -25,7 +25,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
-| `wrapped.html` | you | Year in review (`?year=2026`), with a canvas-drawn share image. Read-only. |
+| `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` from a browser. |
 
@@ -143,6 +143,18 @@ games you chose to keep) live in `localStorage` only.
   missing a year or rating.
 - The "Up next ETA" stat is Up Next + Now Playing hours left divided by the hours finished per
   month over the last 12 months; the whole-backlog figure is in its tooltip.
+
+### Year in review
+
+`wrapped-stats.js` borrows the ideas behind Steam Replay, PlayStation Wrap-Up and Nintendo
+Year in Review but computes them from this file's own fields; nothing is fetched from the
+platforms. Hours are `actualHours` (lifetime Steam playtime for that game) else the HLTB
+estimate, and the page marks which. New / recent / classic splits at 8 years back, like
+Steam's. "Played at launch" means `y === cy`. The streak is consecutive months with a
+finish (there's no daily play data). Devices: handheld = steamdeck/ayn/retro, Switch =
+switch/switch2, everything else PC & TV (Steam can't be told apart from Deck play). The
+persona is whichever trait clears its threshold by the most, with the number behind it, and
+"vs last year" compares with the closest earlier year that has finishes.
 
 ### Array order is meaningful
 
@@ -266,12 +278,13 @@ node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
 node scripts/pick.test.mjs             # 14
+node scripts/wrapped.test.mjs          # 12
 cd worker && node index.test.mjs       # 27
 ```
 
-`tests.yml` runs all seven on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all eight on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-seven commands above.
+eight commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails

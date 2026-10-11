@@ -51,6 +51,9 @@ jobs:
       - name: What-should-I-play picker
         run: node scripts/pick.test.mjs
 
+      - name: Year in review numbers
+        run: node scripts/wrapped.test.mjs
+
       - name: Admin Worker
         run: node index.test.mjs
         working-directory: worker
