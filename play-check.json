@@ -4,6 +4,9 @@
     "400": {
       "lastPlayed": "2026-10-09"
     },
+    "526": {
+      "mins": 48
+    },
     "527": {
       "mins": 180
     },
@@ -29,6 +32,12 @@
       "t": "Minishoot' Adventures",
       "s": "queue",
       "mins": 180
+    },
+    {
+      "id": 526,
+      "t": "Animal Well",
+      "s": "queue",
+      "mins": 48
     },
     {
       "id": 400,

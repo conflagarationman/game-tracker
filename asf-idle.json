@@ -1,1 +1,103 @@
-{}
+{
+  "asOf": "2026-10-12T13:48:10.136Z",
+  "coverageFrom": "2026-07-18",
+  "years": {
+    "2026": {
+      "games": [
+        {
+          "name": "Wasteland 2",
+          "hours": 14.3,
+          "id": null
+        },
+        {
+          "name": "Stygian: Reign of the Old Ones",
+          "hours": 13.2,
+          "id": null
+        },
+        {
+          "name": "Sea of Thieves",
+          "hours": 13.1,
+          "id": null
+        },
+        {
+          "name": "Legend of Keepers",
+          "hours": 12.5,
+          "id": null
+        },
+        {
+          "name": "Wasteland 2: Director's Cut",
+          "hours": 12,
+          "id": null
+        },
+        {
+          "name": "Eldest Souls",
+          "hours": 11.8,
+          "id": null
+        },
+        {
+          "name": "Little Nightmares II",
+          "hours": 11.1,
+          "id": null
+        },
+        {
+          "name": "Just Die Already",
+          "hours": 8.7,
+          "id": null
+        }
+      ],
+      "finished": 0,
+      "hours": 1181.2,
+      "gameCount": 559
+    }
+  },
+  "byGame": {
+    "53": {
+      "appid": 241930,
+      "idleHours": 2.5,
+      "lastIdle": "2026-08-15",
+      "finished": null
+    },
+    "200": {
+      "appid": 261570,
+      "idleHours": 3.8,
+      "lastIdle": "2026-08-19",
+      "finished": null
+    },
+    "201": {
+      "appid": 1057090,
+      "idleHours": 2.2,
+      "lastIdle": "2026-08-20",
+      "finished": null
+    },
+    "207": {
+      "appid": 731040,
+      "idleHours": 0.8,
+      "lastIdle": "2026-09-03",
+      "finished": null
+    },
+    "210": {
+      "appid": 1343240,
+      "idleHours": 1.2,
+      "lastIdle": "2026-07-19",
+      "finished": null
+    },
+    "507": {
+      "appid": 1710540,
+      "idleHours": 3.5,
+      "lastIdle": "2026-08-04",
+      "finished": null
+    },
+    "512": {
+      "appid": 1497440,
+      "idleHours": 2,
+      "lastIdle": "2026-09-03",
+      "finished": null
+    },
+    "517": {
+      "appid": 428550,
+      "idleHours": 1.7,
+      "lastIdle": "2026-07-18",
+      "finished": null
+    }
+  }
+}

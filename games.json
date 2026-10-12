@@ -1784,7 +1784,7 @@
       0,
       37
     ],
-    "actualHours": 5.3,
+    "actualHours": 3.1,
     "lastPlayed": "2026-08-20",
     "casual": false,
     "note": null,
@@ -1952,7 +1952,7 @@
       0,
       29
     ],
-    "actualHours": 3.6,
+    "actualHours": 2.8,
     "lastPlayed": "2026-09-03",
     "casual": true,
     "note": null,
@@ -2033,7 +2033,7 @@
       3,
       38
     ],
-    "actualHours": 4.4,
+    "actualHours": 3.2,
     "lastPlayed": "2026-07-19",
     "casual": false,
     "note": null,
@@ -2276,7 +2276,7 @@
       0,
       74
     ],
-    "actualHours": 5.6,
+    "actualHours": 3.1,
     "lastPlayed": "2026-08-15",
     "casual": false,
     "note": null,
@@ -3100,7 +3100,7 @@
       2,
       19
     ],
-    "actualHours": 9,
+    "actualHours": 5.5,
     "lastPlayed": "2026-09-24",
     "casual": true,
     "note": null,
@@ -3246,7 +3246,7 @@
       2,
       17
     ],
-    "actualHours": 5.4,
+    "actualHours": 3.3,
     "lastPlayed": "2026-09-06",
     "casual": false,
     "note": "Hours are mostly ASF card farming, not real play.",
@@ -3374,7 +3374,7 @@
       0,
       9
     ],
-    "actualHours": 4.7,
+    "actualHours": 3,
     "lastPlayed": "2026-07-18",
     "casual": false,
     "note": null,
@@ -3606,13 +3606,13 @@
     "gotmFlair": false,
     "mastery": null,
     "diff": null,
-    "achPct": 0,
+    "achPct": 10,
     "achCount": [
-      0,
+      2,
       20
     ],
-    "actualHours": null,
-    "lastPlayed": null,
+    "actualHours": 0.7,
+    "lastPlayed": "2026-10-11",
     "casual": false,
     "note": null,
     "start": null,
