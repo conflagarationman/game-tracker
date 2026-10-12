@@ -4,7 +4,7 @@
 // the fake API responses and mutate `games` correctly. A commented-out placeholder loop
 // (which is what the first version of this idea shipped with, before it was caught and
 // rebuilt) would fail every test here immediately.
-import { syncSteam, syncRA, getRecentlyFarmedAppids, buildPlayCheck, playCheckSummary, resolveRaTitles, summarizeLedger, getAsfLedger, buildAsfIdle } from "./sync-apis.mjs";
+import { syncSteam, syncRA, getRecentlyFarmedAppids, buildPlayCheck, playCheckSummary, resolveRaTitles, summarizeLedger, getAsfLedger, buildAsfIdle, getFarmingNow } from "./sync-apis.mjs";
 import assert from "node:assert/strict";
 
 process.env.STEAM_API_KEY = "fake";
@@ -486,6 +486,40 @@ await test("buildAsfIdle summarizes farming by year and maps tracked games", () 
   assert.deepEqual(out.years["2026"].games.map(g => [g.name, g.hours, g.id]), [["Brotato", 3, 7], ["Untracked Idler", 1.5, null]]);
   assert.equal(out.years["2025"].hours, 0.5);
   assert.equal(buildAsfIdle(games, [], null), null);
+});
+
+await test("summarizeLedger exposes what ASF is farming at this minute (the open interval)", () => {
+  assert.equal(summarizeLedger(LEDGER, LEDGER_TODAY).openAppids.size, 0, "no open interval -> nothing farming now");
+  const open = summarizeLedger({ ...LEDGER, open: { appids: [1942280, 555], since: "2026-10-11T11:00:00" } }, LEDGER_TODAY);
+  assert.deepEqual([...open.openAppids].sort((a, b) => a - b), [555, 1942280]);
+});
+
+await test("with the ledger, only games farming RIGHT NOW are skipped, and the hub's list isn't even fetched", async () => {
+  globalThis.fetch = async (url) => { throw new Error(`should not fetch ${url}`); };
+  const asf = summarizeLedger({ ...LEDGER, open: { appids: [555], since: "2026-10-11T11:00:00" } }, LEDGER_TODAY);
+  assert.deepEqual([...(await getFarmingNow(asf, []))], [555]);
+});
+
+await test("without the ledger, the hub's recently-farmed list is still the fallback", async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ recently_farmed_appids: [1942280] }), { status: 200 });
+  assert.deepEqual([...(await getFarmingNow(null, []))], [1942280]);
+});
+
+await test("a game ASF farmed weeks ago (still on the hub's recently-farmed list) gets its real hours, not frozen ones", async () => {
+  // The real bug, 2026-10: Steep was farmed on Oct 2 and stayed on recently-farmed (last 3000 log
+  // lines, no time limit), so every sync skipped it and its hours sat at the idle-inflated 9.2h.
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("recently-farmed")) return new Response(JSON.stringify({ recently_farmed_appids: [1942280] }));
+    if (u.includes("GetOwnedGames")) return new Response(JSON.stringify({ response: { games: [{ appid: 1942280, name: "Brotato", playtime_forever: 754, rtime_last_played: 1785000000 }] } }));
+    return new Response(JSON.stringify({ playerstats: { success: false } }));
+  };
+  const asf = summarizeLedger(LEDGER, LEDGER_TODAY);          // farmed earlier, nothing open now
+  const games = [baseGame({ actualHours: 12.6 })];               // the frozen, idle-inflated value
+  const log = [];
+  await syncSteam(games, log, await getFarmingNow(asf, log), asf);
+  assert.equal(games[0].actualHours, 9.6, "754 min - 180 idle = 574 min -> 9.6h, no longer frozen at 12.6");
+  assert.ok(!log.some(l => l.includes("skipped playtime/lastPlayed")), "must not be skipped as 'farming now'");
 });
 
 await test("getAsfLedger fails safe to null on a hub error", async () => {
