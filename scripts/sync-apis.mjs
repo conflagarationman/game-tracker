@@ -138,6 +138,9 @@ function raDateStr(s) {
 // "Now/Still farming: <appid>" lines, which is ground truth for which appids are currently
 // being idled. Achievement progress is unaffected by idling (ASF doesn't unlock those), so
 // only actualHours/lastPlayed need to be skipped for a farmed appid, not achievements.
+// Despite the name, "recently" has no time limit: it is every appid in the hub's last 3000 log
+// lines, which on ASF's quiet log reaches back about two months. So it is now only the fallback
+// for when the farm ledger is unavailable; see getFarmingNow().
 export async function getRecentlyFarmedAppids(log) {
   const hubToken = process.env.HUB_STATUS_TOKEN;
   if (!hubToken) {
@@ -156,10 +159,11 @@ export async function getRecentlyFarmedAppids(log) {
 }
 
 // The hub's ASF farm ledger (/asf/farm-ledger): minutes ASF idled each appid, per UTC day,
-// since the ledger began. getRecentlyFarmedAppids() above only knows what's being farmed right
-// now, so before this the idled hours landed in actualHours the moment farming moved on to the
-// next game. With it, actualHours is Steam playtime minus known idling, and the play check's
-// 14-day minutes are too. Idling from before the ledger's coverage can't be known.
+// since the ledger began. getRecentlyFarmedAppids() above only lists what ASF farmed lately, so
+// before this the idled hours landed in actualHours once farming moved on. With it, actualHours
+// is Steam playtime minus known idling, and the play check's 14-day minutes are too. Idling from
+// before the ledger's coverage can't be known. `openAppids` is what ASF is farming at this
+// minute (the ledger's open interval), the only games whose playtime still has to be skipped.
 export function summarizeLedger(ledger, today = new Date()) {
   const cutoff = new Date(today.getTime() - PLAY_CHECK_DAYS * 86400000).toISOString().slice(0, 10);
   const byAppid = new Map();
@@ -170,7 +174,17 @@ export function summarizeLedger(ledger, today = new Date()) {
     byAppid.set(Number(appid), { name: app.name || null, total, recent, days: new Map(days),
       lastDay: days.map(([d]) => d).sort().pop() || null, finished: app.finished || null });
   }
-  return { byAppid, coverageFrom: ledger?.coverage_from ? ledger.coverage_from.slice(0, 10) : null };
+  return { byAppid, coverageFrom: ledger?.coverage_from ? ledger.coverage_from.slice(0, 10) : null,
+    openAppids: new Set((ledger?.open?.appids || []).map(Number)) };
+}
+
+// Which appids to skip outright this run, because ASF is idling them right now and the ledger
+// hasn't credited the current minutes yet. With the ledger, that is exactly its open interval.
+// Using the hub's recently-farmed list instead (as the sync did until 2026-10) froze actualHours
+// and lastPlayed for every game farmed in the last ~2 months, 50+ of them, including games being
+// played for real (Steep stayed at 9.2h while being played). Recently-farmed is the fallback only.
+export async function getFarmingNow(asf, log) {
+  return asf ? asf.openAppids : getRecentlyFarmedAppids(log);
 }
 
 export async function getAsfLedger(log) {
@@ -484,8 +498,8 @@ async function main() {
   const games = JSON.parse(await fs.readFile("games.json", "utf8"));
   const log = [];
 
-  const farmedAppids = await getRecentlyFarmedAppids(log);
   const asf = await getAsfLedger(log);
+  const farmedAppids = await getFarmingNow(asf, log);
   const steamOwned = await syncSteam(games, log, farmedAppids, asf);
   const raPlayed = await syncRA(games, log);
   const check = buildPlayCheck(games, { steamOwned, farmedAppids, raPlayed, asf });
