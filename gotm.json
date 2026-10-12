@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-10-12T19:33:46.876Z",
+  "fetchedAt": "2026-10-12T20:50:41.289Z",
   "sourceUrl": "https://www.reddit.com/r/SBCGaming/comments/1wulcea/oct_26_gotm_parasite_eve_ps1/",
   "generatedFor": "2026-10",
   "current": {
@@ -263,5 +263,5 @@
       "isCurrent": true
     }
   ],
-  "error": null
+  "error": "arctic shift search author=hbi2k -> 422: {\"data\":null,\"error\":\"Timeout. Maybe slow down a bit\"}; arctic shift search \"Game of the Month\" -> 422: {\"data\":null,\"error\":\"Timeout. Maybe slow down a bit\"}; arctic shift search \"GotM\" -> 422: {\"data\":null,\"error\":\"Timeout. Maybe slow down a bit\"}"
 }

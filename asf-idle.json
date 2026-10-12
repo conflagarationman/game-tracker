@@ -1,121 +1,145 @@
 {
-  "asOf": "2026-10-12T19:33:45.307Z",
+  "asOf": "2026-10-12T20:50:17.468Z",
   "coverageFrom": "2026-07-18",
   "years": {
     "2026": {
       "games": [
         {
           "name": "Wasteland 2",
-          "hours": 14.3,
+          "hours": 17.1,
           "id": null
         },
         {
           "name": "Stygian: Reign of the Old Ones",
-          "hours": 13.2,
+          "hours": 16.2,
           "id": null
         },
         {
           "name": "Sea of Thieves",
-          "hours": 13.1,
+          "hours": 15.9,
           "id": null
         },
         {
           "name": "Legend of Keepers",
-          "hours": 12.5,
+          "hours": 15.6,
           "id": null
         },
         {
           "name": "Wasteland 2: Director's Cut",
-          "hours": 12,
-          "id": null
-        },
-        {
-          "name": "Eldest Souls",
-          "hours": 11.8,
+          "hours": 15.1,
           "id": null
         },
         {
           "name": "Little Nightmares II",
-          "hours": 11.1,
+          "hours": 14.2,
+          "id": null
+        },
+        {
+          "name": "Eldest Souls",
+          "hours": 13.6,
           "id": null
         },
         {
           "name": "Just Die Already",
-          "hours": 8.7,
+          "hours": 11.7,
           "id": null
         }
       ],
-      "finished": 0,
-      "hours": 1198.2,
-      "gameCount": 563
+      "finished": 551,
+      "hours": 2836.9,
+      "gameCount": 578
     }
   },
   "byGame": {
     "53": {
       "appid": 241930,
-      "idleHours": 2.5,
+      "idleHours": 5.6,
       "lastIdle": "2026-08-15",
-      "finished": null
+      "finished": "2026-08-15"
     },
     "200": {
       "appid": 261570,
-      "idleHours": 3.8,
+      "idleHours": 6.6,
       "lastIdle": "2026-08-19",
-      "finished": null
+      "finished": "2026-08-19"
     },
     "201": {
       "appid": 1057090,
-      "idleHours": 2.2,
+      "idleHours": 5.3,
       "lastIdle": "2026-08-20",
-      "finished": null
+      "finished": "2026-08-20"
     },
     "207": {
       "appid": 731040,
-      "idleHours": 0.8,
+      "idleHours": 3.6,
       "lastIdle": "2026-09-03",
-      "finished": null
+      "finished": "2026-09-03"
     },
     "210": {
       "appid": 1343240,
-      "idleHours": 1.2,
+      "idleHours": 2,
       "lastIdle": "2026-07-19",
+      "finished": "2026-07-19"
+    },
+    "404": {
+      "appid": 1229240,
+      "idleHours": 2.6,
+      "lastIdle": "2026-07-29",
+      "finished": null
+    },
+    "500": {
+      "appid": 953490,
+      "idleHours": 1.3,
+      "lastIdle": "2026-07-26",
+      "finished": "2026-07-26"
+    },
+    "505": {
+      "appid": 3376990,
+      "idleHours": 1.3,
+      "lastIdle": "2026-08-10",
       "finished": null
     },
     "507": {
       "appid": 1710540,
-      "idleHours": 3.5,
+      "idleHours": 6.6,
       "lastIdle": "2026-08-04",
-      "finished": null
+      "finished": "2026-08-04"
     },
     "512": {
       "appid": 1497440,
-      "idleHours": 2,
+      "idleHours": 5.1,
       "lastIdle": "2026-09-03",
-      "finished": null
+      "finished": "2026-09-03"
     },
     "517": {
       "appid": 428550,
       "idleHours": 1.7,
       "lastIdle": "2026-07-18",
-      "finished": null
+      "finished": "2026-07-18"
     },
     "523": {
       "appid": 352720,
-      "idleHours": 7.6,
+      "idleHours": 6.6,
       "lastIdle": "2026-09-25",
-      "finished": null
+      "finished": "2026-09-25"
+    },
+    "527": {
+      "appid": 1634860,
+      "idleHours": 3,
+      "lastIdle": "2026-10-02",
+      "finished": "2026-10-02"
     },
     "528": {
       "appid": 460920,
-      "idleHours": 4.7,
+      "idleHours": 7,
       "lastIdle": "2026-10-02",
-      "finished": null
+      "finished": "2026-10-02"
     },
     "530": {
       "appid": 416680,
-      "idleHours": 4.7,
-      "lastIdle": "2026-10-05",
-      "finished": null
+      "idleHours": 3,
+      "lastIdle": "2026-10-04",
+      "finished": "2026-10-04"
     }
   }
 }

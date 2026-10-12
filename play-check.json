@@ -7,11 +7,23 @@
     "526": {
       "mins": 133
     },
+    "528": {
+      "mins": 128
+    },
+    "530": {
+      "mins": 543
+    },
     "531": {
       "mins": 203
     }
   },
   "offList": [
+    {
+      "id": 530,
+      "t": "Zombie Night Terror",
+      "s": "soon",
+      "mins": 543
+    },
     {
       "id": 526,
       "t": "Animal Well",
