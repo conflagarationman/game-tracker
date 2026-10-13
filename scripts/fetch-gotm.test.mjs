@@ -241,7 +241,7 @@ await test("when every search fails, the error names each one with Arctic Shift'
   await assert.rejects(() => fetchLatestGotmPost(arcticStub({
     "author:hbi2k": busy, "Game of the Month": busy, "GotM": busy,
   }), { retryDelayMs: 0 }), (e) => {
-    assert.match(e.message, /author=hbi2k -> 422: .*Timeout/);
+    assert.match(e.message, /author=hbi2k -> 422 \(after 4 attempts\): .*Timeout/);
     assert.match(e.message, /"GotM" -> 422/);
     return true;
   });
@@ -257,7 +257,47 @@ await test("a pick older than the one already known never becomes current (incom
   assert.doesNotThrow(() => assertNotBackwards({ month: "2026-01" }, [], "t"), "nothing known yet");
 });
 
-await test("fetchLatestGotmPost retries once on a load-shedding 422, then succeeds", async () => {
+await test("a search survives three load-shedding 422s in a row, and gives up on the fourth", async () => {
+  // 2026-10-12: every search 422'd twice in a row, so one retry was not enough.
+  let n = 0;
+  const flaky = (failures) => async () => (++n <= failures
+    ? new Response(JSON.stringify({ data: null, error: "Timeout. Maybe slow down a bit" }), { status: 422 })
+    : new Response(JSON.stringify({ data: [
+        { id: "o", title: "OCT '26 GotM - Parasite Eve (PS1)", created_utc: 400 }] }), { status: 200 }));
+  const post = await fetchLatestGotmPost(flaky(3), { retryDelayMs: 0 });
+  assert.match(post.title, /Parasite Eve/);
+  assert.equal(n, 4, "the host lookup's fourth attempt answered, so nothing else ran");
+
+  n = 0;
+  await assert.rejects(() => fetchLatestGotmPost(flaky(99), { retryDelayMs: 0 }), /after 4 attempts/);
+  assert.equal(n, 12, "4 attempts for each of the 3 searches, no more");
+});
+
+await test("Cloudflare's 522 is retried, and its HTML page is reduced to its title in the error", async () => {
+  // 2026-10-09 and 10-10: two syncs failed on 522 with a whole HTML document pasted into gotm.json's error.
+  const page = `<!DOCTYPE html>\n<html><head><title>photon-reddit.com | 522: Connection timed out</title></head><body>${"x".repeat(5000)}</body></html>`;
+  let n = 0;
+  const post = await fetchLatestGotmPost(async () => (++n === 1
+    ? new Response(page, { status: 522 })
+    : new Response(JSON.stringify({ data: [
+        { id: "o", title: "OCT '26 GotM - Parasite Eve (PS1)", created_utc: 400 }] }), { status: 200 })), { retryDelayMs: 0 });
+  assert.match(post.title, /Parasite Eve/);
+
+  await assert.rejects(() => fetchLatestGotmPost(async () => new Response(page, { status: 522 }), { retryDelayMs: 0 }), (e) => {
+    assert.match(e.message, /-> 522 \(after 4 attempts\): HTML page "photon-reddit\.com \| 522: Connection timed out"/);
+    assert.doesNotMatch(e.message, /DOCTYPE|xxxx/);
+    return true;
+  });
+});
+
+await test("a status that retrying cannot fix (404) fails at once, without the attempt count", async () => {
+  let n = 0;
+  await assert.rejects(() => fetchLatestGotmPost(async () => { n++; return new Response("nope", { status: 404 }); },
+    { retryDelayMs: 0 }), (e) => { assert.match(e.message, /-> 404: nope/); return true; });
+  assert.equal(n, 3, "one attempt per search");
+});
+
+await test("fetchLatestGotmPost retries on a load-shedding 422, then succeeds", async () => {
   // Seen for real on 2026-09-27: "GotM" -> 422 from Actions, while the same request worked
   // moments later from elsewhere.
   const calls = [];

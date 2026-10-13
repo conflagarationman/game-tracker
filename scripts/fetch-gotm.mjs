@@ -184,10 +184,22 @@ export function ymNow(date = new Date()) {
 // ─── Network ──────────────────────────────────────────────────────────────────
 // Arctic Shift sheds load by rejecting requests (it has answered 422 to a search that
 // succeeded moments later from elsewhere), and says rate limits are "calculated dynamically
-// based on server load and request complexity". So: one retry after a pause for those
+// based on server load and request complexity". So: retries with a growing pause for those
 // statuses, and the response body in the error, since a bare status code gave nothing to
-// diagnose the first time.
-const RETRY_STATUSES = new Set([422, 429, 500, 502, 503, 504]);
+// diagnose the first time. One retry 5s later was not enough: 7 of 30 syncs up to 2026-10-12
+// still failed, every search 422 twice in a row, or Cloudflare's 522 (origin timed out),
+// which was not retried at all. 520-524 are Cloudflare's "origin did not answer" family.
+const RETRY_STATUSES = new Set([422, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
+const MAX_ATTEMPTS = 4; // waits 5s, 15s, 45s between them
+
+// Cloudflare's error pages are whole HTML documents; their <title> says all the useful part.
+function errorBody(text) {
+  if (/^\s*</.test(text)) {
+    const title = text.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim();
+    return title ? `HTML page "${title}"` : "HTML error page";
+  }
+  return text.replace(/\s+/g, " ").trim().slice(0, 200);
+}
 
 async function searchPosts(params, label, fetchImpl, { retryDelayMs = 5000 } = {}) {
   const url = new URL(ARCTIC_SHIFT);
@@ -202,12 +214,13 @@ async function searchPosts(params, label, fetchImpl, { retryDelayMs = 5000 } = {
       if (data?.error) throw new Error(`arctic shift search ${label}: ${data.error}`);
       return Array.isArray(data?.data) ? data.data : [];
     }
-    if (attempt < 2 && RETRY_STATUSES.has(res.status)) {
-      await new Promise(r => setTimeout(r, retryDelayMs));
+    if (attempt < MAX_ATTEMPTS && RETRY_STATUSES.has(res.status)) {
+      await new Promise(r => setTimeout(r, retryDelayMs * 3 ** (attempt - 1)));
       continue;
     }
-    const body = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
-    throw new Error(`arctic shift search ${label} -> ${res.status}${body ? `: ${body}` : ""}`);
+    const body = errorBody(await res.text().catch(() => ""));
+    const tries = attempt > 1 ? ` (after ${attempt} attempts)` : "";
+    throw new Error(`arctic shift search ${label} -> ${res.status}${tries}${body ? `: ${body}` : ""}`);
   }
 }
 
