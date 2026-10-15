@@ -4,8 +4,11 @@
     "400": {
       "lastPlayed": "2026-10-09"
     },
+    "510": {
+      "lastPlayed": "2026-10-15"
+    },
     "526": {
-      "mins": 365
+      "mins": 393
     },
     "528": {
       "mins": 128
@@ -28,7 +31,13 @@
       "id": 526,
       "t": "Animal Well",
       "s": "queue",
-      "mins": 365
+      "mins": 393
+    },
+    {
+      "id": 510,
+      "t": "Pokemon Lazarus",
+      "s": "queue",
+      "lastPlayed": "2026-10-15"
     }
   ],
   "untracked": [
