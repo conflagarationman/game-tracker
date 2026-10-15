@@ -24,6 +24,26 @@
     long:    { label: 'Long haul',  hours: 8 },
   };
 
+  // Optional, used by owl.html (Kaepora Gaebora). No mood means the plain ranking index.html
+  // has always shown. Genre is free text, so the moods match it by keyword rather than enum.
+  const MOODS = {
+    chill:  { label: 'Chill' },
+    deep:   { label: 'Sink in' },
+    finish: { label: 'Wrap one up' },
+  };
+  const CHILL_G = /puzzle|sim|platformer|rhythm|pinball|sports|racing|incremental|idle|visual novel|creature|ccg|cozy/i;
+  const HARD_G = /soulslike|bullet hell|horror|roguelike/i;
+  const DEEP_G = /rpg|metroidvania|adventure|strategy|survival|soulslike|anthology/i;
+
+  // Achievements left to 100%, or null when it isn't worth saying: casual games, games with
+  // none, games not started, and anything more than 5 away.
+  function achLeft(g) {
+    if (g.casual || !Array.isArray(g.achCount)) return null;
+    const [e, t] = g.achCount;
+    const left = t - e;
+    return t > 0 && e > 0 && left >= 1 && left <= 5 ? left : null;
+  }
+
   function parseHltb(h) {
     if (!h) return null;
     const s = String(h);
@@ -65,6 +85,7 @@
     const time = TIMES[opts.time] || TIMES.evening;
     const quick = time === TIMES.quick;
     const device = DEVICES[opts.device] || DEVICES.any;
+    const mood = MOODS[opts.mood] ? opts.mood : null;
     const now = opts.now || new Date();
     const recent = (opts.play && opts.play.recent) || {};
     const picks = opts.gotm && opts.gotm.picks;
@@ -78,7 +99,7 @@
       if (g.release && daysSince(g.release, now) < 0) continue;     // not out yet
       const pick = outstandingPick(g, picks);
       const eligible = g.s === 'playing' || g.s === 'queue'
-        || (g.s === 'ongoing' && quick)
+        || (g.s === 'ongoing' && (quick || mood === 'chill'))
         || (g.s === 'soon' && pick && pick.monthsLeft <= 3);
       if (!eligible) continue;
 
@@ -132,6 +153,32 @@
         else reasons.push([2, `~${round(left)}h left`]);
       }
 
+      const ach = achLeft(g);
+      if (ach) {
+        score += mood === 'finish' ? 25 : 8;
+        reasons.push([30, ach === 1 ? '1 achievement from 100%' : `${ach} achievements from 100%`]);
+      }
+
+      if (mood === 'chill') {
+        if (HARD_G.test(g.g || '') || (g.diff || 0) >= 4) score -= 25;
+        else if (CHILL_G.test(g.g || '')) { score += 18; reasons.push([26, `Low-stakes ${g.g}`]); }
+        else if (g.s === 'ongoing') score += 18;           // already says "Easy to dip into"
+      } else if (mood === 'deep') {
+        if (g.s === 'ongoing') score -= 15;
+        if (DEEP_G.test(g.g || '')) score += 10;
+        if (left != null && left >= 10) { score += 12; reasons.push([24, `A big one to sink into (~${round(left)}h)`]); }
+        // Something you'd finish in one sitting isn't what "sink in" asked for.
+        else if (left != null && left <= time.hours * 1.2) score -= 20;
+        if (g.s === 'playing') score += 8;
+      } else if (mood === 'finish') {
+        if (left != null && left <= Math.max(time.hours * 2, 3)) {
+          score += 25;
+          // Within tonight's time it already says "Could finish it"; don't say it twice.
+          if (left > time.hours * 1.2) reasons.push([36, `Nearly at the credits (~${round(left)}h)`]);
+        }
+        if (g.s === 'queue' && !g.actualHours && !mins) score -= 20;
+      }
+
       out.push({ g, score, remaining: left,
         reasons: reasons.sort((a, b) => b[0] - a[0]).slice(0, 2).map(x => x[1]) });
     }
@@ -139,7 +186,7 @@
     return out.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
-  const api = { DEVICES, TIMES, pickGames, remaining, devicesWithGames, parseHltb };
+  const api = { DEVICES, TIMES, MOODS, pickGames, achLeft, remaining, devicesWithGames, parseHltb };
   root.GTPick = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

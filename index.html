@@ -317,6 +317,8 @@ section:first-of-type .slabel{margin-top:0;}
    pick.js so it's unit-tested in Node; this is only the chips and the rows. */
 .tonight{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.85rem 0.9rem;margin-bottom:1.5rem;}
 .tn-head{display:flex;align-items:baseline;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem;}
+.tn-owl{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);text-decoration:none;white-space:nowrap;}
+.tn-owl:hover,.tn-owl:focus-visible{color:var(--accent);}
 .tn-head h2{font-size:0.72rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.12em;color:var(--playing);font-weight:700;}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.5rem;}
 .chip{font-family:'DM Mono',monospace;font-size:0.68rem;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--border2);
@@ -422,7 +424,7 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 <div class="banner" id="load-error" role="alert"></div>
 <div class="stats-row" id="stats"></div>
 <section class="tonight" id="tonight-sec" style="display:none;" aria-labelledby="tonight-heading">
-  <div class="tn-head"><h2 id="tonight-heading">What should I play?</h2></div>
+  <div class="tn-head"><h2 id="tonight-heading">What should I play?</h2><a class="tn-owl" href="owl.html" title="Kaepora Gaebora: one pick at a time, by mood">🦉 Ask the owl</a></div>
   <div class="chips" id="tn-time" role="group" aria-label="How long have you got"></div>
   <div class="chips" id="tn-device" role="group" aria-label="Which device"></div>
   <div class="tn-list" id="tn-list" aria-live="polite"></div>

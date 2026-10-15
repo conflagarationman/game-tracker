@@ -1,5 +1,5 @@
 // Browser smoke test for the pages, which have no unit tests of their own. Drives index.html,
-// add.html and wrapped.html in headless Chromium against the real committed JSON.
+// add.html, owl.html and wrapped.html in headless Chromium against the real committed JSON.
 //
 // Nothing is written anywhere: the Worker is stubbed (every write is recorded, none is sent)
 // and every off-site request except web fonts is aborted, so cover art takes its fallback path. That
@@ -40,8 +40,8 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 
 // A page with the Worker stubbed and the outside world cut off. Returns the page, the writes
 // it attempted, and the uncaught errors it hit.
-async function open(path, width, { clock = false } = {}) {
-  const ctx = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 500, isMobile: width < 500 });
+async function open(path, width, { clock = false, reducedMotion = "no-preference" } = {}) {
+  const ctx = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 500, isMobile: width < 500, reducedMotion });
   const page = await ctx.newPage();
   const writes = [], errors = [];
   page.on("pageerror", e => errors.push(e.message));
@@ -189,6 +189,29 @@ await test("add.html: ?s=playing&p=retro prefills a new playing game from today"
   ok(errors.length === 0, errors.join(" | "));
   await ctx.close();
 });
+
+for (const width of [390, 1280]) {
+  await test(`owl.html at ${width}px: three answers, Yes rerolls, No starts the game`, async () => {
+    // Reduced motion skips the typewriter, so every line lands at once.
+    const { page, writes, errors, ctx } = await open("owl.html", width, { reducedMotion: "reduce" });
+    const answer = async () => { const b = page.locator(".choice:not([disabled])").first(); await b.waitFor(); await b.click(); };
+    await answer(); await answer(); await answer();               // device, time, mood
+    await page.waitForSelector("#pick.show");
+    ok(await page.locator("#count").innerText() !== "", "no pick counter");
+    const first = await page.locator(".pick-title").innerText();
+    await page.locator('.opt:has-text("Yes"):not([disabled])').click();
+    await page.waitForFunction(() => /^2 of|^1 of 1$/.test(document.getElementById("count").textContent));
+    const total = await page.locator("#count").innerText();
+    if (!/of 1$/.test(total)) ok(await page.locator(".pick-title").innerText() !== first, "Yes didn't change the pick");
+    await page.locator('.opt:has-text("No"):not([disabled])').click();
+    await page.waitForFunction(() => /off you go/i.test(document.getElementById("text").textContent));
+    ok(writes.every(w => w.path.endsWith("/games/edit") && w.body.s === "playing" && w.body.start), "No sent " + JSON.stringify(writes));
+    ok(writes.length <= 1, "more than one write");
+    ok(await noSideScroll(page), "page scrolls sideways");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
 
 for (const width of [390, 1280]) {
   await test(`wrapped.html renders at ${width}px and draws a share image`, async () => {

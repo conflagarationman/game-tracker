@@ -50,6 +50,8 @@ jobs:
 
       - name: What-should-I-play picker
         run: node scripts/pick.test.mjs
+      - name: Owl pick tests
+        run: node scripts/owl-pick.test.mjs
 
       - name: Year in review numbers
         run: node scripts/wrapped.test.mjs
