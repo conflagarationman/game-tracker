@@ -332,6 +332,22 @@ for (const width of [390, 1280]) {
   });
 }
 
+for (const path of ["index.html", "add.html", "owl.html", "wrapped.html"]) {
+  await test(`${path}: the hidden Korok says Yahaha, counts once, and works from the keyboard`, async () => {
+    const { page, errors, ctx } = await open(path, 390);
+    await page.waitForSelector("#korok-btn", { state: "attached" });
+    ok(await page.getAttribute("#korok-btn", "aria-label"), "Korok has no aria-label");
+    await page.focus("#korok-btn"); await page.keyboard.press("Enter");
+    const first = await page.textContent("#korok-say");
+    ok(/Yahaha! You found me!/.test(first) && /\(1\/4 Koroks found\)/.test(first), first);
+    await page.click("#korok-btn");
+    ok(/again/.test(await page.textContent("#korok-say")), "a second tap should not recount");
+    ok(await noSideScroll(page), "page scrolls sideways");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
 for (const width of [390, 1280]) {
   await test(`wrapped.html poster at ${width}px draws, exports a 3600x4800 PNG and prints on its own`, async () => {
     const { page, errors, ctx } = await open("wrapped.html?year=2026", width);
