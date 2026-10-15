@@ -265,6 +265,13 @@
   const STEAM_DEVICES = ['any', 'pc', 'deck'];
   const RETRO_DEVICES = ['any', 'thor'];
 
+  // How a game's length nudges the ranking for the session asked about: a half-hour session
+  // favours something short (or replayable, which is length 0), a long haul favours a big one.
+  // Shared by the canon's own `h` and the estimates in library-hltb.json.
+  function lengthScore(hrs, time, quick) {
+    return quick ? (hrs <= 3 ? 10 : hrs >= 20 ? -10 : 0) : time.hours >= 8 && hrs >= 20 ? 8 : 0;
+  }
+
   function wildcards(games, src = {}, opts = {}) {
     const time = TIMES[opts.time] || TIMES.evening;
     const quick = time === TIMES.quick;
@@ -273,11 +280,26 @@
     const now = opts.now || new Date();
     const tracked = new Set(games.map(g => normTitle(g.t)));
     const out = [];
+    // library-hltb.json (scripts/library-hltb.mjs) holds a HowLongToBeat estimate for the
+    // wildcards that have one, under the same key the skips use. It gives them the hours the
+    // tracked games have in `h`: how long is left (a favourite you've sunk hours into, a half-
+    // finished RA run) rather than how long it is, with 0 meaning "past the estimate, so
+    // replayable". Without an estimate they score exactly as before.
+    const estimates = src.hltb || {};
     const add = (w, genre, base, extra = {}) => {
-      const m = moodFit(mood, genre, { time, quick, ...extra });
+      const key = wildKey(w);
+      const est = w.kind === 'retro-canon' ? null : parseHltb((estimates[key] || {}).h);
+      let left = extra.left != null ? extra.left : null, timeScore = w.timeScore || 0;
       const reasons = [w.reason];
+      if (est != null) {
+        left = w.kind === 'steam-favourite' ? Math.max(est - w.hours, 0)
+          : w.kind === 'retro-started' ? est * (1 - w.pct / 100) : est;
+        timeScore += lengthScore(left, time, quick);
+        if (left === est) reasons.push(`~${round(est)}h to beat`);
+      }
+      const m = moodFit(mood, genre, { time, quick, ...extra, left });
       if (m.reason) reasons.push(m.reason[1]);
-      out.push({ ...w, key: wildKey(w), score: base + m.score + (w.timeScore || 0), fits: m.fits, reasons });
+      out.push({ ...w, key, score: base + m.score + timeScore, fits: m.fits, reasons });
     };
 
     const lib = src.library || {};
@@ -308,7 +330,7 @@
         if (tracked.has(normTitle(r.title)) || !r.total) continue;
         const pct = Math.round(r.earned / r.total * 100);
         if (r.earned < 1 || pct < 5 || pct > 90) continue;
-        add({ kind: 'retro-started', t: r.title, p: 'retro', console: r.console,
+        add({ kind: 'retro-started', t: r.title, p: 'retro', console: r.console, pct,
               reason: `${r.earned}/${r.total} achievements${r.console ? ' on ' + r.console : ''}`, timeScore: quick ? 5 : 0 },
             '', 18 + pct / 10);
       }
@@ -323,7 +345,7 @@
         const key = normTitle(c.t);
         if (tracked.has(key) || raSeen.has(key)) continue;
         const hrs = parseHltb(c.h);
-        const timeScore = hrs == null ? 0 : quick ? (hrs <= 3 ? 10 : hrs >= 20 ? -10 : 0) : time.hours >= 8 && hrs >= 20 ? 8 : 0;
+        const timeScore = hrs == null ? 0 : lengthScore(hrs, time, quick);
         add({ kind: 'retro-canon', t: c.t, p: 'retro', console: c.c, year: c.y, g: c.g, h: c.h,
               reason: `${c.c}, ${c.y}: ${c.why}`, timeScore },
             c.g, 14, { left: hrs });

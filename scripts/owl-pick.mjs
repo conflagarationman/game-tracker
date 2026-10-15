@@ -108,7 +108,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const previous = ((await readJson(FILE)) || {}).weekend || null;
   out.weekend = weekendPick(GTPick, games, {
     src: { library: await readJson("library.json") || {}, meta: await readJson("library-meta.json") || {},
-           canon: await readJson("retro-canon.json") || [], gotm, skips: await readJson("owl-skips.json") || {} },
+           canon: await readJson("retro-canon.json") || [], hltb: await readJson("library-hltb.json") || {}, gotm, skips: await readJson("owl-skips.json") || {} },
     play, previous,
   });
   await fs.writeFile(FILE, JSON.stringify(out, null, 2) + "\n");

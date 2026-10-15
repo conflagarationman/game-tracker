@@ -898,13 +898,14 @@ Promise.all([
   fresh('library.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('library-meta.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('retro-canon.json').then(r => r.ok ? r.json() : []).catch(() => []),
+  fresh('library-hltb.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   // What he's snoozed or struck from his list. Missing just means nothing is hidden.
   fresh('owl-skips.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   // Let him land before he starts talking.
   new Promise(r => setTimeout(r, reduced ? 0 : 900)),
-]).then(([games, covers, gotm, play, library, meta, canon, skips]) => {
+]).then(([games, covers, gotm, play, library, meta, canon, hltb, skips]) => {
   G = games; SKIPS = skips && typeof skips === 'object' && !Array.isArray(skips) ? skips : {}; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
-  SRC = { library, meta, canon, gotm: GOTM };
+  SRC = { library, meta, canon, hltb, gotm: GOTM };
   updateStruck();
   const want = new URLSearchParams(location.search).get('pick');
   if (want) openPick(want); else ask();
