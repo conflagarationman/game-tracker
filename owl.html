@@ -7,16 +7,16 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%A6%89</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Same palette as index.html, plus the two Hyrule text-box colours: OoT draws key words in red
-   and places in blue, and the owl's dialogue keeps that convention. */
+/* Same palette as index.html, plus OoT's text-box colours: key words in red, places in blue,
+   and the Yes/No choices in green with a pointing cursor. */
 :root{
   --bg:#0e0e10;--surface:#17171a;--surface2:#1f1f24;--border:#2a2a30;--border2:#3a3a42;
   --text:#f0f0f0;--muted:#888890;--dim:#555560;--accent:#c8f542;
-  --box:#0b1430e6;--box-edge:#5a6aa8;--hy-red:#ff5a5a;--hy-blue:#6ab4ff;
+  --box:#0a1230eb;--box-edge:#6878b8;--hy-red:#ff5a5a;--hy-blue:#6ab4ff;--hy-green:#5cf07a;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{background:radial-gradient(ellipse at 50% 0%,#1b2340 0%,var(--bg) 60%);background-color:var(--bg);color:var(--text);
-  font-family:'Syne',sans-serif;min-height:100vh;padding:1rem 16px max(2rem,env(safe-area-inset-bottom));}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;
+  padding:1rem 16px max(2rem,env(safe-area-inset-bottom));}
 .wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:1rem;}
 .top{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
 .back{font-family:'DM Mono',monospace;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-decoration:none;
@@ -24,55 +24,83 @@ body{background:radial-gradient(ellipse at 50% 0%,#1b2340 0%,var(--bg) 60%);back
 .back:hover{color:var(--text);}
 /* Syne's 800 weight is wide: at 1.4rem the title alone overflowed a 375px phone. */
 h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);white-space:nowrap;min-width:0;}
-
 @media (max-width:440px){ h1{font-size:1.1rem;} .back{padding:.35rem .6rem;} }
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
 
-/* The owl. Bobs on its branch and blinks; both stop under reduced motion. */
-.perch{display:flex;justify-content:center;padding-top:.5rem;}
-.owl{width:150px;height:auto;animation:bob 3.2s ease-in-out infinite;transform-origin:50% 100%;}
-.owl .lid{transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0);animation:blink 5s infinite;}
-.owl.talking .beak-low{animation:talk .18s ease-in-out infinite alternate;}
-.owl.flap .wing-l{animation:flapL .25s ease-in-out 6 alternate;transform-box:fill-box;transform-origin:100% 20%;}
-.owl.flap .wing-r{animation:flapR .25s ease-in-out 6 alternate;transform-box:fill-box;transform-origin:0% 20%;}
-@keyframes bob{0%,100%{transform:translateY(0) rotate(-1deg);}50%{transform:translateY(-6px) rotate(1deg);}}
-@keyframes blink{0%,92%,100%{transform:scaleY(0);}95%{transform:scaleY(1);}}
-@keyframes talk{from{transform:translateY(0);}to{transform:translateY(2px);}}
-@keyframes flapL{to{transform:rotate(35deg);}}
-@keyframes flapR{to{transform:rotate(-35deg);}}
+/* ─── The scene: Hyrule Field at night ───────────────── */
+.scene{position:relative;height:262px;border-radius:16px;overflow:hidden;border:1px solid #232a48;
+  background:linear-gradient(180deg,#070b1c 0%,#101a3c 55%,#1c2a52 100%);}
+.scene svg.land{position:absolute;inset:auto 0 0 0;width:100%;height:96px;}
+.moon{position:absolute;top:22px;right:34px;width:54px;height:54px;border-radius:50%;
+  background:radial-gradient(circle at 38% 38%,#fffbe8 0%,#f3e6b3 55%,#d8c68a 100%);
+  box-shadow:0 0 24px 6px #f6e9b855,0 0 80px 30px #f6e9b81c;}
+.moon::after{content:'';position:absolute;width:12px;height:12px;border-radius:50%;background:#d3c086aa;top:28px;left:14px;
+  box-shadow:16px -12px 0 -3px #d3c08688,20px 8px 0 -4px #d3c08677;}
+.star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.8;animation:twinkle 3s ease-in-out infinite;}
+@keyframes twinkle{0%,100%{opacity:.85;}50%{opacity:.2;}}
+.owl{position:absolute;left:50%;bottom:24px;width:190px;height:auto;margin-left:-95px;overflow:visible;}
+.owl .bob{animation:bob 3.4s ease-in-out infinite;transform-origin:80px 165px;}
+.owl.arrive .bob{animation:swoop 1.1s cubic-bezier(.2,.7,.3,1) both, bob 3.4s 1.1s ease-in-out infinite;}
+.owl .head{transform-box:view-box;transform-origin:80px 82px;transition:transform .45s cubic-bezier(.3,1.6,.5,1);}
+.owl.tilt .head{transform:rotate(-11deg);}
+.owl.tilt-r .head{transform:rotate(9deg);}
+.owl .pupils{transition:transform .3s ease;}
+.owl.look-down .pupils{transform:translate(0,3px);}
+.owl .lid{transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0);animation:blink 5.5s infinite;}
+.owl.talking .beak-low{animation:talk .16s ease-in-out infinite alternate;}
+.owl.flap .wing-l{animation:flapL .22s ease-in-out 6 alternate;}
+.owl.flap .wing-r{animation:flapR .22s ease-in-out 6 alternate;}
+.owl .wing-l{transform-box:fill-box;transform-origin:90% 10%;}
+.owl .wing-r{transform-box:fill-box;transform-origin:10% 10%;}
+@keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+@keyframes swoop{from{transform:translate(-160px,-150px) rotate(-25deg) scale(.6);opacity:0;}60%{opacity:1;}to{transform:none;}}
+@keyframes blink{0%,93%,100%{transform:scaleY(0);}96%{transform:scaleY(1);}}
+@keyframes talk{from{transform:translateY(0);}to{transform:translateY(2.5px);}}
+@keyframes flapL{to{transform:rotate(40deg);}}
+@keyframes flapR{to{transform:rotate(-40deg);}}
 
-/* The text box: OoT's translucent navy panel with a bevelled edge and the blinking ▼. */
+/* ─── The text box: translucent navy, double bevel, blinking ▼ ── */
 .box{position:relative;background:var(--box);border:2px solid var(--box-edge);border-radius:14px;
-  box-shadow:inset 0 0 0 2px #00000080,0 10px 30px #0008;padding:1rem 1.1rem 1.6rem;min-height:7.5rem;cursor:pointer;
-  font-size:1.05rem;line-height:1.55;font-weight:600;}
+  box-shadow:inset 0 0 0 3px #00000099,inset 0 0 0 4px #ffffff10,0 12px 30px #000a;padding:1rem 1.15rem 1.7rem;min-height:7.8rem;
+  cursor:pointer;font-size:1.05rem;line-height:1.55;font-weight:600;margin-top:-1.6rem;z-index:1;}
 .box .r{color:var(--hy-red);} .box .b{color:var(--hy-blue);}
-.box .more{position:absolute;right:.9rem;bottom:.45rem;color:var(--hy-red);font-size:.8rem;opacity:0;}
-.box.done .more{opacity:1;animation:nudge .8s ease-in-out infinite alternate;}
+.box .more{position:absolute;right:.95rem;bottom:.5rem;color:var(--hy-red);font-size:.8rem;opacity:0;}
+.box.done:not(.asking):not(.waiting) .more{opacity:1;animation:nudge .7s ease-in-out infinite alternate;}
 @keyframes nudge{to{transform:translateY(3px);}}
+/* In-box choices, OoT's green Yes/No with a ▶ cursor that follows hover and the arrow keys. */
+.opts{display:none;flex-direction:column;gap:.15rem;margin-top:.55rem;padding-left:1.4rem;}
+.box.asking .opts{display:flex;}
+.opt{position:relative;background:none;border:none;font:inherit;color:var(--hy-green);text-align:left;cursor:pointer;padding:.15rem .2rem;width:max-content;}
+.opt::before{content:'▶';position:absolute;left:-1.3rem;top:.2rem;font-size:.8rem;color:var(--hy-green);opacity:0;}
+.opt.on::before{opacity:1;animation:point .5s ease-in-out infinite alternate;}
+.opt:focus{outline:none;} .opt:focus-visible{text-decoration:underline;}
+@keyframes point{to{transform:translateX(3px);}}
 
-.choices{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;min-height:2.6rem;}
+.choices{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;}
 .choice{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;color:var(--text);background:var(--surface);
-  border:1px solid var(--border2);border-radius:99px;padding:.6rem 1.1rem;cursor:pointer;}
+  border:1px solid var(--border2);border-radius:99px;padding:.6rem 1.1rem;cursor:pointer;animation:rise .3s ease both;}
 .choice:hover,.choice:focus-visible{border-color:var(--accent);outline:none;}
-.choice.yes{border-color:var(--hy-red);}
-.choice.go{background:var(--accent);color:#0e0e10;border-color:var(--accent);}
+.choice.again{border-color:#c8f54270;color:var(--accent);}
 .choice:disabled{opacity:.5;cursor:default;}
+.choice small{display:block;font-family:'DM Mono',monospace;font-weight:400;font-size:.65rem;color:var(--muted);margin-top:.15rem;}
+@keyframes rise{from{opacity:0;transform:translateY(6px);}}
 
-/* The pick, shown under the box once the owl names it. */
-.pick{display:none;gap:.9rem;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.75rem;}
+/* The pick, slid in once the owl names it. */
+.pick{display:none;gap:.9rem;align-items:center;background:linear-gradient(135deg,var(--surface2),var(--surface));
+  border:1px solid var(--border);border-radius:12px;padding:.75rem;animation:rise .4s ease both;}
 .pick.show{display:flex;}
-.cover{width:72px;height:96px;flex:none;border-radius:8px;object-fit:cover;background:var(--surface2);}
+.cover{width:72px;height:96px;flex:none;border-radius:8px;object-fit:cover;background:var(--surface2);box-shadow:0 6px 16px #0008;}
 .cover-fallback{width:72px;height:96px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;}
 .pick-main{min-width:0;display:flex;flex-direction:column;gap:.3rem;}
 .pick-title{font-weight:800;font-size:1.05rem;line-height:1.2;overflow-wrap:anywhere;}
 .plat{font-family:'DM Mono',monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .5rem;border-radius:99px;align-self:flex-start;}
 .why{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);line-height:1.5;}
-.count{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);text-align:center;}
-.redo{background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:.7rem;text-transform:uppercase;
-  letter-spacing:.08em;cursor:pointer;text-decoration:underline;align-self:center;padding:.4rem;}
+.foot{display:flex;justify-content:center;align-items:center;gap:1rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);}
+.redo{background:none;border:none;color:var(--muted);font:inherit;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;text-decoration:underline;padding:.4rem;}
 .redo[hidden]{display:none;}
 
 @media (prefers-reduced-motion:reduce){
-  .owl,.owl .lid,.owl.talking .beak-low,.owl.flap .wing-l,.owl.flap .wing-r,.box.done .more{animation:none;}
+  *,*::before{animation:none !important;transition:none !important;}
 }
 </style>
 </head>
@@ -83,55 +111,92 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
     <h1>Kaepora Gaebora</h1>
   </div>
 
-  <div class="perch" aria-hidden="true">
-    <svg class="owl" id="owl" viewBox="0 0 160 170" xmlns="http://www.w3.org/2000/svg">
-      <!-- branch -->
-      <path d="M8 158 Q80 150 152 160" stroke="#5a3d22" stroke-width="9" stroke-linecap="round" fill="none"/>
-      <path d="M118 156 l16 -12" stroke="#5a3d22" stroke-width="5" stroke-linecap="round"/>
-      <!-- wings -->
-      <path class="wing-l" d="M38 70 Q14 100 30 140 Q44 128 50 96 Z" fill="#6b4a2b"/>
-      <path class="wing-r" d="M122 70 Q146 100 130 140 Q116 128 110 96 Z" fill="#6b4a2b"/>
-      <!-- body -->
-      <ellipse cx="80" cy="100" rx="44" ry="52" fill="#8a6239"/>
-      <ellipse cx="80" cy="112" rx="28" ry="36" fill="#d9c3a0"/>
-      <g stroke="#8a6239" stroke-width="2.5" fill="none" stroke-linecap="round">
-        <path d="M66 100 l5 5 l5 -5"/><path d="M84 100 l5 5 l5 -5"/>
-        <path d="M60 114 l5 5 l5 -5"/><path d="M75 116 l5 5 l5 -5"/><path d="M90 114 l5 5 l5 -5"/>
-        <path d="M68 128 l5 5 l5 -5"/><path d="M82 128 l5 5 l5 -5"/>
+  <div class="scene" id="scene" aria-hidden="true">
+    <div class="moon"></div>
+    <svg class="land" viewBox="0 0 400 96" preserveAspectRatio="none">
+      <path d="M0 52 Q60 30 130 48 T260 40 T400 46 V96 H0Z" fill="#141f3d"/>
+      <path d="M0 70 Q90 50 180 66 T400 60 V96 H0Z" fill="#0d1530"/>
+    </svg>
+    <svg class="owl arrive" id="owl" viewBox="0 0 160 180" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="gBody" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="#a87a4a"/><stop offset="1" stop-color="#5e3f22"/></radialGradient>
+        <radialGradient id="gHead" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="#ac7d4c"/><stop offset="1" stop-color="#694626"/></radialGradient>
+        <radialGradient id="gBelly" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#f1e3c6"/><stop offset="1" stop-color="#c9ad80"/></radialGradient>
+        <radialGradient id="gFace" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#fbf3e2"/><stop offset="1" stop-color="#d6bf98"/></radialGradient>
+        <radialGradient id="gEye" cx="40%" cy="35%" r="65%"><stop offset="0" stop-color="#ffe680"/><stop offset=".7" stop-color="#f7b52a"/><stop offset="1" stop-color="#c9780e"/></radialGradient>
+        <linearGradient id="gWing" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a5430"/><stop offset="1" stop-color="#4a3019"/></linearGradient>
+      </defs>
+      <!-- branch, with a couple of leaves -->
+      <path d="M-30 168 Q80 156 190 170" stroke="#4d321b" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <path d="M-30 168 Q80 156 190 170" stroke="#6b4a2b" stroke-width="3" stroke-linecap="round" fill="none" opacity=".6" transform="translate(0,-3)"/>
+      <path d="M140 164 q14 -18 30 -14 q-10 16 -30 14Z" fill="#2f5a34"/>
+      <path d="M8 165 q-12 -16 -28 -10 q8 14 28 10Z" fill="#2f5a34"/>
+      <g class="bob">
+        <!-- tail -->
+        <path d="M66 150 L80 176 L94 150Z" fill="#4a3019"/>
+        <!-- wings, with layered feather scallops -->
+        <g class="wing-l">
+          <path d="M42 78 Q12 108 26 152 Q46 140 54 104 Z" fill="url(#gWing)"/>
+          <path d="M30 116 q6 6 12 2 M28 130 q6 6 12 2 M31 144 q5 4 10 0" stroke="#3a2512" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </g>
+        <g class="wing-r">
+          <path d="M118 78 Q148 108 134 152 Q114 140 106 104 Z" fill="url(#gWing)"/>
+          <path d="M130 116 q-6 6 -12 2 M132 130 q-6 6 -12 2 M129 144 q-5 4 -10 0" stroke="#3a2512" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </g>
+        <!-- body + belly chevrons -->
+        <ellipse cx="80" cy="112" rx="45" ry="52" fill="url(#gBody)"/>
+        <ellipse cx="80" cy="122" rx="29" ry="37" fill="url(#gBelly)"/>
+        <g stroke="#9a7148" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M66 108 l5 5 l5 -5"/><path d="M84 108 l5 5 l5 -5"/>
+          <path d="M60 122 l5 5 l5 -5"/><path d="M75 124 l5 5 l5 -5"/><path d="M90 122 l5 5 l5 -5"/>
+          <path d="M67 137 l5 5 l5 -5"/><path d="M83 137 l5 5 l5 -5"/>
+          <path d="M75 150 l5 4 l5 -4"/>
+        </g>
+        <!-- talons -->
+        <g fill="#f2a33a" stroke="#b86f12" stroke-width="1"><ellipse cx="65" cy="162" rx="4.5" ry="3.5"/><ellipse cx="73" cy="164" rx="4.5" ry="3.5"/><ellipse cx="87" cy="164" rx="4.5" ry="3.5"/><ellipse cx="95" cy="162" rx="4.5" ry="3.5"/></g>
+        <!-- head: tilts when he asks something -->
+        <g class="head">
+          <path d="M40 48 L28 8 Q46 22 62 38 Z" fill="#5e3f22"/>
+          <path d="M120 48 L132 8 Q114 22 98 38 Z" fill="#5e3f22"/>
+          <path d="M34 20 L40 40 M126 20 L120 40" stroke="#8a6239" stroke-width="2" stroke-linecap="round"/>
+          <ellipse cx="80" cy="64" rx="49" ry="38" fill="url(#gHead)"/>
+          <!-- facial discs, outlined like spectacles -->
+          <circle cx="59" cy="64" r="21" fill="url(#gFace)" stroke="#4a3019" stroke-width="2.5"/>
+          <circle cx="101" cy="64" r="21" fill="url(#gFace)" stroke="#4a3019" stroke-width="2.5"/>
+          <circle cx="59" cy="64" r="13.5" fill="url(#gEye)"/>
+          <circle cx="101" cy="64" r="13.5" fill="url(#gEye)"/>
+          <g class="pupils">
+            <circle cx="60" cy="65" r="7.5" fill="#120c06"/>
+            <circle cx="102" cy="65" r="7.5" fill="#120c06"/>
+            <circle cx="62.5" cy="61.5" r="2.6" fill="#fff"/>
+            <circle cx="104.5" cy="61.5" r="2.6" fill="#fff"/>
+            <circle cx="57.5" cy="68" r="1.1" fill="#fff" opacity=".7"/>
+            <circle cx="99.5" cy="68" r="1.1" fill="#fff" opacity=".7"/>
+          </g>
+          <rect class="lid" x="45" y="50" width="28" height="28" rx="14" fill="#7c5531"/>
+          <rect class="lid" x="87" y="50" width="28" height="28" rx="14" fill="#7c5531"/>
+          <!-- the big stern brows -->
+          <path d="M34 44 Q56 32 78 50 Q58 42 38 50 Z" fill="#efe1c2"/>
+          <path d="M126 44 Q104 32 82 50 Q102 42 122 50 Z" fill="#efe1c2"/>
+          <!-- beak -->
+          <path d="M71 78 Q80 74 89 78 L80 92 Z" fill="#f2a33a" stroke="#b86f12" stroke-width="1"/>
+          <path class="beak-low" d="M74 86 L86 86 L80 96 Z" fill="#c97d1f"/>
+        </g>
       </g>
-      <!-- ear tufts + head -->
-      <path d="M44 40 L36 10 L62 34 Z" fill="#6b4a2b"/>
-      <path d="M116 40 L124 10 L98 34 Z" fill="#6b4a2b"/>
-      <ellipse cx="80" cy="56" rx="46" ry="34" fill="#8a6239"/>
-      <!-- facial discs -->
-      <circle cx="60" cy="56" r="20" fill="#e8d7b8"/>
-      <circle cx="100" cy="56" r="20" fill="#e8d7b8"/>
-      <!-- eyes -->
-      <circle cx="60" cy="56" r="13" fill="#ffcf33"/>
-      <circle cx="100" cy="56" r="13" fill="#ffcf33"/>
-      <circle cx="61" cy="57" r="7" fill="#111"/>
-      <circle cx="101" cy="57" r="7" fill="#111"/>
-      <circle cx="63" cy="54" r="2.2" fill="#fff"/>
-      <circle cx="103" cy="54" r="2.2" fill="#fff"/>
-      <rect class="lid" x="46" y="42" width="28" height="28" rx="14" fill="#8a6239"/>
-      <rect class="lid" x="86" y="42" width="28" height="28" rx="14" fill="#8a6239"/>
-      <!-- brows -->
-      <path d="M40 38 Q60 30 76 44" stroke="#4a311b" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <path d="M120 38 Q100 30 84 44" stroke="#4a311b" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <!-- beak -->
-      <path d="M72 70 L88 70 L80 84 Z" fill="#f2a33a"/>
-      <path class="beak-low" d="M75 78 L85 78 L80 88 Z" fill="#c97d1f"/>
-      <!-- talons -->
-      <g fill="#f2a33a"><circle cx="66" cy="152" r="4"/><circle cx="74" cy="153" r="4"/><circle cx="86" cy="153" r="4"/><circle cx="94" cy="152" r="4"/></g>
     </svg>
   </div>
 
-  <div class="box" id="box" role="status" aria-live="polite" tabindex="0"><span id="text"></span><span class="more">▼</span></div>
+  <div class="box" id="box" tabindex="0">
+    <span id="text" aria-hidden="true"></span>
+    <div class="opts" id="opts" role="radiogroup" aria-label="Your answer"></div>
+    <span class="more" aria-hidden="true">▼</span>
+  </div>
+  <!-- The typewriter would read out one letter at a time; this gets each whole line instead. -->
+  <div class="sr" id="said" aria-live="polite"></div>
 
   <div class="pick" id="pick"></div>
   <div class="choices" id="choices"></div>
-  <div class="count" id="count"></div>
-  <button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button>
+  <div class="foot"><span id="count"></span><button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button></div>
 </div>
 
 <script src="worker-config.js"></script>
@@ -152,30 +217,46 @@ const MOOD_ASK = { chill:'Something easy on the mind', deep:'Something to sink i
 let G = [], COVERS = {}, PLAY = null, GOTM = null;
 let ANS = { device:null, time:null, mood:null };
 let PICKS = [], AT = 0, timer = null, finishTyping = null;
+// Bumped by every fresh ask(). An await that wakes up in an older conversation (a slow save,
+// a line cut off by "Change my answers") checks this and goes quiet instead of talking over it.
+let CONV = 0;
 try { Object.assign(ANS, JSON.parse(localStorage.getItem('gt_owl') || '{}')); } catch(e){}
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Lines are built as HTML from these, so user text (titles, genres) is escaped exactly once and
+// can't be mistaken for colour markup.
+const red = (s) => `<span class="r">${esc(s)}</span>`;
+const blue = (s) => `<span class="b">${esc(s)}</span>`;
 function todayStr(){
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (id) => document.getElementById(id);
 
-// Lines are written with *red* and _blue_ markers, OoT's two highlight colours. Typed out a
-// character at a time; tapping the box finishes the line at once.
-function markup(line){ return esc(line).replace(/\*(.+?)\*/g,'<span class="r">$1</span>').replace(/_(.+?)_/g,'<span class="b">$1</span>'); }
-function say(line){
+function owlPose(...classes){
+  const owl = $('owl');
+  owl.classList.remove('tilt', 'tilt-r', 'look-down');
+  classes.forEach(c => c && owl.classList.add(c));
+}
+function flap(){
+  const owl = $('owl');
+  owl.classList.remove('flap'); void owl.getBoundingClientRect(); owl.classList.add('flap');
+}
+$('owl').addEventListener('animationend', e => { if (e.animationName.startsWith('flap')) $('owl').classList.remove('flap'); });
+
+// Typed out a couple of characters at a time; tapping the box finishes the line at once.
+function say(html){
   return new Promise(resolve => {
     clearInterval(timer);
-    const box = document.getElementById('box'), out = document.getElementById('text'), owl = document.getElementById('owl');
-    const html = markup(line);
-    choices([]);                                   // nothing to answer while the owl is talking
+    const box = $('box'), out = $('text'), owl = $('owl');
+    choices([]); opts([]);                          // nothing to answer while the owl is talking
     box.classList.remove('done');
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    $('said').textContent = tmp.textContent;
     const end = () => { clearInterval(timer); out.innerHTML = html; box.classList.add('done'); owl.classList.remove('talking'); finishTyping = null; resolve(); };
     finishTyping = end;
     if (reduced) return end();
-    // Walk the visible characters while keeping the colour spans intact.
-    const tmp = document.createElement('div'); tmp.innerHTML = html;
     const total = tmp.textContent.length; let n = 0;
     owl.classList.add('talking');
     timer = setInterval(() => {
@@ -198,48 +279,95 @@ function clip(html, n){
   }
   return out + '</span>'.repeat(Math.max(0, open));
 }
-document.getElementById('box').addEventListener('click', () => finishTyping && finishTyping());
-document.getElementById('box').addEventListener('keydown', e => { if ((e.key==='Enter'||e.key===' ') && finishTyping){ e.preventDefault(); finishTyping(); } });
+$('box').addEventListener('click', e => { if (finishTyping && !e.target.closest('.opt')) finishTyping(); });
+$('box').addEventListener('keydown', e => { if ((e.key==='Enter'||e.key===' ') && finishTyping){ e.preventDefault(); finishTyping(); } });
 
-function choices(list, focusFirst){
-  const el = document.getElementById('choices');
+// Answers below the box, for the questions with more than two options.
+function choices(list){
+  const el = $('choices');
   el.innerHTML = '';
-  list.forEach(([label, fn, cls]) => {
+  $('box').classList.toggle('waiting', list.length > 0);   // answers below, so no ▼
+  list.forEach(([label, fn, cls, sub]) => {
     const b = document.createElement('button');
-    b.type = 'button'; b.className = 'choice' + (cls ? ' ' + cls : ''); b.textContent = label;
+    b.type = 'button'; b.className = 'choice' + (cls ? ' ' + cls : '');
+    b.textContent = label;
+    if (sub){ const s = document.createElement('small'); s.textContent = sub; b.appendChild(s); }
     b.onclick = () => { el.querySelectorAll('button').forEach(x => x.disabled = true); fn(); };
     el.appendChild(b);
   });
-  if (focusFirst && el.firstChild) el.firstChild.focus({ preventScroll:true });
+}
+
+// Yes/No inside the box, OoT style. The cursor starts on the first option, as it always did.
+function opts(list){
+  const el = $('opts'), box = $('box');
+  el.innerHTML = '';
+  box.classList.toggle('asking', list.length > 0);
+  if (!list.length) return;
+  const btns = list.map(([label, fn, cls], i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'opt' + (cls ? ' ' + cls : ''); b.textContent = label;
+    b.setAttribute('role', 'radio');
+    b.onclick = () => { if (b.disabled) return; btns.forEach(x => x.disabled = true); fn(); };
+    b.onmouseenter = b.onfocus = () => move(i);
+    el.appendChild(b);
+    return b;
+  });
+  let at = 0;
+  function move(i){
+    at = (i + btns.length) % btns.length;
+    btns.forEach((b, j) => { b.classList.toggle('on', j === at); b.setAttribute('aria-checked', j === at); b.tabIndex = j === at ? 0 : -1; });
+  }
+  el.onkeydown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight'){ e.preventDefault(); move(at + 1); btns[at].focus(); }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft'){ e.preventDefault(); move(at - 1); btns[at].focus(); }
+  };
+  move(0);
+  btns[0].focus({ preventScroll:true });
 }
 
 // ─── The conversation ──────────────────────────────────
 async function ask(){
-  document.getElementById('pick').classList.remove('show');
-  document.getElementById('count').textContent = '';
-  document.getElementById('redo').hidden = true;
-  choices([]);
+  const conv = ++CONV;
+  $('pick').classList.remove('show');
+  $('count').textContent = '';
+  $('redo').hidden = true;
   const { DEVICES, TIMES, MOODS, devicesWithGames } = GTPick;
-  await say('Hoo hoot! Jonny… look up here! Before you go anywhere, answer me this. What have you got in your hands?');
-  choices(devicesWithGames(G).map(k => [DEVICES[k].label, () => { ANS.device = k; askTime(); }]));
+  const devs = devicesWithGames(G);
+  owlPose('tilt');
+  await say(`Hoo hoot! Jonny… look up here! Before you go anywhere, answer me this. What have you got in your hands?`);
+  if (conv !== CONV) return;
+  owlPose('look-down');
+  const list = devs.map(k => [DEVICES[k].label, () => { ANS.device = k; askTime(); }]);
+  // One tap to repeat the last conversation, while the device it named still has games.
+  if (devs.includes(ANS.device) && TIMES[ANS.time] && MOODS[ANS.mood])
+    list.unshift(['Same as last time', decide, 'again', `${DEVICES[ANS.device].label} · ${TIMES[ANS.time].label} · ${MOODS[ANS.mood].label}`]);
+  choices(list);
 
   async function askTime(){
-    await say(`_${DEVICE_SAY[ANS.device] || DEVICES[ANS.device].label}_, hoo. And how long until you must be on your way?`);
+    owlPose('tilt-r');
+    await say(`${blue(DEVICE_SAY[ANS.device] || DEVICES[ANS.device].label)}, hoo. And how long until you must be on your way?`);
+    if (conv !== CONV) return;
+    owlPose('look-down');
     choices(Object.entries(TIMES).map(([k,t]) => [t.label, () => { ANS.time = k; askMood(); }]));
   }
   async function askMood(){
+    owlPose('tilt');
     await say('Hoo hoo. And what does your heart want tonight?');
-    choices(Object.entries(MOODS).map(([k]) => [MOOD_ASK[k], () => { ANS.mood = k; decide(); }]));
+    if (conv !== CONV) return;
+    owlPose('look-down');
+    choices(Object.keys(MOODS).map(k => [MOOD_ASK[k], () => { ANS.mood = k; decide(); }]));
   }
 }
 
-function decide(){
+async function decide(){
+  const conv = CONV;
   try { localStorage.setItem('gt_owl', JSON.stringify(ANS)); } catch(e){}
   PICKS = GTPick.pickGames(G, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM, limit:8 });
   AT = 0;
   if (!PICKS.length){
-    say(`Hoo… nothing in Now Playing or Up Next plays on _${DEVICE_SAY[ANS.device] || ANS.device}_. Add something to Up Next, and come find me again.`);
-    choices([['Ask again', ask]]);
+    owlPose();
+    await say(`Hoo… nothing in Now Playing or Up Next plays on ${blue(DEVICE_SAY[ANS.device] || ANS.device)}. Add something to Up Next, and come find me again.`);
+    if (conv === CONV) choices([['Ask again', ask]]);
     return;
   }
   reveal(true);
@@ -254,44 +382,53 @@ const OPENERS = [
 ];
 
 async function reveal(first){
+  const conv = CONV;
   const p = PICKS[AT], g = p.g;
-  showCard(p);
-  document.getElementById('count').textContent = `${AT+1} of ${PICKS.length}`;
-  document.getElementById('redo').hidden = false;
+  $('pick').classList.remove('show');
+  $('count').textContent = `${AT+1} of ${PICKS.length}`;
+  $('redo').hidden = false;
+  owlPose();
   const opener = first ? OPENERS[0] : OPENERS[1 + (AT - 1) % (OPENERS.length - 1)];
-  const why = p.reasons.length ? ` ${p.reasons.join('. ')}.` : '';
-  await say(`${opener} *${g.t}*.${why}`);
+  const why = p.reasons.length ? ' ' + esc(p.reasons.join('. ')) + '.' : '';
+  await say(`${esc(opener)} ${red(g.t)}.${why}`);
+  if (conv !== CONV) return;
+  showCard(p);
+  owlPose('tilt');
   await say('Hoo hoot! …Did you get all that? Do you want to hear it again?');
-  // The cursor starts on "Yes", as it always did. Everyone who played OoT remembers why.
-  choices([
-    ['Yes', again, 'yes'],
-    ['No', () => commit(g), 'go'],
-  ], true);
+  if (conv !== CONV) return;
+  opts([['Yes', again], ['No', () => commit(g)]]);
 }
 
 async function again(){
+  const conv = CONV;
   AT++;
   if (AT >= PICKS.length){
     AT = 0;
-    document.getElementById('owl').classList.add('flap');
-    setTimeout(() => document.getElementById('owl').classList.remove('flap'), 1600);
+    flap();
+    owlPose();
     await say("Hoo… that's every road I know. Very well. From the beginning, then.");
+    if (conv !== CONV) return;
   }
   reveal(false);
 }
 
 async function commit(g){
-  const owl = document.getElementById('owl');
+  const conv = CONV;
+  owlPose();
+  let line;
   if (g.s === 'playing' || g.s === 'ongoing' || !CAN_EDIT){
-    owl.classList.add('flap');
-    await say(`Hoo hoo hoo! Then off you go to *${g.t}*. I'll be watching.`);
+    line = `Hoo hoo hoo! Then off you go to ${red(g.t)}. I'll be watching.`;
   } else {
+    await say('Hoo…');
     const ok = await startGame(g);
-    owl.classList.add('flap');
-    await say(ok
-      ? `Hoo hoo hoo! *${g.t}* is in Now Playing. Off you go. I'll be watching.`
-      : `Hoo… the message didn't reach the tracker. Go play *${g.t}* anyway, and mark it later.`);
+    if (conv !== CONV) return;
+    line = ok
+      ? `Hoo hoo hoo! ${red(g.t)} is in Now Playing. Off you go. I'll be watching.`
+      : `Hoo… the message didn't reach the tracker. Go play ${red(g.t)} anyway, and mark it later.`;
   }
+  flap();
+  await say(line);
+  if (conv !== CONV) return;
   choices([['Ask me again', ask], ['Back to the tracker', () => { location.href = 'index.html'; }]]);
 }
 
@@ -316,12 +453,24 @@ function showCard(p){
   const g = p.g, url = COVERS[g.t.toLowerCase()], color = PC[g.p] || '#555';
   const fallback = `<div class="cover-fallback" style="background:${color}20;color:${color}${url ? ';display:none' : ''}">${PLAT_EMOJI[g.p] || '🎮'}</div>`;
   const art = url ? `<img class="cover" src="${esc(url)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${fallback}` : fallback;
-  const el = document.getElementById('pick');
+  const el = $('pick');
   el.innerHTML = `${art}<div class="pick-main"><div class="pick-title">${esc(g.t)}</div>
     <span class="plat" style="background:${color}22;color:${color}">${esc(PL[g.p] || g.p)}</span>
     <div class="why">${p.reasons.map(esc).join(' · ')}</div></div>`;
   el.classList.add('show');
 }
+
+// A sky of stars, placed once. Kept out of the top-right so the moon has room.
+(function stars(){
+  const scene = $('scene');
+  for (let i = 0; i < 38; i++){
+    const s = document.createElement('div'); s.className = 'star';
+    let x, y; do { x = Math.random() * 100; y = Math.random() * 55; } while (x > 72 && y < 38);
+    const size = Math.random() < .2 ? 3 : 2;
+    Object.assign(s.style, { left: x + '%', top: y + '%', width: size + 'px', height: size + 'px', animationDelay: (Math.random() * 3).toFixed(2) + 's' });
+    scene.insertBefore(s, scene.firstChild);
+  }
+})();
 
 // ─── Load ──────────────────────────────────────────────
 // Same cache-busting reads and GOTM window refresh as index.html (see the notes there).
@@ -342,12 +491,14 @@ Promise.all([
   fresh('covers.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('gotm.json').then(r => r.ok ? r.json() : null).catch(() => null),
   fresh('play-check.json').then(r => r.ok ? r.json() : null).catch(() => null),
+  // Let him land before he starts talking.
+  new Promise(r => setTimeout(r, reduced ? 0 : 900)),
 ]).then(([games, covers, gotm, play]) => {
   G = games; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
   ask();
 }).catch(err => {
   console.error('Failed to load game data', err);
-  say(`Hoo… I can't see the tracker from here (${err.message || 'network error'}). Try again in a moment.`);
+  say(`Hoo… I can't see the tracker from here (${esc(err.message || 'network error')}). Try again in a moment.`);
   choices([['Try again', () => location.reload()]]);
 });
 </script>

@@ -104,7 +104,10 @@ await test("the real games.json produces suggestions for every time, device and 
       for (const mood of [undefined, "chill", "deep", "finish"]) {
         const r = pickGames(games, { device, time, mood, now: NOW });
         assert.ok(r.length > 0, `${device}/${time}/${mood} produced nothing`);
-        r.forEach(x => assert.ok(x.reasons.length > 0, `${x.g.t} has no reason`));
+        r.forEach(x => {
+          assert.ok(x.reasons.length > 0, `${x.g.t} has no reason`);
+          assert.equal(new Set(x.reasons).size, x.reasons.length, `${x.g.t} repeats a reason: ${x.reasons}`);
+        });
       }
 });
 

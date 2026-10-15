@@ -199,11 +199,11 @@ for (const width of [390, 1280]) {
     await page.waitForSelector("#pick.show");
     ok(await page.locator("#count").innerText() !== "", "no pick counter");
     const first = await page.locator(".pick-title").innerText();
-    await page.locator('.choice.yes:not([disabled])').click();
+    await page.locator('.opt:has-text("Yes"):not([disabled])').click();
     await page.waitForFunction(() => /^2 of|^1 of 1$/.test(document.getElementById("count").textContent));
     const total = await page.locator("#count").innerText();
     if (!/of 1$/.test(total)) ok(await page.locator(".pick-title").innerText() !== first, "Yes didn't change the pick");
-    await page.locator('.choice.go:not([disabled])').click();
+    await page.locator('.opt:has-text("No"):not([disabled])').click();
     await page.waitForFunction(() => /off you go/i.test(document.getElementById("text").textContent));
     ok(writes.every(w => w.path.endsWith("/games/edit") && w.body.s === "playing" && w.body.start), "No sent " + JSON.stringify(writes));
     ok(writes.length <= 1, "more than one write");

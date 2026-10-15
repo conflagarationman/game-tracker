@@ -162,7 +162,7 @@
       if (mood === 'chill') {
         if (HARD_G.test(g.g || '') || (g.diff || 0) >= 4) score -= 25;
         else if (CHILL_G.test(g.g || '')) { score += 18; reasons.push([26, `Low-stakes ${g.g}`]); }
-        else if (g.s === 'ongoing') { score += 18; if (!quick) reasons.push([26, 'Easy to dip into']); }
+        else if (g.s === 'ongoing') score += 18;           // already says "Easy to dip into"
       } else if (mood === 'deep') {
         if (g.s === 'ongoing') score -= 15;
         if (DEEP_G.test(g.g || '')) score += 10;
