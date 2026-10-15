@@ -298,6 +298,27 @@ for (const width of [390, 1280]) {
 }
 
 for (const width of [390, 1280]) {
+  await test(`owl.html?pick= at ${width}px opens on the weekend pick, and a key that's gone falls back to the questions`, async () => {
+    const games = JSON.parse(await readFile(join(ROOT, "games.json"), "utf8"));
+    const want = games.find(g => g.s === "queue" && !g.release);
+    const { page, writes, errors, ctx } = await open(`owl.html?pick=${encodeURIComponent("id:" + want.id)}`, width, { reducedMotion: "reduce" });
+    await page.waitForSelector("#pick.show");
+    ok(await page.locator(".pick-title").innerText() === want.t, "opened on " + await page.locator(".pick-title").innerText());
+    await page.waitForFunction(() => document.querySelectorAll(".opt").length === 3);
+    ok(await page.evaluate(() => /weekend/.test(document.getElementById("said").textContent) || document.getElementById("count").textContent.startsWith("1 of")), "no weekend greeting");
+    ok(writes.length === 0, "opening the link wrote something");
+    ok(await noSideScroll(page), "page scrolls sideways");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+    const gone = await open("owl.html?pick=id%3A99999999", width, { reducedMotion: "reduce" });
+    await gone.page.waitForSelector(".choice");
+    ok(await gone.page.locator("#pick.show").count() === 0, "a missing game was shown");
+    ok(gone.errors.length === 0, gone.errors.join(" | "));
+    await gone.ctx.close();
+  });
+}
+
+for (const width of [390, 1280]) {
   await test(`wrapped.html renders at ${width}px and draws a share image`, async () => {
     const { page, errors, ctx } = await open("wrapped.html", width);
     await page.waitForSelector("#wr-hero .wr-big");

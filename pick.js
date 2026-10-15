@@ -339,6 +339,23 @@
       .sort((a, b) => b.k - a.k).map(o => o.x);
   }
 
+  const trackedEntry = (r) => ({ kind: r.kind, t: r.g.t, p: r.g.p, reasons: r.reasons, fits: r.fits, g: r.g, key: 'id:' + r.g.id });
+  const wildEntry = (w) => ({ kind: w.kind, t: w.t, p: w.p, reasons: w.reasons, fits: w.fits, w, key: w.key });
+
+  // The weekend pick (owl-pick.json's `weekend`, and owl.html?pick=<key>) is asked as: any
+  // device, a long session, no mood. Both ends use this so the link shows what the nudge said.
+  const WEEKEND = { device: 'any', time: 'long' };
+
+  // One game by its key, from the full pool rather than a lineup: a link made on Friday has to
+  // keep working after the day's lineup has moved on. Ignores skips on purpose; the caller
+  // decides what a snoozed game means. Null when the game is gone or no longer a candidate.
+  function owlFind(games, src = {}, key, opts = WEEKEND) {
+    const hit = pickGames(games, { ...opts, someday: true, limit: 100000 }).map(trackedEntry).find(r => r.key === key);
+    if (hit) return hit;
+    const w = wildcards(games, src, opts).find(x => x.key === key);
+    return w ? wildEntry(w) : null;
+  }
+
   // The owl's running order: tracked and Someday games by rank, with a wildcard every third
   // suggestion, and one in the lead when a mood was asked for and the best tracked game doesn't
   // fit it (or there is no tracked game at all). Each entry: { kind, t, p, reasons, fits, key, g|w }.
@@ -348,8 +365,7 @@
     const now = opts.now || new Date();
     const live = (key) => !isHidden(skips[key], now);
     // Ask for more than we show, so snoozed games leaving the top doesn't leave the lineup short.
-    let tracked = pickGames(games, { ...opts, someday: true, limit: 40 })
-      .map(r => ({ kind: r.kind, t: r.g.t, p: r.g.p, reasons: r.reasons, fits: r.fits, g: r.g, key: 'id:' + r.g.id }))
+    let tracked = pickGames(games, { ...opts, someday: true, limit: 40 }).map(trackedEntry)
       .filter(r => live(r.key)).slice(0, 12);
     // With a mood asked for, games that fit it go first (rank kept within each group).
     if (MOODS[opts.mood]) tracked = [...tracked.filter(r => r.fits), ...tracked.filter(r => !r.fits)];
@@ -358,7 +374,7 @@
     const pool = [...all.filter(w => w.fits), ...all.filter(w => !w.fits)].slice(0, 15);
     const wild = shuffleByScore(pool.filter(w => w.fits), rand)
       .concat(shuffleByScore(pool.filter(w => !w.fits), rand))
-      .map(w => ({ kind: w.kind, t: w.t, p: w.p, reasons: w.reasons, fits: w.fits, w, key: w.key }));
+      .map(wildEntry);
     const out = [];
     let ti = 0, wi = 0;
     const lead = !tracked.length || (opts.mood && !tracked[0].fits && wild.length && wild[0].fits);
@@ -372,7 +388,7 @@
   }
 
   const api = { DEVICES, TIMES, MOODS, pickGames, achLeft, remaining, devicesWithGames, parseHltb,
-    wildcards, owlLineup, normTitle, SNOOZE_DAYS, nextSkip, isHidden, wildKey };
+    wildcards, owlLineup, owlFind, normTitle, SNOOZE_DAYS, nextSkip, isHidden, wildKey, WEEKEND };
   root.GTPick = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

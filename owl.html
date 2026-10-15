@@ -490,6 +490,33 @@ async function reveal(first, lead = ''){
   opts([['Yes', again], ['No', () => commit(p)], ['Not this one', () => notThis(p)]]);
 }
 
+// ─── The weekend hoot ──────────────────────────────────
+// owl.html?pick=<key> is where the Home Hub's Friday nudge lands: the weekend pick from
+// owl-pick.json, named by its key (id:12, steam:730, ra:… or canon:…). He opens on that game with
+// the usual Yes / No / Not this one, and Yes carries on down the same "any device, a long
+// session, no mood" lineup. The key is looked up in the whole pool, not today's lineup, so the
+// link still works after the data has moved on; a game that's gone, or that you've since set
+// aside, sends you to the normal questions instead.
+async function openPick(key){
+  const conv = ++CONV;
+  const opts = { ...GTPick.WEEKEND, play: PLAY, gotm: GOTM };
+  const hit = GTPick.owlFind(G, SRC, key, opts);
+  if (!hit || GTPick.isHidden(SKIPS[key])){
+    owlPose('tilt');
+    await say("Hoo… I can't find the one I had in mind. Let me ask you properly.");
+    await beat(1500);
+    if (conv === CONV) ask();
+    return;
+  }
+  ANS = { ...ANS, ...GTPick.WEEKEND, mood: null };   // this visit only; the saved answers aren't touched
+  PICKS = [hit, ...GTPick.owlLineup(G, { ...SRC, skips: SKIPS }, opts).filter(x => x.key !== key)];
+  AT = 0;
+  owlPose('tilt');
+  await say('Hoo hoot! You came about the weekend, hoo?');
+  await beat(1500);
+  if (conv === CONV) reveal(true);
+}
+
 // ─── "Not this one" ────────────────────────────────────
 // Turning a game down snoozes it for the owl only (7, 30, then 90 days, pick.js's SNOOZE_DAYS),
 // so nothing disappears for good by accident. Only after three snoozes does he offer to strike
@@ -879,7 +906,8 @@ Promise.all([
   G = games; SKIPS = skips && typeof skips === 'object' && !Array.isArray(skips) ? skips : {}; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
   SRC = { library, meta, canon, gotm: GOTM };
   updateStruck();
-  ask();
+  const want = new URLSearchParams(location.search).get('pick');
+  if (want) openPick(want); else ask();
 }).catch(err => {
   console.error('Failed to load game data', err);
   say(`Hoo… I can't see the tracker from here (${esc(err.message || 'network error')}). Try again in a moment.`);
