@@ -38,9 +38,12 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   box-shadow:16px -12px 0 -3px #d3c08688,20px 8px 0 -4px #d3c08677;}
 .star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.8;animation:twinkle 3s ease-in-out infinite;}
 @keyframes twinkle{0%,100%{opacity:.85;}50%{opacity:.2;}}
+.owl .bird{transform-box:view-box;transform-origin:80px 163px;}
 .owl{position:absolute;left:50%;bottom:24px;width:190px;height:auto;margin-left:-95px;overflow:visible;}
-.owl .bob{animation:bob 3.4s ease-in-out infinite;transform-origin:80px 165px;}
-.owl.arrive .bob{animation:swoop 1.1s cubic-bezier(.2,.7,.3,1) both, bob 3.4s 1.1s ease-in-out infinite;}
+/* Perched, he rocks and breathes around his feet rather than floating: the pivot is where the
+   talons grip the branch, so they never leave it. Only the arrival moves the whole bird. */
+.owl .breathe{transform-box:view-box;transform-origin:80px 163px;animation:breathe 4.2s ease-in-out infinite;}
+.owl.arrive .bird{animation:swoop 1.1s cubic-bezier(.2,.7,.3,1) both;}
 .owl .head{transform-box:view-box;transform-origin:80px 82px;transition:transform .45s cubic-bezier(.3,1.6,.5,1);}
 .owl.tilt .head{transform:rotate(-11deg);}
 .owl.tilt-r .head{transform:rotate(9deg);}
@@ -52,7 +55,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .owl.flap .wing-r{animation:flapR .22s ease-in-out 6 alternate;}
 .owl .wing-l{transform-box:fill-box;transform-origin:90% 10%;}
 .owl .wing-r{transform-box:fill-box;transform-origin:10% 10%;}
-@keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+@keyframes breathe{0%,50%,100%{transform:none;}25%{transform:rotate(-1.6deg) scale(1.01,1.025);}75%{transform:rotate(1.6deg) scale(1.01,1.025);}}
 @keyframes swoop{from{transform:translate(-160px,-150px) rotate(-25deg) scale(.6);opacity:0;}60%{opacity:1;}to{transform:none;}}
 @keyframes blink{0%,93%,100%{transform:scaleY(0);}96%{transform:scaleY(1);}}
 @keyframes talk{from{transform:translateY(0);}to{transform:translateY(2.5px);}}
@@ -131,7 +134,9 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
       <path d="M-30 168 Q80 156 190 170" stroke="#6b4a2b" stroke-width="3" stroke-linecap="round" fill="none" opacity=".6" transform="translate(0,-3)"/>
       <path d="M140 164 q14 -18 30 -14 q-10 16 -30 14Z" fill="#2f5a34"/>
       <path d="M8 165 q-12 -16 -28 -10 q8 14 28 10Z" fill="#2f5a34"/>
-      <g class="bob">
+      <!-- bird swoops in as a whole; once perched, only the body above the feet moves -->
+      <g class="bird">
+        <g class="breathe">
         <!-- tail -->
         <path d="M66 150 L80 176 L94 150Z" fill="#4a3019"/>
         <!-- wings, with layered feather scallops -->
@@ -152,8 +157,6 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
           <path d="M67 137 l5 5 l5 -5"/><path d="M83 137 l5 5 l5 -5"/>
           <path d="M75 150 l5 4 l5 -4"/>
         </g>
-        <!-- talons -->
-        <g fill="#f2a33a" stroke="#b86f12" stroke-width="1"><ellipse cx="65" cy="162" rx="4.5" ry="3.5"/><ellipse cx="73" cy="164" rx="4.5" ry="3.5"/><ellipse cx="87" cy="164" rx="4.5" ry="3.5"/><ellipse cx="95" cy="162" rx="4.5" ry="3.5"/></g>
         <!-- head: tilts when he asks something -->
         <g class="head">
           <path d="M40 48 L28 8 Q46 22 62 38 Z" fill="#5e3f22"/>
@@ -182,6 +185,9 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
           <path d="M71 78 Q80 74 89 78 L80 92 Z" fill="#f2a33a" stroke="#b86f12" stroke-width="1"/>
           <path class="beak-low" d="M74 86 L86 86 L80 96 Z" fill="#c97d1f"/>
         </g>
+        </g>
+        <!-- talons: outside .breathe, so they stay gripping the branch -->
+        <g fill="#f2a33a" stroke="#b86f12" stroke-width="1"><ellipse cx="65" cy="162" rx="4.5" ry="3.5"/><ellipse cx="73" cy="164" rx="4.5" ry="3.5"/><ellipse cx="87" cy="164" rx="4.5" ry="3.5"/><ellipse cx="95" cy="162" rx="4.5" ry="3.5"/></g>
       </g>
     </svg>
   </div>
