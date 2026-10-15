@@ -27,6 +27,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
 | `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start. Read-only except that Start. |
+| `owl-pick.json` | bot only (`sync-games.yml`, daily, via `scripts/owl-pick.mjs`) | The owl's pick for tonight (any device, an evening, no mood), for the Home Hub's peeking owl. Runs the real `pick.js` so the hub (Python, token in its URL) neither re-implements the ranking nor loads remote script. `pick` is null when there's nothing to suggest. |
 | `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` from a browser. |
@@ -296,12 +297,13 @@ node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
 node scripts/pick.test.mjs             # 18
 node scripts/wrapped.test.mjs          # 14
+node scripts/owl-pick.test.mjs         # 4
 cd worker && node index.test.mjs       # 27
 ```
 
-`tests.yml` runs all eight on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all nine on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-eight commands above.
+nine commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
