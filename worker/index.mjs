@@ -23,6 +23,14 @@
 //                      set must match the current queue exactly or it 409s. No workflow
 //                      dispatch, since no synced field changes.
 //
+// POST /owl/skip      body: {key, t, drop?} -> Kaepora Gaebora's "Not this one": snoozes that
+//                      game for the owl only (7, 30, then 90 days), or flags it dropped when
+//                      `drop` is true. Written to owl-skips.json, never games.json, and the
+//                      response is the whole skips object. No workflow dispatch.
+// POST /owl/restore   body: {key} -> deletes that game's entry: un-snoozes or un-drops it and
+//                      zeroes its count. Restoring a key that isn't there is a no-op, not an
+//                      error. A drop is only ever a flag, so this always undoes it.
+//
 // Every write reads the current file fresh, applies the change, and writes back with a sha
 // check, retrying on conflict — safe against racing the daily sync-games.yml/
 // backfill-covers.yml bots, which commit to this same file on this same branch.
@@ -78,36 +86,41 @@ async function gh(env, path, init = {}) {
   });
 }
 
-async function readGames(env) {
-  const res = await gh(env, `contents/${FILE}?ref=${env.BRANCH}`);
+// `missing` is what a file that doesn't exist yet reads as: owl-skips.json is created by its
+// first write if it isn't in the repo, and the PUT then goes without a sha.
+async function readJson(env, file, missing) {
+  const res = await gh(env, `contents/${file}?ref=${env.BRANCH}`);
+  if (res.status === 404 && missing !== undefined) return { data: missing, sha: undefined };
   if (!res.ok) throw new Error(`read ${res.status}: ${await res.text()}`);
   const meta = await res.json();
   // atob is fine here: the payload is ASCII JSON, and Workers has no Buffer.
   const decoded = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ""))));
-  return { games: JSON.parse(decoded), sha: meta.sha };
+  return { data: JSON.parse(decoded), sha: meta.sha };
 }
 
-async function writeGames(env, games, sha, message) {
+async function writeJson(env, file, data, sha, message) {
   const body = {
     message,
-    content: btoa(unescape(encodeURIComponent(JSON.stringify(games, null, 2) + "\n"))),
+    content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2) + "\n"))),
     branch: env.BRANCH,
     committer: { name: "game-tracker-admin", email: "actions@users.noreply.github.com" },
-    sha,
+    ...(sha ? { sha } : {}),
   };
-  return gh(env, `contents/${FILE}`, { method: "PUT", body: JSON.stringify(body) });
+  return gh(env, `contents/${file}`, { method: "PUT", body: JSON.stringify(body) });
 }
 
-// Applies `mutate` (games[] -> games[]) against the latest server copy, retrying on a sha
+// Applies `mutate` (data -> data) against the latest server copy of `file`, retrying on a sha
 // conflict — the same read-modify-write-retry shape as steph-tv-tracker's syncWithRetry,
 // just without a merge step: there's nothing to reconcile since `mutate` always starts from
-// the freshest copy on each attempt, not a possibly-stale client-held one.
-async function mutateWithRetry(env, mutate, message, attempts = 4) {
+// the freshest copy on each attempt, not a possibly-stale client-held one. A `mutate` that
+// returns null means "nothing to change": the current data comes back and nothing is committed.
+async function mutateFile(env, file, mutate, message, { attempts = 4, missing } = {}) {
   let last;
   for (let i = 0; i < attempts; i++) {
-    const { games, sha } = await readGames(env);
-    const next = mutate(games);
-    const res = await writeGames(env, next, sha, message);
+    const { data, sha } = await readJson(env, file, missing);
+    const next = mutate(data);
+    if (next === null) return data;
+    const res = await writeJson(env, file, next, sha, message);
     if (res.ok) return next;
     last = `${res.status}: ${await res.text()}`;
     if (res.status !== 409 && res.status !== 422) throw new Error(`write ${last}`);
@@ -115,6 +128,8 @@ async function mutateWithRetry(env, mutate, message, attempts = 4) {
   }
   throw new Error(`write failed after ${attempts} attempts — ${last}`);
 }
+
+const mutateWithRetry = (env, mutate, message, attempts = 4) => mutateFile(env, FILE, mutate, message, { attempts });
 
 // Range/enum checks for the optional numeric and enum fields, shared by add and edit. Every
 // one of these may legitimately be null ("unset"), so null/undefined always passes — this
@@ -232,6 +247,45 @@ export async function deleteGame(env, id) {
   }, `Delete game #${id}`);
 }
 
+// ─── Kaepora Gaebora's skips ───────────────────────────
+// "Not this one" on owl.html. The same shape and rules as pick.js's nextSkip/isHidden (its
+// tests compare SNOOZE_DAYS), kept here because the Worker can't load a browser script. Lives in
+// its own file so a turn-down never touches games.json: a snoozed or dropped game is only hidden
+// from the owl, and Restore is deleting the entry.
+const SKIPS_FILE = "owl-skips.json";
+export const SNOOZE_DAYS = [7, 30, 90];
+// id:<n> tracked, steam:<appid>, ra:<normTitle> (RA runs and club picks), canon:<normTitle>.
+const SKIP_KEY = /^(id:\d{1,9}|steam:\d{1,9}|(ra|canon):[a-z0-9][a-z0-9 ]{0,120})$/;
+
+const ymdUTC = (d) => d.toISOString().slice(0, 10);
+
+export function nextSkip(entry, title, { drop = false, now = new Date() } = {}) {
+  const count = ((entry && entry.count) || 0) + 1;
+  const last = ymdUTC(now);
+  if (drop) return { t: title, count, until: null, dropped: true, last };
+  const days = SNOOZE_DAYS[Math.min(count, SNOOZE_DAYS.length) - 1];
+  return { t: title, count, until: ymdUTC(new Date(now.getTime() + days * 86400000)), dropped: false, last };
+}
+
+export async function skipGame(env, { key, t, drop }, now = new Date()) {
+  if (typeof key !== "string" || !SKIP_KEY.test(key)) throw httpError("key must look like id:12, steam:730, ra:title or canon:title", 400);
+  if (typeof t !== "string" || !t.trim() || t.length > 200) throw httpError("title (t) is required", 400);
+  if (drop !== undefined && typeof drop !== "boolean") throw httpError("drop must be a boolean", 400);
+  return mutateFile(env, SKIPS_FILE, (skips) => ({
+    ...skips,
+    [key]: nextSkip(skips[key], t.trim(), { drop: !!drop, now }),
+  }), `Owl: ${drop ? "drop" : "snooze"} ${t.trim()}`, { missing: {} });
+}
+
+export async function restoreGame(env, { key }) {
+  if (typeof key !== "string" || !SKIP_KEY.test(key)) throw httpError("key must look like id:12, steam:730, ra:title or canon:title", 400);
+  return mutateFile(env, SKIPS_FILE, (skips) => {
+    if (!(key in skips)) return null;
+    const { [key]: gone, ...rest } = skips;
+    return rest;
+  }, `Owl: restore ${key}`, { missing: {} });
+}
+
 // Fires the daily Steam/RA sync and the SteamGridDB cover backfill immediately after a new
 // game is added, instead of making it wait for their normal daily/weekly schedules. Reuses
 // gh() as-is — the Actions dispatch endpoint needs the exact same repo base URL and auth
@@ -329,6 +383,10 @@ export default {
         const games = await reorderQueue(env, body.ids);
         return json(games, 200, origin);
       }
+      // Neither owl endpoint dispatches a workflow: owl-skips.json is read by nothing but the
+      // page and the weekend pick, so there is no sync to refresh.
+      if (url.pathname.endsWith("/owl/skip")) return json(await skipGame(env, body), 200, origin);
+      if (url.pathname.endsWith("/owl/restore")) return json(await restoreGame(env, body), 200, origin);
       return json({ error: "not found" }, 404, origin);
     } catch (e) {
       // Never 200 on a failed write: the page must show the error, not assume it saved.

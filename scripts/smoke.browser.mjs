@@ -203,12 +203,52 @@ for (const width of [390, 1280]) {
     await page.waitForFunction(() => /^2 of|^1 of 1$/.test(document.getElementById("count").textContent));
     const total = await page.locator("#count").innerText();
     if (!/of 1$/.test(total)) ok(await page.locator(".pick-title").innerText() !== first, "Yes didn't change the pick");
-    await page.locator('.opt:has-text("No"):not([disabled])').click();
+    await page.locator(".opt:not([disabled])", { hasText: /^No$/ }).click();
     await page.waitForFunction(() => /off you go/i.test(document.getElementById("text").textContent));
     // "No" starts a tracked game (/games/edit) or adds a wildcard as Now Playing (/games/add).
     ok(writes.every(w => /\/games\/(edit|add)$/.test(w.path) && w.body.s === "playing" && w.body.start), "No sent " + JSON.stringify(writes));
     ok(writes.length <= 1, "more than one write");
     ok(await noSideScroll(page), "page scrolls sideways");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
+for (const width of [390, 1280]) {
+  await test(`owl.html at ${width}px: Not this one snoozes, the fourth asks before dropping, and Restore undoes it`, async () => {
+    const { page, writes, errors, ctx } = await open("owl.html", width, { reducedMotion: "reduce" });
+    const answer = async () => { const b = page.locator(".choice:not([disabled])").first(); await b.waitFor(); await b.click(); };
+    await answer(); await answer(); await answer();
+    await page.waitForSelector("#pick.show");
+    const notThis = () => page.locator('.opt:has-text("Not this one"):not([disabled])').click();
+    const asked = () => page.waitForFunction(() => document.querySelectorAll(".opt").length === 3 && !document.getElementById("box").classList.contains("danger"));
+    await asked();
+    const first = await page.locator(".pick-title").innerText();
+    await notThis();
+    await page.waitForFunction(t => document.querySelector(".pick-title").textContent !== t && document.querySelectorAll(".opt").length === 3, first);
+    ok(writes.length === 1 && writes[0].path.endsWith("/owl/skip") && writes[0].body.drop === false && writes[0].body.key, "first turn-down wrote " + JSON.stringify(writes));
+    ok(!writes.some(w => /\/games\//.test(w.path)), "a snooze touched the tracker");
+    // Pretend the game now showing has been turned down three times already: the fourth asks.
+    await asked();
+    const key = await page.evaluate(() => { const p = PICKS[AT]; SKIPS = { ...SKIPS, [p.key]: { t: p.t, count: 3, until: null, dropped: false, last: "2026-01-01" } }; return p.key; });
+    await notThis();
+    await page.waitForFunction(() => document.getElementById("box").classList.contains("danger"));
+    const warn = await page.locator("#said").innerText();
+    ok(/four times/.test(warn) && /for good/.test(warn), "no DROP warning: " + warn);
+    ok(await page.locator(".opt").first().innerText() === "Just snooze it", "the safe answer isn't first");
+    ok(writes.length === 1, "the warning wrote before an answer");
+    await page.locator('.opt:has-text("Drop it")').click();
+    await page.waitForSelector("#struck-link:not([hidden])");
+    const drop = writes[writes.length - 1];
+    ok(drop.path.endsWith("/owl/skip") && drop.body.drop === true && drop.body.key === key, "drop wrote " + JSON.stringify(drop));
+    ok(/\(1\)/.test(await page.locator("#struck-link").innerText()), "footer link didn't count the drop");
+    if (await page.locator('.opt:has-text("Move it to Someday")').count()) await page.locator('.opt:has-text("No, leave it")').click();
+    await page.locator("#struck-link").click();
+    ok(await noSideScroll(page), "page scrolls sideways with the struck list open");
+    await page.locator("#struck .restore").click();
+    await page.waitForSelector("#struck-link", { state: "hidden" });
+    ok(writes[writes.length - 1].path.endsWith("/owl/restore") && writes[writes.length - 1].body.key === key, "restore wrote " + JSON.stringify(writes[writes.length - 1]));
+    ok(await page.evaluate(k => !(k in SKIPS), key), "restored game still has an entry");
     ok(errors.length === 0, errors.join(" | "));
     await ctx.close();
   });

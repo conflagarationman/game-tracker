@@ -26,14 +26,15 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
-| `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start (or, for a wildcard, add it as Now Playing via `/games/add`). Uses `GTPick.owlLineup()`: tracked + Someday games, with a wildcard every third pick and in the lead when nothing tracked fits the mood. Music is The 8-Bit Big Band's cover of Kaepora's theme through YouTube's player, in a credited "music box" at the bottom of the page: YouTube's terms need the player visible (200px+), and the recording isn't ours to host. On by default from the first tap or key press; nothing loads from YouTube before it. |
+| `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start (or, for a wildcard, add it as Now Playing via `/games/add`), Not this one = snooze it for the owl (see `owl-skips.json`; the fourth turn-down shows a red DROP warning whose safe answer comes first, and drops are listed under "Struck from the list" in the footer with a Restore). Uses `GTPick.owlLineup()`: tracked + Someday games, with a wildcard every third pick and in the lead when nothing tracked fits the mood. Music is The 8-Bit Big Band's cover of Kaepora's theme through YouTube's player, in a credited "music box" at the bottom of the page: YouTube's terms need the player visible (200px+), and the recording isn't ours to host. On by default from the first tap or key press; nothing loads from YouTube before it. |
 | `library.json` | bot only (`sync-games.yml`, daily) | Every owned Steam game (hours minus the ASF ledger's recorded idling) and every RetroAchievements game with progress, one per line. For the owl's wildcards. **Published in full on purpose** (Jonny's call). Only rewritten when Steam answers. |
 | `library-meta.json` | bot only (`scripts/library-meta.mjs`, scheduled runs only) | Steam genres (`g`), Metacritic (`m`) and Deck rating (`d`: 3 verified, 2 playable, 1 unsupported, 0 unknown) per appid. Filled ~120 games a day, most-played first; known appids are never re-fetched. |
 | `retro-canon.json` | you | Hand-curated retro must-plays (`t`, `c` console, `y`, `g`, `h`, `why`) for the owl's "never logged" wildcard. Anything tracked or with RA progress is skipped automatically, so it never needs pruning. |
 | `owl-pick.json` | bot only (`sync-games.yml`, daily, via `scripts/owl-pick.mjs`) | The owl's pick for tonight (any device, an evening, no mood), for the Home Hub's peeking owl. Runs the real `pick.js` so the hub (Python, token in its URL) neither re-implements the ranking nor loads remote script. `pick` is null when there's nothing to suggest. |
+| `owl-skips.json` | **Worker only** (`/owl/skip`, `/owl/restore`) | What the owl has set aside, from "Not this one": `{ key: { t, count, until, dropped, last } }`, keyed `id:<n>` (tracked), `steam:<appid>`, `ra:<normTitle>` (RA runs and club picks) or `canon:<normTitle>`. Turn-downs snooze 7, 30, then 90 days; the fourth asks before a drop, and a drop is only `dropped: true`. Restore deletes the entry (count back to zero), and so does accepting the game with "No". **Never touches `games.json`**, and nothing writes it but the Worker, so keep human edits out. |
 | `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
-| `worker/` | you | The only thing that can commit to `games.json` from a browser. |
+| `worker/` | you | The only thing that can commit to `games.json` (and `owl-skips.json`) from a browser. `worker/index.mjs` keeps its own copy of the 7/30/90 snooze table; its test compares it with `pick.js`'s. |
 
 Bot-written files are overwritten wholesale on each run. Anything a human needs to edit and
 keep belongs in `games.json`, never in `covers.json` or `last-synced.json`.
@@ -304,11 +305,11 @@ node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
-node scripts/pick.test.mjs             # 24
+node scripts/pick.test.mjs             # 29
 node scripts/wrapped.test.mjs          # 14
 node scripts/owl-pick.test.mjs         # 4
 node scripts/library-meta.test.mjs     # 4
-cd worker && node index.test.mjs       # 27
+cd worker && node index.test.mjs       # 35
 ```
 
 `tests.yml` runs all ten on every pull request and on pushes to `main`. They need no

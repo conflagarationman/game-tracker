@@ -216,6 +216,41 @@
     return out.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
+  // ─── Snoozes and drops (owl.html only) ──────────────────
+  // "Not this one" doesn't remove a game, it sets it aside for longer each time it's turned
+  // down: 7 days, then 30, then 90. From the fourth the owl offers to drop it for good, and even
+  // that is only a flag in owl-skips.json that "Struck from the list" can undo. Nothing here
+  // ever touches games.json: this is about what the owl suggests, not what the game is.
+  //
+  // owl-skips.json is { key: { t, count, until: 'YYYY-MM-DD'|null, dropped, last } }, written
+  // only by the Worker (worker/index.mjs keeps its own copy of this table; its tests compare).
+  const SNOOZE_DAYS = [7, 30, 90];
+
+  // A stable key per game, so a turn-down survives the title being retyped or the lineup
+  // shuffling: tracked games by id, Steam by appid, and the retro kinds (RA runs, club picks)
+  // by normalised title, since that's all they have in common with each other and with RA.
+  function wildKey(w) {
+    if (w.kind === 'retro-canon') return 'canon:' + normTitle(w.t);
+    if (w.appid != null) return 'steam:' + w.appid;
+    return 'ra:' + normTitle(w.t);
+  }
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // What the entry becomes when the game is turned down once more. `drop` is the fourth
+  // answer's "Drop it"; every other turn-down snoozes, and past the third it stays at 90 days.
+  function nextSkip(entry, title, { drop = false, now = new Date() } = {}) {
+    const count = ((entry && entry.count) || 0) + 1;
+    const last = ymd(now);
+    if (drop) return { t: title, count, until: null, dropped: true, last };
+    const days = SNOOZE_DAYS[Math.min(count, SNOOZE_DAYS.length) - 1];
+    return { t: title, count, until: ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days)), dropped: false, last };
+  }
+  // Out of the owl's sight? A snooze lapses on its `until` day; a drop never lapses by itself.
+  function isHidden(entry, now = new Date()) {
+    if (!entry) return false;
+    return !!entry.dropped || (!!entry.until && entry.until > ymd(now));
+  }
+
   // ─── Wildcards (owl.html only) ──────────────────────────
   // Games from outside the tracker, for the owl's every-third suggestion. `src` is
   //   { library: library.json, meta: library-meta.json, canon: retro-canon.json, gotm: gotm.json }
@@ -242,7 +277,7 @@
       const m = moodFit(mood, genre, { time, quick, ...extra });
       const reasons = [w.reason];
       if (m.reason) reasons.push(m.reason[1]);
-      out.push({ ...w, score: base + m.score + (w.timeScore || 0), fits: m.fits, reasons });
+      out.push({ ...w, key: wildKey(w), score: base + m.score + (w.timeScore || 0), fits: m.fits, reasons });
     };
 
     const lib = src.library || {};
@@ -306,18 +341,24 @@
 
   // The owl's running order: tracked and Someday games by rank, with a wildcard every third
   // suggestion, and one in the lead when a mood was asked for and the best tracked game doesn't
-  // fit it (or there is no tracked game at all). Each entry: { kind, t, p, reasons, fits, g|w }.
+  // fit it (or there is no tracked game at all). Each entry: { kind, t, p, reasons, fits, key, g|w }.
+  // `src.skips` (owl-skips.json) hides snoozed and dropped games from both groups.
   function owlLineup(games, src = {}, opts = {}, rand = Math.random) {
-    let tracked = pickGames(games, { ...opts, someday: true, limit: 12 })
-      .map(r => ({ kind: r.kind, t: r.g.t, p: r.g.p, reasons: r.reasons, fits: r.fits, g: r.g }));
+    const skips = src.skips || {};
+    const now = opts.now || new Date();
+    const live = (key) => !isHidden(skips[key], now);
+    // Ask for more than we show, so snoozed games leaving the top doesn't leave the lineup short.
+    let tracked = pickGames(games, { ...opts, someday: true, limit: 40 })
+      .map(r => ({ kind: r.kind, t: r.g.t, p: r.g.p, reasons: r.reasons, fits: r.fits, g: r.g, key: 'id:' + r.g.id }))
+      .filter(r => live(r.key)).slice(0, 12);
     // With a mood asked for, games that fit it go first (rank kept within each group).
     if (MOODS[opts.mood]) tracked = [...tracked.filter(r => r.fits), ...tracked.filter(r => !r.fits)];
-    const all = wildcards(games, src, opts);
+    const all = wildcards(games, src, opts).filter(w => live(w.key));
     // Prefer ones that fit the mood; take the top slice, then shuffle within it.
     const pool = [...all.filter(w => w.fits), ...all.filter(w => !w.fits)].slice(0, 15);
     const wild = shuffleByScore(pool.filter(w => w.fits), rand)
       .concat(shuffleByScore(pool.filter(w => !w.fits), rand))
-      .map(w => ({ kind: w.kind, t: w.t, p: w.p, reasons: w.reasons, fits: w.fits, w }));
+      .map(w => ({ kind: w.kind, t: w.t, p: w.p, reasons: w.reasons, fits: w.fits, w, key: w.key }));
     const out = [];
     let ti = 0, wi = 0;
     const lead = !tracked.length || (opts.mood && !tracked[0].fits && wild.length && wild[0].fits);
@@ -331,7 +372,7 @@
   }
 
   const api = { DEVICES, TIMES, MOODS, pickGames, achLeft, remaining, devicesWithGames, parseHltb,
-    wildcards, owlLineup, normTitle };
+    wildcards, owlLineup, normTitle, SNOOZE_DAYS, nextSkip, isHidden, wildKey };
   root.GTPick = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
