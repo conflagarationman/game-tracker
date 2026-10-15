@@ -250,6 +250,12 @@ for (const width of [390, 1280]) {
     await page.waitForSelector("#struck-link", { state: "hidden" });
     ok(writes[writes.length - 1].path.endsWith("/owl/restore") && writes[writes.length - 1].body.key === key, "restore wrote " + JSON.stringify(writes[writes.length - 1]));
     ok(await page.evaluate(k => !(k in SKIPS), key), "restored game still has an entry");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
+for (const width of [390, 1280]) {
   await test(`owl.html at ${width}px: text blips and the hoot play after a tap, and stop when 🔈 is off`, async () => {
     const { page, errors, ctx } = await open("owl.html", width, { init: () => {
       // A stand-in for Web Audio that only counts the tones asked of it: headless Chromium
