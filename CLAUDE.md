@@ -26,6 +26,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
+| `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start. Read-only except that Start. |
 | `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` from a browser. |
@@ -140,6 +141,10 @@ games you chose to keep) live in `localStorage` only.
   and Someday games whose club pick has 3 months or less left) by time left to the credits
   (`h` minus `actualHours`), recent real play, Up Next position and GOTM deadline, filtered by
   device. The device-to-platform map is `DEVICES` in `pick.js`. "Start" sets `s:"playing"`.
+  `pickGames` also takes an optional `mood` (`MOODS`: chill / deep / finish), used only by
+  `owl.html`; with no mood the ranking is unchanged. Moods match the free-text genre by keyword,
+  so a new genre may need adding to `CHILL_G` / `HARD_G` / `DEEP_G`. Every mode names a game
+  1-5 achievements from 100% (`achLeft`, never for `casual` games).
 - **Play check rows act**: Playing, Finished (date + rating sheet), or ✕, which hides a row
   until that game's `lastPlayed` changes. "Add as playing" deep-links to
   `add.html?t=…&s=playing&p=…`.
@@ -289,7 +294,7 @@ node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
-node scripts/pick.test.mjs             # 14
+node scripts/pick.test.mjs             # 18
 node scripts/wrapped.test.mjs          # 14
 cd worker && node index.test.mjs       # 27
 ```
@@ -298,7 +303,7 @@ cd worker && node index.test.mjs       # 27
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
 eight commands above.
 
-A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html` and
+A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
 on sideways scroll, page errors, or a broken picker/triage/play-check/share-image flow. The
 Worker is stubbed inside the test (writes are recorded, never sent), and every other off-site

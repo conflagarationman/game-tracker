@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 const ctx = {};
 vm.createContext(ctx);
 vm.runInContext(await readFile(new URL("../pick.js", import.meta.url), "utf8"), ctx);
-const { pickGames, remaining, devicesWithGames } = ctx.GTPick;
+const { pickGames, remaining, devicesWithGames, achLeft } = ctx.GTPick;
 
 let pass = 0, fail = 0;
 const test = async (name, fn) => {
@@ -97,14 +97,42 @@ await test("device chips only list devices that have something to play", () => {
   assert.deepEqual(Array.from(devicesWithGames(games)), ["any", "thor"]);
 });
 
-await test("the real games.json produces suggestions for every time and device it lists", async () => {
+await test("the real games.json produces suggestions for every time, device and mood it lists", async () => {
   const games = JSON.parse(await readFile(new URL("../games.json", import.meta.url), "utf8"));
   for (const device of devicesWithGames(games))
-    for (const time of ["quick", "evening", "long"]) {
-      const r = pickGames(games, { device, time, now: NOW });
-      assert.ok(r.length > 0, `${device}/${time} produced nothing`);
-      r.forEach(x => assert.ok(x.reasons.length > 0, `${x.g.t} has no reason`));
-    }
+    for (const time of ["quick", "evening", "long"])
+      for (const mood of [undefined, "chill", "deep", "finish"]) {
+        const r = pickGames(games, { device, time, mood, now: NOW });
+        assert.ok(r.length > 0, `${device}/${time}/${mood} produced nothing`);
+        r.forEach(x => assert.ok(x.reasons.length > 0, `${x.g.t} has no reason`));
+      }
+});
+
+await test("being a few achievements from 100% is a reason; casual and unstarted games aren't", () => {
+  assert.equal(achLeft(g(1, { achCount: [27, 30] })), 3);
+  assert.equal(achLeft(g(1, { achCount: [27, 30], casual: true })), null);
+  assert.equal(achLeft(g(1, { achCount: [0, 3] })), null);
+  assert.equal(achLeft(g(1, { achCount: [10, 30] })), null);
+  assert.equal(achLeft(g(1, { achCount: [30, 30] })), null);
+  const r = pickGames([g(1, { s: "playing", achCount: [29, 30] })], { now: NOW });
+  assert.ok(r[0].reasons.includes("1 achievement from 100%"));
+});
+
+await test("chill mood steers away from soulslikes and lets Ongoing in at any length", () => {
+  const games = [g(1, { s: "playing", g: "Soulslike" }), g(2, { s: "playing", g: "Puzzle" }), g(3, { s: "ongoing", g: "CCG", t: "Snap" })];
+  const r = titles(pickGames(games, { mood: "chill", time: "evening", now: NOW }));
+  assert.ok(r.includes("Snap"));
+  assert.equal(r[r.length - 1], "Game 1");
+});
+
+await test("finish mood prefers what's nearly done over the top of Up Next", () => {
+  const games = [g(1, { h: "30h" }), g(2, { s: "playing", h: "12h", actualHours: 9 })];
+  assert.equal(titles(pickGames(games, { mood: "finish", time: "quick", now: NOW }))[0], "Game 2");
+});
+
+await test("deep mood prefers a long game over a short one", () => {
+  const games = [g(1, { s: "playing", h: "4h" }), g(2, { s: "playing", h: "60h", g: "RPG" })];
+  assert.equal(titles(pickGames(games, { mood: "deep", time: "long", now: NOW }))[0], "Game 2");
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);
