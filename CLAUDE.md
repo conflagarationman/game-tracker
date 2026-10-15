@@ -177,6 +177,15 @@ switch/switch2, everything else PC & TV (Steam can't be told apart from Deck pla
 persona is whichever trait clears its threshold by the most, with the number behind it, and
 "vs last year" compares with the closest earlier year that has finishes.
 
+The **Year of Play poster** on the same page (`posterStats` / `layoutPoster` in
+`wrapped-stats.js`, painted by `drawPoster` in `wrapped.html`) is every non-Idle finish of the
+year as a pixel-art cartridge on a shelf, sized by hours (`actualHours`, else the HLTB
+estimate), coloured by platform, with the title on a procedurally drawn label. **Never put cover
+art on this canvas:** cross-origin images taint it and `toBlob` then fails. Game of the Year
+is the highest rating, ties to the most hours, on the middle pedestal. "Download poster" renders
+3600x4800 (falling back to 3000x4000, then 1800x2400, where a browser caps canvas size);
+the print stylesheet prints only the poster.
+
 ### Array order is meaningful
 
 **The order of records in `games.json` is the Up Next priority.** `index.html` numbers the

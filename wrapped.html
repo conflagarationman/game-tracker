@@ -103,6 +103,21 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .farm-list{list-style:none;display:flex;flex-direction:column;gap:5px;margin-top:0.75rem;}
 .farm-list li{display:flex;gap:0.5rem;align-items:baseline;min-width:0;}
 .empty{color:var(--dim);font-family:'DM Mono',monospace;font-size:0.8rem;padding:2rem 0;text-align:center;}
+
+/* Year of Play poster: the preview is the same drawing as the PNG, just smaller. */
+.poster-panel{margin-bottom:1rem;}
+.poster-wrap{display:flex;flex-direction:column;align-items:center;gap:0.75rem;}
+#poster-canvas{width:100%;max-width:540px;height:auto;aspect-ratio:3/4;border-radius:6px;border:1px solid var(--border2);background:#12121c;image-rendering:pixelated;}
+.poster-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+@media print{
+  @page{size:letter portrait;margin:0;}
+  body *{visibility:hidden;}
+  #poster-sec,#poster-sec *{visibility:visible;}
+  #poster-sec{position:absolute;left:0;top:0;width:100%;}
+  #poster-sec .poster-panel{background:#fff;border:0;padding:0;margin:0;}
+  #poster-sec h2,#poster-sec .poster-acts,#poster-sec .note{display:none;}
+  #poster-canvas{max-width:none;width:100vw;height:auto;border:0;border-radius:0;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+}
 .err{color:#f54242;font-family:'DM Mono',monospace;font-size:0.75rem;}
 </style>
 </head>
@@ -125,7 +140,7 @@ const PL={steam:'Steam',steamdeck:'Steam Deck',pc:'PC',ps5:'PS5',switch:'Switch'
 const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
 const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DEV_COL={handheld:'#ff4af0',hybrid:'#4aff8c',desk:'#00e5ff'};
-let G=[], COVERS={}, Y=null, D=null, ASF=null;
+let G=[], COVERS={}, Y=null, D=null, ASF=null, POSTER_D=null;
 
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const hours = g => GTWrapped.hours(g);
@@ -180,6 +195,7 @@ function render(){
   const e=d.eras, eraRow=(k,label,col)=>`<span class="lg"><span class="dot" style="background:${col}"></span>${label} ${Math.round(e[k].pct)}% <span class="dim">(${e[k].n})</span></span>`;
   const goty=d.goty;
   const standouts=d.months.filter(m=>m.top);
+  const P=POSTER_D=GTWrapped.posterStats(G,Y);
 
   document.getElementById('main').innerHTML=`
   <section class="hero" id="wr-hero" aria-label="Summary">
@@ -274,11 +290,161 @@ function render(){
       </div>
     </section>
 
+  ${P&&P.games?`<section id="poster-sec" aria-labelledby="h-poster"><div class="panel poster-panel"><h2 id="h-poster">Year of Play poster</h2>
+    <div class="poster-wrap">
+      <canvas id="poster-canvas" role="img" aria-label="${esc(posterAlt())}"></canvas>
+      <div class="poster-acts">
+        <button type="button" class="btn" onclick="downloadPoster()">Download poster</button>
+        <button type="button" class="btn" onclick="window.print()">Print</button>
+      </div>
+      <span class="note" id="poster-msg" role="status">${P.games} cartridges, sized by hours played${P.goty?'. Game of the Year in the middle':''}.</span>
+    </div></div></section>`:''}
+
   <div class="share">
     <button type="button" class="btn" onclick="shareImage()">Save share image</button>
     <span class="note" id="share-msg" role="status"></span>
   </div>
   ${d.undated||d.undatedMonth?`<p class="note">${d.undated?`${d.undated} finished game${d.undated===1?' has':'s have'} no year, so ${d.undated===1?'it isn’t':'they aren’t'} counted in any year. `:''}${d.undatedMonth?`${d.undatedMonth} from ${Y} ${d.undatedMonth===1?'has':'have'} no month. `:''}Fix them from the Archive’s “Fill in” button on the <a href="index.html">game log</a>.</p>`:''}`;
+  drawPosterPreview();
+}
+
+
+// ─── Year of Play poster ───────────────────────────────
+// Pixel-art cartridges on a shelf, drawn procedurally: platform colours and the title on a
+// label, never cover art, which would taint the canvas and break the PNG export. Geometry
+// comes from GTWrapped.posterStats (wrapped-stats.js, unit-tested); this file only paints it.
+function posterAlt(){
+  const P=POSTER_D; if(!P||!P.games) return `${Y} Year of Play poster: nothing finished yet`;
+  return `${Y} Year of Play poster: ${P.games} games, ${fmtH(P.hours)} hours${P.goty?`, Game of the Year ${P.goty.t}`:''}`;
+}
+const POSTER_FONT="'DM Mono', monospace";
+function shade(hex,f){ // f<1 darkens, >1 lightens toward white
+  const n=parseInt(hex.slice(1),16), ch=i=>{ const v=(n>>(16-8*i))&255; return Math.max(0,Math.min(255,Math.round(f>1?v+(255-v)*(f-1):v*f))); };
+  return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
+}
+function wrapTitle(x,title,maxW,maxLines,size){
+  // Shrinks the type until the title fits in maxLines, then ellipsises whatever still doesn't.
+  for(let fs=size; fs>=Math.max(4,size*0.5); fs-=0.5){
+    x.font=`700 ${fs}px ${POSTER_FONT}`;
+    const words=title.split(/\s+/), lines=[]; let cur='';
+    for(const w of words){
+      let word=w;
+      while(x.measureText(word).width>maxW&&word.length>1) { // a single over-long word: hard-break it
+        let k=word.length-1; while(k>1&&x.measureText(word.slice(0,k)+'-').width>maxW) k--;
+        if(cur){ lines.push(cur); cur=''; }
+        lines.push(word.slice(0,k)+'-'); word=word.slice(k);
+      }
+      const t=cur?cur+' '+word:word;
+      if(x.measureText(t).width<=maxW) cur=t; else { lines.push(cur); cur=word; }
+    }
+    if(cur) lines.push(cur);
+    if(lines.length<=maxLines) return {fs,lines};
+    if(fs-0.5<Math.max(4,size*0.5)){
+      const out=lines.slice(0,maxLines); let last=out[maxLines-1];
+      while(last.length>1&&x.measureText(last+'…').width>maxW) last=last.slice(0,-1);
+      out[maxLines-1]=last+'…'; return {fs,lines:out};
+    }
+  }
+}
+function drawCart(x,c,G){
+  const g=c.g, col=PC[g.p]||'#888890', q=v=>Math.round(v/G)*G;
+  const X=q(c.x), Y0=q(c.y), W=c.w, H=c.h, big=!!c.goty;
+  // shell with notched top corners, a one-pixel bevel, and a connector strip with teeth
+  x.fillStyle='#2b2b33'; x.fillRect(X+G,Y0,W-G*3,H); x.fillRect(X,Y0+G,W,H-G);
+  x.fillStyle='#4a4a54'; x.fillRect(X+G,Y0,W-G*3,G/2); x.fillRect(X,Y0+G,G/2,H-G*2);
+  x.fillStyle='#1a1a20'; x.fillRect(X+W-G/2,Y0+G*2,G/2,H-G*3);
+  x.fillStyle='#1a1a20'; x.fillRect(X+G,Y0+H-G*2,W-G*2,G*2);
+  x.fillStyle='#a8863a'; for(let tx=X+G*2; tx<X+W-G*2; tx+=G*2) x.fillRect(tx,Y0+H-G*1.5,G,G);
+  // label
+  const lx=X+G*2, lw=W-G*4, ly=Y0+G*3, lh=Math.round((H-G*7)/G)*G;
+  x.fillStyle='#ece7d6'; x.fillRect(lx,ly,lw,lh);
+  x.fillStyle=col; x.fillRect(lx,ly,lw,G*3);                       // platform band
+  x.fillStyle=shade(col,0.55); x.fillRect(lx,ly+G*3,lw,G/2);
+  x.fillStyle=col; x.fillRect(lx,ly+lh-G*1.5,lw,G*1.5);             // bottom stripe
+  x.textBaseline='top'; x.textAlign='left';
+  const code=(PL[g.p]||g.p).toUpperCase();
+  x.font=`700 ${G*2}px ${POSTER_FONT}`; x.fillStyle='#0e0e10';
+  let tag=code; while(tag.length>1&&x.measureText(tag).width>lw-G) tag=tag.slice(0,-1);
+  x.fillText(tag,lx+G/2,ly+G*0.6);
+  // title
+  const bodyTop=ly+G*3.5+G/2, bodyH=lh-G*3.5-G*2, maxLines=big?4:W>=84?3:2;
+  const size=big?G*6:Math.max(G*1.6,Math.min(G*2.6,lw/9));
+  const t=wrapTitle(x,g.t,lw-G,maxLines,size); x.fillStyle='#0e0e10';
+  const lineH=t.fs*1.15, blockH=lineH*t.lines.length, startY=bodyTop+Math.max(0,(bodyH-blockH)/2);
+  x.font=`700 ${t.fs}px ${POSTER_FONT}`;
+  t.lines.forEach((ln,i)=>x.fillText(ln,lx+G/2,startY+i*lineH));
+  if(g.r&&(big||W>=84)){ x.font=`700 ${G*1.9}px ${POSTER_FONT}`; x.fillStyle='#0e0e10'; x.fillText(`${g.r}/10`,lx+G/2,ly+lh-G*1.4); }
+}
+function drawPoster(canvas,scale){
+  const P=POSTER_D, L=P.layout, W=L.W, H=L.H, G=L.grid;
+  canvas.width=W*scale; canvas.height=H*scale;
+  const x=canvas.getContext('2d'); x.imageSmoothingEnabled=false;
+  x.setTransform(scale,0,0,scale,0,0);
+  // night wall with deterministic stars, so the same year always prints the same poster
+  x.fillStyle='#12121c'; x.fillRect(0,0,W,H);
+  x.fillStyle='#181826'; for(let sx=0;sx<W;sx+=G*12) x.fillRect(sx,0,G/2,H);
+  let seed=Y*9301+49297; const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;
+  for(let i=0;i<70;i++){ x.fillStyle=rnd()>.8?'#c8f542':'#3a3a52'; x.fillRect(Math.round(rnd()*W/G)*G,Math.round(rnd()*190/G)*G,G,G); }
+  // title block
+  x.textBaseline='alphabetic'; x.textAlign='center';
+  x.fillStyle='#888890'; x.font=`500 20px ${POSTER_FONT}`; x.fillText('YEAR OF PLAY',W/2,64);
+  x.fillStyle='#2d3a0a'; x.font=`800 120px 'Syne', sans-serif`; x.fillText(String(P.year),W/2+G,164+G);
+  x.fillStyle='#c8f542'; x.fillText(String(P.year),W/2,164);
+  // shelves
+  L.shelves.forEach(s=>{
+    x.fillStyle='#a06a3f'; x.fillRect(s.x0,s.y,s.x1-s.x0,G); 
+    x.fillStyle='#7a4e2d'; x.fillRect(s.x0,s.y+G,s.x1-s.x0,12);
+    x.fillStyle='#4d2f1a'; x.fillRect(s.x0,s.y+G+12,s.x1-s.x0,G);
+    x.fillStyle='#00000040'; x.fillRect(s.x0+G,s.y+G*2+12,s.x1-s.x0-G*2,G*2);
+  });
+  L.carts.forEach(c=>drawCart(x,c,G));
+  if(L.goty){
+    const c=L.goty, cx=c.x+c.w/2;
+    // stepped gold halo, plaque, then the cartridge itself
+    [[1.9,'#ffd23a14'],[1.55,'#ffd23a1c'],[1.25,'#ffd23a26']].forEach(([m,f])=>{ const w=Math.round(c.w*m/G)*G, h=Math.round(c.h*m/G)*G; x.fillStyle=f; x.fillRect(Math.round((cx-w/2)/G)*G,Math.round((c.y+c.h/2-h/2)/G)*G,w,h); });
+    const pw=300, px=Math.round((W-pw)/G/2)*G;
+    x.fillStyle='#a8863a'; x.fillRect(px,c.plaqueY+G,pw,36); x.fillStyle='#ffd23a'; x.fillRect(px+G,c.plaqueY+G*2,pw-G*2,36-G*2);
+    x.fillStyle='#3a2a05'; x.font=`700 18px ${POSTER_FONT}`; x.textAlign='center'; x.textBaseline='middle';
+    x.fillText('★ GAME OF THE YEAR ★',W/2,c.plaqueY+G+18);
+    drawCart(x,Object.assign({},c,{goty:true}),G);
+    x.textAlign='center'; x.textBaseline='top'; x.fillStyle='#ffd23a'; x.font=`700 16px ${POSTER_FONT}`;
+    x.fillText(`${P.goty.r}/10 · ${fmtH(c.hours)}h`,W/2,c.y+c.h+G*5);
+  }
+  // footer
+  const fy=1068, items=[[String(P.games),'GAMES'],[`${fmtH(P.hours)}h`,'HOURS'],[P.topPlatform?(PL[P.topPlatform.p]||P.topPlatform.p):'–','TOP PLATFORM'],[P.streak?`${P.streak} mo`:'–','LONGEST STREAK']];
+  x.fillStyle='#1d1d2a'; x.fillRect(G*10,fy,W-G*20,96); x.fillStyle='#c8f542'; x.fillRect(G*10,fy,W-G*20,G/2);
+  const colW=(W-G*20)/4; x.textBaseline='alphabetic';
+  items.forEach(([n,l],i)=>{ const cx=G*10+colW*i+colW/2; x.textAlign='center';
+    let fs=40; x.font=`800 ${fs}px 'Syne', sans-serif`; while(fs>18&&x.measureText(n).width>colW-16){ fs-=2; x.font=`800 ${fs}px 'Syne', sans-serif`; }
+    x.fillStyle=['#42f5a0','#42c8f5','#c8f542','#ff4af0'][i]; x.fillText(n,cx,fy+54);
+    x.fillStyle='#888890'; x.font=`500 14px ${POSTER_FONT}`; x.fillText(l,cx,fy+80); });
+  x.fillStyle='#555560'; x.font=`500 14px ${POSTER_FONT}`; x.textAlign='center'; x.fillText('GAME LOG',W/2,H-18);
+  x.textAlign='left';
+}
+async function drawPosterPreview(){
+  const canvas=document.getElementById('poster-canvas'); if(!canvas) return;
+  if(!POSTER_D||!POSTER_D.games) return;
+  try{ await document.fonts.ready; }catch(e){}
+  drawPoster(canvas,2);
+}
+// 3600x4800 (3:4, a 12x16 print at 300 dpi). That is over iOS Safari's canvas limit
+// (16.7 megapixels), so a failed export steps down to 3000x4000 and then 1800x2400
+// rather than giving up.
+async function downloadPoster(){
+  const msg=document.getElementById('poster-msg'); msg.textContent='Drawing…';
+  try{
+    await document.fonts.ready;
+    let blob=null, used=0;
+    for(const s of [4,3.333,2]){
+      const c=document.createElement('canvas'); drawPoster(c,s);
+      blob=await new Promise(r=>c.toBlob(r,'image/png')); used=s; if(blob&&blob.size>20000) break; blob=null;
+    }
+    if(!blob) throw new Error('this browser could not make an image that large');
+    const file=new File([blob],`year-of-play-${Y}.png`,{type:'image/png'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=file.name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    msg.textContent=`Saved ${900*used} × ${1200*used}.`;
+  }catch(e){ msg.textContent=`Couldn’t make the poster: ${e.message}`; }
 }
 
 // ─── Share image ───────────────────────────────────────
