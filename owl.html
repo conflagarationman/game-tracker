@@ -24,7 +24,16 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .back:hover{color:var(--text);}
 /* Syne's 800 weight is wide: at 1.4rem the title alone overflowed a 375px phone. */
 h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);white-space:nowrap;min-width:0;}
-@media (max-width:440px){ h1{font-size:1.1rem;} .back{padding:.35rem .6rem;} }
+@media (max-width:440px){ h1{font-size:1.1rem;} .back{padding:.35rem .6rem;} .back-l{display:none;} }
+.music{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--border2);background:transparent;color:var(--muted);
+  font-size:1rem;cursor:pointer;}
+.music:hover,.music:focus-visible{color:var(--text);border-color:var(--muted);outline:none;}
+.music[aria-pressed="true"]{color:#0e0e10;background:var(--accent);border-color:var(--accent);}
+/* YouTube's own player, visible while the music is on: its terms don't allow hiding it to play
+   audio only, and 200px is its minimum height. */
+.tune{border-radius:12px;overflow:hidden;border:1px solid var(--border);aspect-ratio:16/9;min-height:200px;background:#000;}
+.tune[hidden]{display:none;}
+.tune iframe,.tune #yt{width:100%;height:100%;display:block;border:0;}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
 
 /* ─── The scene: Hyrule Field at night ───────────────── */
@@ -110,8 +119,9 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 <body>
 <div class="wrap">
   <div class="top">
-    <a class="back" href="index.html">← Tracker</a>
+    <a class="back" href="index.html" aria-label="Back to the tracker">←<span class="back-l"> Tracker</span></a>
     <h1>Kaepora Gaebora</h1>
+    <button type="button" class="music" id="music" aria-pressed="false" title="Play Kaepora Gaebora's theme" onclick="toggleMusic()">♪</button>
   </div>
 
   <div class="scene" id="scene" aria-hidden="true">
@@ -202,6 +212,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 
   <div class="pick" id="pick"></div>
   <div class="choices" id="choices"></div>
+  <div class="tune" id="tune" hidden><div id="yt"></div></div>
   <div class="foot"><span id="count"></span><button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button></div>
 </div>
 
@@ -465,6 +476,60 @@ function showCard(p){
     <div class="why">${p.reasons.map(esc).join(' · ')}</div></div>`;
   el.classList.add('show');
 }
+
+// ─── Music ─────────────────────────────────────────────
+// Kaepora Gaebora's theme, through YouTube's embedded player rather than a copy of the audio.
+// Off until asked for: nothing is loaded from YouTube until the ♪ is pressed. The choice is
+// remembered, but browsers only allow sound after a tap, so a remembered "on" waits for the
+// first tap anywhere on the page.
+const THEME = 'iAmh9ZClNIU';
+let YT_PLAYER = null, ytLoading = null;
+function loadYouTube(){
+  if (ytLoading) return ytLoading;
+  ytLoading = new Promise((resolve, reject) => {
+    window.onYouTubeIframeAPIReady = resolve;
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => { ytLoading = null; reject(new Error('YouTube unreachable')); };
+    document.head.appendChild(s);
+  });
+  return ytLoading;
+}
+async function musicOn(){
+  $('music').setAttribute('aria-pressed', 'true');
+  $('tune').hidden = false;
+  try {
+    await loadYouTube();
+    if (YT_PLAYER){ YT_PLAYER.playVideo(); return; }
+    YT_PLAYER = new YT.Player('yt', {
+      videoId: THEME,
+      playerVars: { autoplay: 1, loop: 1, playlist: THEME, playsinline: 1, rel: 0 },
+      events: { onReady: e => { e.target.setVolume(45); e.target.playVideo(); } },
+    });
+  } catch (err) {
+    console.warn('Music unavailable', err);
+    musicOff(false);
+    $('music').title = "Couldn't reach YouTube";
+  }
+}
+function musicOff(remember = true){
+  $('music').setAttribute('aria-pressed', 'false');
+  $('tune').hidden = true;
+  if (YT_PLAYER && YT_PLAYER.pauseVideo) YT_PLAYER.pauseVideo();
+  if (remember) try { localStorage.setItem('gt_owl_music', '0'); } catch(e){}
+}
+function toggleMusic(){
+  if ($('music').getAttribute('aria-pressed') === 'true') return musicOff();
+  try { localStorage.setItem('gt_owl_music', '1'); } catch(e){}
+  musicOn();
+}
+try {
+  if (localStorage.getItem('gt_owl_music') === '1')
+    document.addEventListener('pointerdown', function first(e){
+      document.removeEventListener('pointerdown', first);
+      if (!e.target.closest('#music')) musicOn();
+    });
+} catch(e){}
 
 // A sky of stars, placed once. Kept out of the top-right so the moon has room.
 (function stars(){
