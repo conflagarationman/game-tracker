@@ -29,11 +29,6 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   font-size:1rem;cursor:pointer;}
 .music:hover,.music:focus-visible{color:var(--text);border-color:var(--muted);outline:none;}
 .music[aria-pressed="true"]{color:#0e0e10;background:var(--accent);border-color:var(--accent);}
-/* YouTube's own player, visible while the music is on: its terms don't allow hiding it to play
-   audio only, and 200px is its minimum height. */
-.tune{border-radius:12px;overflow:hidden;border:1px solid var(--border);aspect-ratio:16/9;min-height:200px;background:#000;}
-.tune[hidden]{display:none;}
-.tune iframe,.tune #yt{width:100%;height:100%;display:block;border:0;}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
 
 /* ─── The scene: Hyrule Field at night ───────────────── */
@@ -123,7 +118,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   <div class="top">
     <a class="back" href="index.html" aria-label="Back to the tracker">←<span class="back-l"> Tracker</span></a>
     <h1>Kaepora Gaebora</h1>
-    <button type="button" class="music" id="music" aria-pressed="false" title="Play Kaepora Gaebora's theme" onclick="toggleMusic()">♪</button>
+    <button type="button" class="music" id="music" aria-pressed="false" title="Music: the Hoo-Hoo Waltz" onclick="toggleMusic()">♪</button>
   </div>
 
   <div class="scene" id="scene" aria-hidden="true">
@@ -214,7 +209,6 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 
   <div class="pick" id="pick"></div>
   <div class="choices" id="choices"></div>
-  <div class="tune" id="tune" hidden><div id="yt"></div></div>
   <div class="foot"><span id="count"></span><button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button></div>
 </div>
 
@@ -523,44 +517,117 @@ function showCard(p){
 }
 
 // ─── Music ─────────────────────────────────────────────
-// Kaepora Gaebora's theme, through YouTube's embedded player rather than a copy of the audio.
-// On by default, but browsers only allow sound after a tap, so it starts on the first tap
-// anywhere on the page (answering his first question is one). Nothing loads from YouTube
-// before that tap. Turning it off with the ♪ is remembered.
-const THEME = 'iAmh9ZClNIU';
-let YT_PLAYER = null, ytLoading = null;
-function loadYouTube(){
-  if (ytLoading) return ytLoading;
-  ytLoading = new Promise((resolve, reject) => {
-    window.onYouTubeIframeAPIReady = resolve;
-    const s = document.createElement('script');
-    s.src = 'https://www.youtube.com/iframe_api';
-    s.onerror = () => { ytLoading = null; reject(new Error('YouTube unreachable')); };
-    document.head.appendChild(s);
-  });
-  return ytLoading;
+// "Hoo-Hoo Waltz": an original little chiptune, synthesised right here with the Web Audio API.
+// No file, nothing fetched, nothing on screen. It is deliberately NOT Kaepora Gaebora's theme
+// (that's Nintendo's): the only nod is the falling minor third of a real owl's "hoo-hoo",
+// which opens the melody. F major, 3/4, 16 bars, looped.
+//
+// On by default, but browsers only allow sound after a tap or key press, so it starts on the
+// first one (answering his first question is one). Turning it off with the ♪ is remembered.
+// It pauses while the tab is hidden.
+const TUNE = {
+  bpm: 100,
+  // Melody as "note:beats", one string per bar; "R" is a rest.
+  lead: [
+    'C5:1.5 A4:0.5 F4:1', 'D5:1.5 A4:0.5 F4:1', 'D5:1 F5:1 D5:1',    'C5:2 R:1',
+    'C5:1.5 A4:0.5 F4:1', 'E5:1 D5:1 A4:1',     'Bb4:1 D5:1 G4:1',   'A4:1.5 G4:0.5 E4:1',
+    'F5:1 D5:1 Bb4:1',    'C5:2 A4:1',          'Bb4:1 A4:1 G4:1',   'A4:1.5 F4:0.5 D4:1',
+    'D5:1 F5:1 D5:1',     'C5:1 A4:1 F4:1',     'G4:1 Bb4:1 E5:1',   'F5:2 R:1',
+  ],
+  // One chord per bar, root first; the bass and the arpeggio are built from these.
+  chords: [
+    'F3 A3 C4', 'D3 F3 A3', 'Bb2 D3 F3', 'C3 E3 G3', 'F3 A3 C4', 'D3 F3 A3', 'G2 Bb2 D3', 'C3 E3 G3',
+    'Bb2 D3 F3', 'F3 A3 C4', 'G2 Bb2 D3', 'D3 F3 A3', 'Bb2 D3 F3', 'F3 A3 C4', 'C3 E3 G3', 'F3 A3 C4',
+  ],
+};
+const SEMI = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+function freq(name){
+  const m = /^([A-G])(b|#)?(\d)$/.exec(name);
+  const n = SEMI[m[1]] + (m[2] === 'b' ? -1 : m[2] === '#' ? 1 : 0) + (Number(m[3]) + 1) * 12;
+  return 440 * Math.pow(2, (n - 69) / 12);
 }
-async function musicOn(){
+// Every note of one pass of the loop: { at (beats), len (beats), f (Hz), v (voice) }.
+const SCORE = (() => {
+  const out = [];
+  TUNE.lead.forEach((bar, i) => {
+    let at = i * 3;
+    for (const tok of bar.split(' ')){
+      const [n, b] = tok.split(':'); const len = Number(b);
+      if (n !== 'R') out.push({ at, len, f: freq(n), v: 'lead' });
+      at += len;
+    }
+  });
+  TUNE.chords.forEach((ch, i) => {
+    const [r, third, fifth] = ch.split(' ').map(freq);
+    out.push({ at: i * 3, len: 1.9, f: r / 2, v: 'bass' });          // root, then the fifth
+    out.push({ at: i * 3 + 2, len: 0.9, f: fifth / 2, v: 'bass' });
+    [r, third, fifth, r * 2, fifth, third].forEach((f, k) => out.push({ at: i * 3 + k / 2, len: 0.4, f: f * 2, v: 'arp' }));
+  });
+  return out.sort((a, b) => a.at - b.at);
+})();
+const LOOP_BEATS = TUNE.lead.length * 3;
+const VOICES = { lead: { type:'square', gain:0.32 }, bass: { type:'triangle', gain:0.55 }, arp: { type:'square', gain:0.07 } };
+
+let AC = null, OUT = null, tick = null, loopStart = 0, nextIdx = 0, playing = false;
+function audioSetup(){
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const soften = AC.createBiquadFilter();               // takes the edge off the square waves
+  soften.type = 'lowpass'; soften.frequency.value = 2600;
+  OUT = AC.createGain(); OUT.gain.value = 0;
+  OUT.connect(soften).connect(AC.destination);
+}
+function playNote(n, when){
+  const spb = 60 / TUNE.bpm, v = VOICES[n.v], dur = n.len * spb;
+  const osc = AC.createOscillator(), env = AC.createGain();
+  osc.type = v.type; osc.frequency.value = n.f;
+  if (n.v === 'lead' && n.len >= 1.5){                   // a little vibrato on held notes
+    const lfo = AC.createOscillator(), depth = AC.createGain();
+    lfo.frequency.value = 5.5; depth.gain.value = n.f * 0.006;
+    lfo.connect(depth).connect(osc.frequency); lfo.start(when + 0.25); lfo.stop(when + dur);
+  }
+  env.gain.setValueAtTime(0, when);
+  env.gain.linearRampToValueAtTime(v.gain, when + 0.012);
+  env.gain.setTargetAtTime(v.gain * 0.6, when + 0.05, 0.12);
+  env.gain.setTargetAtTime(0, when + Math.max(0.05, dur - 0.06), 0.03);
+  osc.connect(env).connect(OUT);
+  osc.start(when); osc.stop(when + dur + 0.2);
+}
+// Look-ahead scheduler: every 50ms, queue whatever falls in the next 0.25s, so timing stays
+// tight even when the page is busy typing out the owl's lines.
+function schedule(){
+  const spb = 60 / TUNE.bpm;
+  while (true){
+    if (nextIdx >= SCORE.length){ nextIdx = 0; loopStart += LOOP_BEATS * spb; }
+    const n = SCORE[nextIdx], when = loopStart + n.at * spb;
+    if (when > AC.currentTime + 0.25) break;
+    if (when >= AC.currentTime - 0.01) playNote(n, when);
+    nextIdx++;
+  }
+}
+function musicOn(){
   $('music').setAttribute('aria-pressed', 'true');
-  $('tune').hidden = false;
+  if (playing) return;
   try {
-    await loadYouTube();
-    if (YT_PLAYER){ YT_PLAYER.playVideo(); return; }
-    YT_PLAYER = new YT.Player('yt', {
-      videoId: THEME,
-      playerVars: { autoplay: 1, loop: 1, playlist: THEME, playsinline: 1, rel: 0 },
-      events: { onReady: e => { e.target.setVolume(45); e.target.playVideo(); } },
-    });
+    if (!AC) audioSetup();
+    AC.resume();
+    playing = true;
+    loopStart = AC.currentTime + 0.1; nextIdx = 0;
+    OUT.gain.cancelScheduledValues(AC.currentTime);
+    OUT.gain.setValueAtTime(0, AC.currentTime);
+    OUT.gain.linearRampToValueAtTime(0.2, AC.currentTime + 1.5);    // fade in
+    schedule(); tick = setInterval(schedule, 50);
   } catch (err) {
     console.warn('Music unavailable', err);
     musicOff(false);
-    $('music').title = "Couldn't reach YouTube";
   }
 }
 function musicOff(remember = true){
   $('music').setAttribute('aria-pressed', 'false');
-  $('tune').hidden = true;
-  if (YT_PLAYER && YT_PLAYER.pauseVideo) YT_PLAYER.pauseVideo();
+  if (playing && AC){
+    clearInterval(tick); playing = false;
+    OUT.gain.cancelScheduledValues(AC.currentTime);
+    OUT.gain.setTargetAtTime(0, AC.currentTime, 0.08);              // quick fade, no click
+  }
   if (remember) try { localStorage.setItem('gt_owl_music', '0'); } catch(e){}
 }
 function toggleMusic(){
@@ -568,12 +635,18 @@ function toggleMusic(){
   try { localStorage.setItem('gt_owl_music', '1'); } catch(e){}
   musicOn();
 }
+document.addEventListener('visibilitychange', () => {
+  if (!AC) return;
+  if (document.hidden) AC.suspend(); else if (playing) AC.resume();
+});
 try {
-  if (localStorage.getItem('gt_owl_music') !== '0')
-    document.addEventListener('pointerdown', function first(e){
-      document.removeEventListener('pointerdown', first);
-      if (!e.target.closest('#music')) musicOn();
-    });
+  if (localStorage.getItem('gt_owl_music') !== '0'){
+    const first = (e) => {
+      document.removeEventListener('pointerdown', first); document.removeEventListener('keydown', first);
+      if (!(e.target.closest && e.target.closest('#music'))) musicOn();
+    };
+    document.addEventListener('pointerdown', first); document.addEventListener('keydown', first);
+  }
 } catch(e){}
 
 // A sky of stars, placed once. Kept out of the top-right so the moon has room.
