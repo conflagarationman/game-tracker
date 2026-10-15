@@ -265,6 +265,13 @@
   const STEAM_DEVICES = ['any', 'pc', 'deck'];
   const RETRO_DEVICES = ['any', 'thor'];
 
+  // How a game's length nudges the ranking for the session asked about: a half-hour session
+  // favours something short (or replayable, which is length 0), a long haul favours a big one.
+  // Shared by the canon's own `h` and the estimates in library-hltb.json.
+  function lengthScore(hrs, time, quick) {
+    return quick ? (hrs <= 3 ? 10 : hrs >= 20 ? -10 : 0) : time.hours >= 8 && hrs >= 20 ? 8 : 0;
+  }
+
   function wildcards(games, src = {}, opts = {}) {
     const time = TIMES[opts.time] || TIMES.evening;
     const quick = time === TIMES.quick;
@@ -273,11 +280,26 @@
     const now = opts.now || new Date();
     const tracked = new Set(games.map(g => normTitle(g.t)));
     const out = [];
+    // library-hltb.json (scripts/library-hltb.mjs) holds a HowLongToBeat estimate for the
+    // wildcards that have one, under the same key the skips use. It gives them the hours the
+    // tracked games have in `h`: how long is left (a favourite you've sunk hours into, a half-
+    // finished RA run) rather than how long it is, with 0 meaning "past the estimate, so
+    // replayable". Without an estimate they score exactly as before.
+    const estimates = src.hltb || {};
     const add = (w, genre, base, extra = {}) => {
-      const m = moodFit(mood, genre, { time, quick, ...extra });
+      const key = wildKey(w);
+      const est = w.kind === 'retro-canon' ? null : parseHltb((estimates[key] || {}).h);
+      let left = extra.left != null ? extra.left : null, timeScore = w.timeScore || 0;
       const reasons = [w.reason];
+      if (est != null) {
+        left = w.kind === 'steam-favourite' ? Math.max(est - w.hours, 0)
+          : w.kind === 'retro-started' ? est * (1 - w.pct / 100) : est;
+        timeScore += lengthScore(left, time, quick);
+        if (left === est) reasons.push(`~${round(est)}h to beat`);
+      }
+      const m = moodFit(mood, genre, { time, quick, ...extra, left });
       if (m.reason) reasons.push(m.reason[1]);
-      out.push({ ...w, key: wildKey(w), score: base + m.score + (w.timeScore || 0), fits: m.fits, reasons });
+      out.push({ ...w, key, score: base + m.score + timeScore, fits: m.fits, reasons });
     };
 
     const lib = src.library || {};
@@ -308,7 +330,7 @@
         if (tracked.has(normTitle(r.title)) || !r.total) continue;
         const pct = Math.round(r.earned / r.total * 100);
         if (r.earned < 1 || pct < 5 || pct > 90) continue;
-        add({ kind: 'retro-started', t: r.title, p: 'retro', console: r.console,
+        add({ kind: 'retro-started', t: r.title, p: 'retro', console: r.console, pct,
               reason: `${r.earned}/${r.total} achievements${r.console ? ' on ' + r.console : ''}`, timeScore: quick ? 5 : 0 },
             '', 18 + pct / 10);
       }
@@ -323,7 +345,7 @@
         const key = normTitle(c.t);
         if (tracked.has(key) || raSeen.has(key)) continue;
         const hrs = parseHltb(c.h);
-        const timeScore = hrs == null ? 0 : quick ? (hrs <= 3 ? 10 : hrs >= 20 ? -10 : 0) : time.hours >= 8 && hrs >= 20 ? 8 : 0;
+        const timeScore = hrs == null ? 0 : lengthScore(hrs, time, quick);
         add({ kind: 'retro-canon', t: c.t, p: 'retro', console: c.c, year: c.y, g: c.g, h: c.h,
               reason: `${c.c}, ${c.y}: ${c.why}`, timeScore },
             c.g, 14, { left: hrs });
@@ -339,6 +361,23 @@
       .sort((a, b) => b.k - a.k).map(o => o.x);
   }
 
+  const trackedEntry = (r) => ({ kind: r.kind, t: r.g.t, p: r.g.p, reasons: r.reasons, fits: r.fits, g: r.g, key: 'id:' + r.g.id });
+  const wildEntry = (w) => ({ kind: w.kind, t: w.t, p: w.p, reasons: w.reasons, fits: w.fits, w, key: w.key });
+
+  // The weekend pick (owl-pick.json's `weekend`, and owl.html?pick=<key>) is asked as: any
+  // device, a long session, no mood. Both ends use this so the link shows what the nudge said.
+  const WEEKEND = { device: 'any', time: 'long' };
+
+  // One game by its key, from the full pool rather than a lineup: a link made on Friday has to
+  // keep working after the day's lineup has moved on. Ignores skips on purpose; the caller
+  // decides what a snoozed game means. Null when the game is gone or no longer a candidate.
+  function owlFind(games, src = {}, key, opts = WEEKEND) {
+    const hit = pickGames(games, { ...opts, someday: true, limit: 100000 }).map(trackedEntry).find(r => r.key === key);
+    if (hit) return hit;
+    const w = wildcards(games, src, opts).find(x => x.key === key);
+    return w ? wildEntry(w) : null;
+  }
+
   // The owl's running order: tracked and Someday games by rank, with a wildcard every third
   // suggestion, and one in the lead when a mood was asked for and the best tracked game doesn't
   // fit it (or there is no tracked game at all). Each entry: { kind, t, p, reasons, fits, key, g|w }.
@@ -348,8 +387,7 @@
     const now = opts.now || new Date();
     const live = (key) => !isHidden(skips[key], now);
     // Ask for more than we show, so snoozed games leaving the top doesn't leave the lineup short.
-    let tracked = pickGames(games, { ...opts, someday: true, limit: 40 })
-      .map(r => ({ kind: r.kind, t: r.g.t, p: r.g.p, reasons: r.reasons, fits: r.fits, g: r.g, key: 'id:' + r.g.id }))
+    let tracked = pickGames(games, { ...opts, someday: true, limit: 40 }).map(trackedEntry)
       .filter(r => live(r.key)).slice(0, 12);
     // With a mood asked for, games that fit it go first (rank kept within each group).
     if (MOODS[opts.mood]) tracked = [...tracked.filter(r => r.fits), ...tracked.filter(r => !r.fits)];
@@ -358,7 +396,7 @@
     const pool = [...all.filter(w => w.fits), ...all.filter(w => !w.fits)].slice(0, 15);
     const wild = shuffleByScore(pool.filter(w => w.fits), rand)
       .concat(shuffleByScore(pool.filter(w => !w.fits), rand))
-      .map(w => ({ kind: w.kind, t: w.t, p: w.p, reasons: w.reasons, fits: w.fits, w, key: w.key }));
+      .map(wildEntry);
     const out = [];
     let ti = 0, wi = 0;
     const lead = !tracked.length || (opts.mood && !tracked[0].fits && wild.length && wild[0].fits);
@@ -372,7 +410,7 @@
   }
 
   const api = { DEVICES, TIMES, MOODS, pickGames, achLeft, remaining, devicesWithGames, parseHltb,
-    wildcards, owlLineup, normTitle, SNOOZE_DAYS, nextSkip, isHidden, wildKey };
+    wildcards, owlLineup, owlFind, normTitle, SNOOZE_DAYS, nextSkip, isHidden, wildKey, WEEKEND };
   root.GTPick = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
