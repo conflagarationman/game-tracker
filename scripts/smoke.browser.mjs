@@ -40,7 +40,7 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 
 // A page with the Worker stubbed and the outside world cut off. Returns the page, the writes
 // it attempted, and the uncaught errors it hit.
-async function open(path, width, { clock = false, reducedMotion = "no-preference" } = {}) {
+async function open(path, width, { clock = false, reducedMotion = "no-preference", init = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 500, isMobile: width < 500, reducedMotion });
   const page = await ctx.newPage();
   const writes = [], errors = [];
@@ -58,6 +58,7 @@ async function open(path, width, { clock = false, reducedMotion = "no-preference
     }
     return route.abort();
   });
+  if (init) await page.addInitScript(init);
   if (clock) await page.clock.install();
   await page.goto(BASE + "/" + path);
   return { page, writes, errors, ctx };
@@ -249,6 +250,42 @@ for (const width of [390, 1280]) {
     await page.waitForSelector("#struck-link", { state: "hidden" });
     ok(writes[writes.length - 1].path.endsWith("/owl/restore") && writes[writes.length - 1].body.key === key, "restore wrote " + JSON.stringify(writes[writes.length - 1]));
     ok(await page.evaluate(k => !(k in SKIPS), key), "restored game still has an entry");
+  await test(`owl.html at ${width}px: text blips and the hoot play after a tap, and stop when 🔈 is off`, async () => {
+    const { page, errors, ctx } = await open("owl.html", width, { init: () => {
+      // A stand-in for Web Audio that only counts the tones asked of it: headless Chromium
+      // plays nothing anyway, and the count is what says whether the owl is making sound.
+      window.__tones = 0;
+      const param = { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} };
+      const node = () => ({ gain: { ...param }, frequency: { ...param }, connect: (x) => x, start() {}, stop() {} });
+      window.AudioContext = class {
+        constructor() { this.currentTime = 0; this.state = "running"; this.destination = {}; }
+        resume() { return Promise.resolve(); }
+        createGain() { return node(); }
+        createOscillator() { window.__tones++; return node(); }
+      };
+    } });
+    const tones = () => page.evaluate(() => window.__tones);
+    ok(await tones() === 0, "sound before any tap");
+    await page.locator(".choice:not([disabled])").first().waitFor();
+    await page.locator(".choice:not([disabled])").first().click();      // the first tap wakes the audio
+    await page.waitForFunction(() => window.__tones >= 3);               // a hoot (2 tones) and a blip
+    ok(await page.locator("#sfx").getAttribute("aria-pressed") === "true", "🔈 not on by default");
+    await page.locator("#sfx").click();
+    ok(await page.locator("#sfx").getAttribute("aria-pressed") === "false", "🔈 didn't switch off");
+    ok(await page.evaluate(() => localStorage.getItem("gt_owl_sfx")) === "0", "the choice wasn't remembered");
+    const quiet = await tones();
+    await page.locator(".choice:not([disabled])").first().click();      // the next question, typed out in silence
+    await page.waitForFunction(() => document.getElementById("box").classList.contains("done") && document.querySelectorAll(".choice").length > 0);
+    ok(await tones() === quiet, "sound after switching it off");
+    await page.locator("#sfx").click();                                  // back on: a hoot to say so
+    await page.waitForFunction(n => window.__tones > n, quiet);
+    ok(await noSideScroll(page), "page scrolls sideways with both toggles");
+    // Syne's wide title once ran under the buttons on a phone without making the page scroll.
+    ok(await page.evaluate(async () => {
+      await document.fonts.ready;
+      const r = document.createRange(); r.selectNodeContents(document.querySelector("h1"));
+      return r.getBoundingClientRect().right <= document.querySelector(".tools").getBoundingClientRect().left;
+    }), "the title runs under the sound and music buttons");
     ok(errors.length === 0, errors.join(" | "));
     await ctx.close();
   });

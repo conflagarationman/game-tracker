@@ -24,7 +24,9 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .back:hover{color:var(--text);}
 /* Syne's 800 weight is wide: at 1.4rem the title alone overflowed a 375px phone. */
 h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);white-space:nowrap;min-width:0;}
-@media (max-width:440px){ h1{font-size:1.1rem;} .back{padding:.35rem .6rem;} .back-l{display:none;} }
+/* Two round buttons (the sounds and the music) leave the title less room on a 375px phone. */
+@media (max-width:440px){ .top{gap:.5rem;} h1{font-size:1rem;} .back{padding:.35rem .6rem;} .back-l{display:none;} .tools{gap:.3rem;} }
+.tools{display:flex;gap:.4rem;flex:none;}
 .music{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--border2);background:transparent;color:var(--muted);
   font-size:1rem;cursor:pointer;}
 .music:hover,.music:focus-visible{color:var(--text);border-color:var(--muted);outline:none;}
@@ -148,7 +150,10 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   <div class="top">
     <a class="back" href="index.html" aria-label="Back to the tracker">←<span class="back-l"> Tracker</span></a>
     <h1>Kaepora Gaebora</h1>
-    <button type="button" class="music" id="music" aria-pressed="false" title="Music: Kaepora Gaebora, by The 8-Bit Big Band" onclick="toggleMusic()">♪</button>
+    <div class="tools">
+      <button type="button" class="music" id="sfx" aria-pressed="true" aria-label="Owl sounds" title="Owl sounds: text blips and hoots" onclick="toggleSfx()">🔈</button>
+      <button type="button" class="music" id="music" aria-pressed="false" title="Music: Kaepora Gaebora, by The 8-Bit Big Band" onclick="toggleMusic()">♪</button>
+    </div>
   </div>
 
   <div class="scene" id="scene" aria-hidden="true">
@@ -311,6 +316,7 @@ function say(html, danger = false){
     box.classList.toggle('danger', danger);
     choices([]); opts([]);                          // nothing to answer while the owl is talking
     box.classList.remove('done');
+    hoot();
     const tmp = document.createElement('div'); tmp.innerHTML = html;
     $('said').textContent = tmp.textContent;
     const end = () => { clearInterval(timer); out.innerHTML = html; box.classList.add('done'); owl.classList.remove('talking'); finishTyping = null; resolve(); };
@@ -322,6 +328,7 @@ function say(html, danger = false){
       n += 2;
       if (n >= total) return end();
       out.innerHTML = clip(html, n);
+      if (/\S/.test(tmp.textContent[n - 1] || '')) blip();
     }, 22);
   });
 }
@@ -698,6 +705,76 @@ async function forget(key){
   updateStruck();
   return true;
 }
+// ─── Sounds ────────────────────────────────────────────
+// Text blips and a hoot, made here with Web Audio: nothing is downloaded and nothing is
+// Nintendo's. A quiet square-wave blip goes with every couple of letters as the owl types (the
+// way OoT's text boxes do), and each line opens with an original two-note "hoo-hoo", a falling
+// minor third in soft sines with a little pitch bend. Tapping a line to skip it ends the typing,
+// and the blips with it.
+//
+// Browsers only allow sound after a tap or key press, so the AudioContext is made on the first
+// one, like the music; the greeting before it is silent. The 🔈 switches it off, remembered
+// separately from the music, since you may want one without the other. Volume stays low.
+let AC = null, sfxOn = true, lastBlip = 0, lastHoot = 0;
+try { sfxOn = localStorage.getItem('gt_owl_sfx') !== '0'; } catch(e){}
+function wakeAudio(){
+  if (!sfxOn) return null;
+  if (!AC){
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    try {
+      const ctx = new Ctx(), out = ctx.createGain();
+      out.gain.value = 0.7; out.connect(ctx.destination);
+      AC = { ctx, out };
+    } catch(e){ return null; }
+  }
+  if (AC.ctx.state === 'suspended') AC.ctx.resume();
+  return AC;
+}
+// One short tone: a gentle attack, then it dies away by `dur`; `bend` starts it that many times
+// too high and slides it down to `freq`.
+function tone(type, freq, at, dur, vol, bend = 1){
+  const { ctx, out } = AC, o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq * bend, at);
+  if (bend !== 1) o.frequency.exponentialRampToValueAtTime(freq, at + dur * 0.35);
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.linearRampToValueAtTime(vol, at + Math.min(0.02, dur / 4));
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g); g.connect(out);
+  o.start(at); o.stop(at + dur + 0.02);
+}
+function blip(){
+  if (!sfxOn || !AC) return;
+  const t = performance.now();
+  if (t - lastBlip < 40) return;                     // never a buzz, however fast the typing
+  lastBlip = t;
+  tone('square', 440 * (1 + (Math.random() - 0.5) * 0.14), AC.ctx.currentTime, 0.045, 0.035);
+}
+function hoot(){
+  if (!sfxOn || !AC) return;
+  const t = performance.now();
+  // Lines often follow each other within a second; one hoot is charming, a stutter of them isn't.
+  if (t - lastHoot < 1500) return;
+  lastHoot = t;
+  const at = AC.ctx.currentTime + 0.02;
+  tone('sine', 392.0, at, 0.26, 0.11, 1.05);          // G4
+  tone('sine', 329.63, at + 0.3, 0.34, 0.1, 1.05);    // down a minor third, to E4
+}
+function showSfx(){
+  const b = $('sfx');
+  b.setAttribute('aria-pressed', sfxOn);
+  b.textContent = sfxOn ? '🔈' : '🔇';
+}
+function toggleSfx(){
+  sfxOn = !sfxOn;
+  try { localStorage.setItem('gt_owl_sfx', sfxOn ? '1' : '0'); } catch(e){}
+  showSfx();
+  if (sfxOn && wakeAudio()){ lastHoot = 0; hoot(); }   // a hoot to show it's on
+}
+showSfx();
+const firstGesture = () => { document.removeEventListener('pointerdown', firstGesture); document.removeEventListener('keydown', firstGesture); wakeAudio(); };
+document.addEventListener('pointerdown', firstGesture); document.addEventListener('keydown', firstGesture);
 
 // ─── Music ─────────────────────────────────────────────
 // The 8-Bit Big Band's cover of Kaepora Gaebora's theme, through YouTube's own embedded player.
