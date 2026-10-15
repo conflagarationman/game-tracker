@@ -29,11 +29,6 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   font-size:1rem;cursor:pointer;}
 .music:hover,.music:focus-visible{color:var(--text);border-color:var(--muted);outline:none;}
 .music[aria-pressed="true"]{color:#0e0e10;background:var(--accent);border-color:var(--accent);}
-/* YouTube's own player, visible while the music is on: its terms don't allow hiding it to play
-   audio only, and 200px is its minimum height. */
-.tune{border-radius:12px;overflow:hidden;border:1px solid var(--border);aspect-ratio:16/9;min-height:200px;background:#000;}
-.tune[hidden]{display:none;}
-.tune iframe,.tune #yt{width:100%;height:100%;display:block;border:0;}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
 
 /* ─── The scene: Hyrule Field at night ───────────────── */
@@ -106,6 +101,8 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .pick-main{min-width:0;display:flex;flex-direction:column;gap:.3rem;}
 .pick-title{font-weight:800;font-size:1.05rem;line-height:1.2;overflow-wrap:anywhere;}
 .plat{font-family:'DM Mono',monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .5rem;border-radius:99px;align-self:flex-start;}
+.badges{display:flex;gap:.35rem;flex-wrap:wrap;}
+.plat.kind{background:#c8f54218;color:var(--accent);}
 .why{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);line-height:1.5;}
 .foot{display:flex;justify-content:center;align-items:center;gap:1rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);}
 .redo{background:none;border:none;color:var(--muted);font:inherit;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;text-decoration:underline;padding:.4rem;}
@@ -121,7 +118,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   <div class="top">
     <a class="back" href="index.html" aria-label="Back to the tracker">←<span class="back-l"> Tracker</span></a>
     <h1>Kaepora Gaebora</h1>
-    <button type="button" class="music" id="music" aria-pressed="false" title="Play Kaepora Gaebora's theme" onclick="toggleMusic()">♪</button>
+    <button type="button" class="music" id="music" aria-pressed="false" title="Music: the Hoo-Hoo Waltz" onclick="toggleMusic()">♪</button>
   </div>
 
   <div class="scene" id="scene" aria-hidden="true">
@@ -212,7 +209,6 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 
   <div class="pick" id="pick"></div>
   <div class="choices" id="choices"></div>
-  <div class="tune" id="tune" hidden><div id="yt"></div></div>
   <div class="foot"><span id="count"></span><button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button></div>
 </div>
 
@@ -231,7 +227,7 @@ const CAN_EDIT = !!(typeof WORKER !== 'undefined' && WORKER.url && WORKER.key);
 const DEVICE_SAY = { any:'whatever is nearest', pc:'the PC', deck:'the Deck', thor:'the Thor', switch:'the Switch', ps5:'the PS5', wiiu:'the Wii U' };
 const MOOD_ASK = { chill:'Something easy on the mind', deep:'Something to sink into', finish:'Wrap something up' };
 
-let G = [], COVERS = {}, PLAY = null, GOTM = null;
+let G = [], COVERS = {}, PLAY = null, GOTM = null, SRC = {};
 let ANS = { device:null, time:null, mood:null };
 let PICKS = [], AT = 0, timer = null, finishTyping = null;
 // Bumped by every fresh ask(). An await that wakes up in an older conversation (a slow save,
@@ -379,11 +375,11 @@ async function ask(){
 async function decide(){
   const conv = CONV;
   try { localStorage.setItem('gt_owl', JSON.stringify(ANS)); } catch(e){}
-  PICKS = GTPick.pickGames(G, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM, limit:8 });
+  PICKS = GTPick.owlLineup(G, SRC, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM });
   AT = 0;
   if (!PICKS.length){
     owlPose();
-    await say(`Hoo… nothing in Now Playing or Up Next plays on ${blue(DEVICE_SAY[ANS.device] || ANS.device)}. Add something to Up Next, and come find me again.`);
+    await say(`Hoo… I've nothing for ${blue(DEVICE_SAY[ANS.device] || ANS.device)}. Add something to Up Next, and come find me again.`);
     if (conv === CONV) choices([['Ask again', ask]]);
     return;
   }
@@ -397,23 +393,38 @@ const OPENERS = [
   'Then hear this, and listen closely:',
   'Hoo hoot! Perhaps instead',
 ];
+// Wildcards come from outside the tracker, so the owl introduces each kind in his own way.
+const WILD_OPENERS = {
+  'someday':         'From the pile you set aside for someday…',
+  'steam-favourite': 'An old friend you haven\'t visited in a while:',
+  'steam-unplayed':  'Hoo! Something you own and have never even opened:',
+  'retro-started':   'Unfinished business, from your old adventures:',
+  'retro-club':      'The club is still waiting on this one:',
+  'retro-canon':     'A legend of an older age, never set down in your log:',
+};
+const MOOD_SAY = { chill:'easy on the mind', deep:'one to sink into', finish:'close to done' };
 
 async function reveal(first){
   const conv = CONV;
-  const p = PICKS[AT], g = p.g;
+  const p = PICKS[AT];
   $('pick').classList.remove('show');
   $('count').textContent = `${AT+1} of ${PICKS.length}`;
   $('redo').hidden = false;
   owlPose();
-  const opener = first ? OPENERS[0] : OPENERS[1 + (AT - 1) % (OPENERS.length - 1)];
+  // Honest when the best he has doesn't match the mood you asked for.
+  if (first && ANS.mood && !p.fits){
+    await say(`Hoo… nothing on ${blue(DEVICE_SAY[ANS.device] || ANS.device)} is truly ${esc(MOOD_SAY[ANS.mood] || 'what you asked for')}. If you insist…`);
+    if (conv !== CONV) return;
+  }
+  const opener = WILD_OPENERS[p.kind] || (first ? OPENERS[0] : OPENERS[1 + (AT - 1) % (OPENERS.length - 1)]);
   const why = p.reasons.length ? ' ' + esc(p.reasons.join('. ')) + '.' : '';
-  await say(`${esc(opener)} ${red(g.t)}.${why}`);
+  await say(`${esc(opener)} ${red(p.t)}.${why}`);
   if (conv !== CONV) return;
   showCard(p);
   owlPose('tilt');
   await say('Hoo hoot! …Did you get all that? Do you want to hear it again?');
   if (conv !== CONV) return;
-  opts([['Yes', again], ['No', () => commit(g)]]);
+  opts([['Yes', again], ['No', () => commit(p)]]);
 }
 
 async function again(){
@@ -429,19 +440,20 @@ async function again(){
   reveal(false);
 }
 
-async function commit(g){
+async function commit(p){
   const conv = CONV;
+  const g = p.g;
   owlPose();
   let line;
-  if (g.s === 'playing' || g.s === 'ongoing' || !CAN_EDIT){
-    line = `Hoo hoo hoo! Then off you go to ${red(g.t)}. I'll be watching.`;
+  if ((g && (g.s === 'playing' || g.s === 'ongoing')) || !CAN_EDIT){
+    line = `Hoo hoo hoo! Then off you go to ${red(p.t)}. I'll be watching.`;
   } else {
     await say('Hoo…');
-    const ok = await startGame(g);
+    const ok = g ? await startGame(g) : await addGame(p);
     if (conv !== CONV) return;
     line = ok
-      ? `Hoo hoo hoo! ${red(g.t)} is in Now Playing. Off you go. I'll be watching.`
-      : `Hoo… the message didn't reach the tracker. Go play ${red(g.t)} anyway, and mark it later.`;
+      ? `Hoo hoo hoo! ${red(p.t)} is in Now Playing. Off you go. I'll be watching.`
+      : `Hoo… the message didn't reach the tracker. Go play ${red(p.t)} anyway, and mark it later.`;
   }
   flap();
   await say(line);
@@ -449,73 +461,173 @@ async function commit(g){
   choices([['Ask me again', ask], ['Back to the tracker', () => { location.href = 'index.html'; }]]);
 }
 
-// Same request as saveEdit() in index.html: the Worker's /games/edit with the shared key.
-async function startGame(g){
+async function postWorker(path, body){
   try {
-    const res = await fetch(WORKER.url + '/games/edit', {
+    const res = await fetch(WORKER.url + path, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'X-Sync-Key': WORKER.key },
-      body: JSON.stringify({ id: g.id, s:'playing', start: todayStr() }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`request failed (${res.status})`);
-    g.s = 'playing';
     return true;
   } catch (err) {
-    console.error('Start failed', err);
+    console.error('Save failed', path, err);
     return false;
   }
 }
+// A tracked or Someday game: the same edit as the picker's ▶ Start on index.html.
+async function startGame(g){
+  const ok = await postWorker('/games/edit', { id: g.id, s:'playing', start: todayStr() });
+  if (ok) g.s = 'playing';
+  return ok;
+}
+// A wildcard isn't in the tracker yet: add it as Now Playing, like add.html would. The Worker
+// assigns the id and kicks off the sync and cover backfill, which fill in hours, art and HLTB.
+async function addGame(p){
+  const w = p.w || {};
+  const body = { t: p.t, p: p.p, s:'playing', start: todayStr() };
+  if (w.g) body.g = w.g;
+  if (w.year) body.y = w.year;
+  if (w.kind === 'retro-club' && w.tag) body.gotm = w.tag;
+  const ok = await postWorker('/games/add', body);
+  if (ok) PICKS = PICKS.filter(x => x !== p);
+  return ok;
+}
 
+const KIND_BADGE = {
+  'someday':'Someday', 'steam-favourite':'Old favourite', 'steam-unplayed':'Never started',
+  'retro-started':'Unfinished', 'retro-club':'Club pick', 'retro-canon':'Must-play',
+};
+function coverFor(p){
+  if (p.g) return COVERS[p.g.t.toLowerCase()] || null;
+  if (p.w && p.w.appid) return `https://cdn.cloudflare.steamstatic.com/steam/apps/${p.w.appid}/library_600x900.jpg`;
+  return null;
+}
 function showCard(p){
-  const g = p.g, url = COVERS[g.t.toLowerCase()], color = PC[g.p] || '#555';
-  const fallback = `<div class="cover-fallback" style="background:${color}20;color:${color}${url ? ';display:none' : ''}">${PLAT_EMOJI[g.p] || '🎮'}</div>`;
+  const url = coverFor(p), color = PC[p.p] || '#555';
+  const fallback = `<div class="cover-fallback" style="background:${color}20;color:${color}${url ? ';display:none' : ''}">${PLAT_EMOJI[p.p] || '🎮'}</div>`;
   const art = url ? `<img class="cover" src="${esc(url)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${fallback}` : fallback;
+  const plat = (p.w && p.w.console) || PL[p.p] || p.p;
+  const kind = KIND_BADGE[p.kind] ? `<span class="plat kind">${esc(KIND_BADGE[p.kind])}</span>` : '';
   const el = $('pick');
-  el.innerHTML = `${art}<div class="pick-main"><div class="pick-title">${esc(g.t)}</div>
-    <span class="plat" style="background:${color}22;color:${color}">${esc(PL[g.p] || g.p)}</span>
+  el.innerHTML = `${art}<div class="pick-main"><div class="pick-title">${esc(p.t)}</div>
+    <div class="badges"><span class="plat" style="background:${color}22;color:${color}">${esc(plat)}</span>${kind}</div>
     <div class="why">${p.reasons.map(esc).join(' · ')}</div></div>`;
   el.classList.add('show');
 }
 
 // ─── Music ─────────────────────────────────────────────
-// Kaepora Gaebora's theme, through YouTube's embedded player rather than a copy of the audio.
-// Off until asked for: nothing is loaded from YouTube until the ♪ is pressed. The choice is
-// remembered, but browsers only allow sound after a tap, so a remembered "on" waits for the
-// first tap anywhere on the page.
-const THEME = 'iAmh9ZClNIU';
-let YT_PLAYER = null, ytLoading = null;
-function loadYouTube(){
-  if (ytLoading) return ytLoading;
-  ytLoading = new Promise((resolve, reject) => {
-    window.onYouTubeIframeAPIReady = resolve;
-    const s = document.createElement('script');
-    s.src = 'https://www.youtube.com/iframe_api';
-    s.onerror = () => { ytLoading = null; reject(new Error('YouTube unreachable')); };
-    document.head.appendChild(s);
-  });
-  return ytLoading;
+// "Hoo-Hoo Waltz": an original little chiptune, synthesised right here with the Web Audio API.
+// No file, nothing fetched, nothing on screen. It is deliberately NOT Kaepora Gaebora's theme
+// (that's Nintendo's): the only nod is the falling minor third of a real owl's "hoo-hoo",
+// which opens the melody. F major, 3/4, 16 bars, looped.
+//
+// On by default, but browsers only allow sound after a tap or key press, so it starts on the
+// first one (answering his first question is one). Turning it off with the ♪ is remembered.
+// It pauses while the tab is hidden.
+const TUNE = {
+  bpm: 100,
+  // Melody as "note:beats", one string per bar; "R" is a rest.
+  lead: [
+    'C5:1.5 A4:0.5 F4:1', 'D5:1.5 A4:0.5 F4:1', 'D5:1 F5:1 D5:1',    'C5:2 R:1',
+    'C5:1.5 A4:0.5 F4:1', 'E5:1 D5:1 A4:1',     'Bb4:1 D5:1 G4:1',   'A4:1.5 G4:0.5 E4:1',
+    'F5:1 D5:1 Bb4:1',    'C5:2 A4:1',          'Bb4:1 A4:1 G4:1',   'A4:1.5 F4:0.5 D4:1',
+    'D5:1 F5:1 D5:1',     'C5:1 A4:1 F4:1',     'G4:1 Bb4:1 E5:1',   'F5:2 R:1',
+  ],
+  // One chord per bar, root first; the bass and the arpeggio are built from these.
+  chords: [
+    'F3 A3 C4', 'D3 F3 A3', 'Bb2 D3 F3', 'C3 E3 G3', 'F3 A3 C4', 'D3 F3 A3', 'G2 Bb2 D3', 'C3 E3 G3',
+    'Bb2 D3 F3', 'F3 A3 C4', 'G2 Bb2 D3', 'D3 F3 A3', 'Bb2 D3 F3', 'F3 A3 C4', 'C3 E3 G3', 'F3 A3 C4',
+  ],
+};
+const SEMI = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+function freq(name){
+  const m = /^([A-G])(b|#)?(\d)$/.exec(name);
+  const n = SEMI[m[1]] + (m[2] === 'b' ? -1 : m[2] === '#' ? 1 : 0) + (Number(m[3]) + 1) * 12;
+  return 440 * Math.pow(2, (n - 69) / 12);
 }
-async function musicOn(){
+// Every note of one pass of the loop: { at (beats), len (beats), f (Hz), v (voice) }.
+const SCORE = (() => {
+  const out = [];
+  TUNE.lead.forEach((bar, i) => {
+    let at = i * 3;
+    for (const tok of bar.split(' ')){
+      const [n, b] = tok.split(':'); const len = Number(b);
+      if (n !== 'R') out.push({ at, len, f: freq(n), v: 'lead' });
+      at += len;
+    }
+  });
+  TUNE.chords.forEach((ch, i) => {
+    const [r, third, fifth] = ch.split(' ').map(freq);
+    out.push({ at: i * 3, len: 1.9, f: r / 2, v: 'bass' });          // root, then the fifth
+    out.push({ at: i * 3 + 2, len: 0.9, f: fifth / 2, v: 'bass' });
+    [r, third, fifth, r * 2, fifth, third].forEach((f, k) => out.push({ at: i * 3 + k / 2, len: 0.4, f: f * 2, v: 'arp' }));
+  });
+  return out.sort((a, b) => a.at - b.at);
+})();
+const LOOP_BEATS = TUNE.lead.length * 3;
+const VOICES = { lead: { type:'square', gain:0.32 }, bass: { type:'triangle', gain:0.55 }, arp: { type:'square', gain:0.07 } };
+
+let AC = null, OUT = null, tick = null, loopStart = 0, nextIdx = 0, playing = false;
+function audioSetup(){
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const soften = AC.createBiquadFilter();               // takes the edge off the square waves
+  soften.type = 'lowpass'; soften.frequency.value = 2600;
+  OUT = AC.createGain(); OUT.gain.value = 0;
+  OUT.connect(soften).connect(AC.destination);
+}
+function playNote(n, when){
+  const spb = 60 / TUNE.bpm, v = VOICES[n.v], dur = n.len * spb;
+  const osc = AC.createOscillator(), env = AC.createGain();
+  osc.type = v.type; osc.frequency.value = n.f;
+  if (n.v === 'lead' && n.len >= 1.5){                   // a little vibrato on held notes
+    const lfo = AC.createOscillator(), depth = AC.createGain();
+    lfo.frequency.value = 5.5; depth.gain.value = n.f * 0.006;
+    lfo.connect(depth).connect(osc.frequency); lfo.start(when + 0.25); lfo.stop(when + dur);
+  }
+  env.gain.setValueAtTime(0, when);
+  env.gain.linearRampToValueAtTime(v.gain, when + 0.012);
+  env.gain.setTargetAtTime(v.gain * 0.6, when + 0.05, 0.12);
+  env.gain.setTargetAtTime(0, when + Math.max(0.05, dur - 0.06), 0.03);
+  osc.connect(env).connect(OUT);
+  osc.start(when); osc.stop(when + dur + 0.2);
+}
+// Look-ahead scheduler: every 50ms, queue whatever falls in the next 0.25s, so timing stays
+// tight even when the page is busy typing out the owl's lines.
+function schedule(){
+  const spb = 60 / TUNE.bpm;
+  while (true){
+    if (nextIdx >= SCORE.length){ nextIdx = 0; loopStart += LOOP_BEATS * spb; }
+    const n = SCORE[nextIdx], when = loopStart + n.at * spb;
+    if (when > AC.currentTime + 0.25) break;
+    if (when >= AC.currentTime - 0.01) playNote(n, when);
+    nextIdx++;
+  }
+}
+function musicOn(){
   $('music').setAttribute('aria-pressed', 'true');
-  $('tune').hidden = false;
+  if (playing) return;
   try {
-    await loadYouTube();
-    if (YT_PLAYER){ YT_PLAYER.playVideo(); return; }
-    YT_PLAYER = new YT.Player('yt', {
-      videoId: THEME,
-      playerVars: { autoplay: 1, loop: 1, playlist: THEME, playsinline: 1, rel: 0 },
-      events: { onReady: e => { e.target.setVolume(45); e.target.playVideo(); } },
-    });
+    if (!AC) audioSetup();
+    AC.resume();
+    playing = true;
+    loopStart = AC.currentTime + 0.1; nextIdx = 0;
+    OUT.gain.cancelScheduledValues(AC.currentTime);
+    OUT.gain.setValueAtTime(0, AC.currentTime);
+    OUT.gain.linearRampToValueAtTime(0.2, AC.currentTime + 1.5);    // fade in
+    schedule(); tick = setInterval(schedule, 50);
   } catch (err) {
     console.warn('Music unavailable', err);
     musicOff(false);
-    $('music').title = "Couldn't reach YouTube";
   }
 }
 function musicOff(remember = true){
   $('music').setAttribute('aria-pressed', 'false');
-  $('tune').hidden = true;
-  if (YT_PLAYER && YT_PLAYER.pauseVideo) YT_PLAYER.pauseVideo();
+  if (playing && AC){
+    clearInterval(tick); playing = false;
+    OUT.gain.cancelScheduledValues(AC.currentTime);
+    OUT.gain.setTargetAtTime(0, AC.currentTime, 0.08);              // quick fade, no click
+  }
   if (remember) try { localStorage.setItem('gt_owl_music', '0'); } catch(e){}
 }
 function toggleMusic(){
@@ -523,12 +635,18 @@ function toggleMusic(){
   try { localStorage.setItem('gt_owl_music', '1'); } catch(e){}
   musicOn();
 }
+document.addEventListener('visibilitychange', () => {
+  if (!AC) return;
+  if (document.hidden) AC.suspend(); else if (playing) AC.resume();
+});
 try {
-  if (localStorage.getItem('gt_owl_music') === '1')
-    document.addEventListener('pointerdown', function first(e){
-      document.removeEventListener('pointerdown', first);
-      if (!e.target.closest('#music')) musicOn();
-    });
+  if (localStorage.getItem('gt_owl_music') !== '0'){
+    const first = (e) => {
+      document.removeEventListener('pointerdown', first); document.removeEventListener('keydown', first);
+      if (!(e.target.closest && e.target.closest('#music'))) musicOn();
+    };
+    document.addEventListener('pointerdown', first); document.addEventListener('keydown', first);
+  }
 } catch(e){}
 
 // A sky of stars, placed once. Kept out of the top-right so the moon has room.
@@ -562,10 +680,15 @@ Promise.all([
   fresh('covers.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('gotm.json').then(r => r.ok ? r.json() : null).catch(() => null),
   fresh('play-check.json').then(r => r.ok ? r.json() : null).catch(() => null),
+  // The owl's wildcards; any of these missing just means fewer of them.
+  fresh('library.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fresh('library-meta.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fresh('retro-canon.json').then(r => r.ok ? r.json() : []).catch(() => []),
   // Let him land before he starts talking.
   new Promise(r => setTimeout(r, reduced ? 0 : 900)),
-]).then(([games, covers, gotm, play]) => {
+]).then(([games, covers, gotm, play, library, meta, canon]) => {
   G = games; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
+  SRC = { library, meta, canon, gotm: GOTM };
   ask();
 }).catch(err => {
   console.error('Failed to load game data', err);
