@@ -1,8 +1,10 @@
 // Exercises the Worker against a stubbed GitHub contents API, so the read-modify-write path
 // and its conflict retry are covered without needing a token or a network — same pattern as
 // steph-tv-tracker's worker/index.test.mjs.
-import worker, { validateNewGame, validateGameFields } from "./index.mjs";
+import worker, { validateNewGame, validateGameFields, SNOOZE_DAYS } from "./index.mjs";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import vm from "node:vm";
 
 let pass = 0, fail = 0;
 const test = async (name, fn) => {
@@ -362,6 +364,105 @@ await test("GET is not allowed — reads go straight to the public games.json, n
     headers: { Origin: ORIGIN, "X-Sync-Key": "k" },
   }), env);
   assert.equal(res.status, 405);
+});
+
+// ─── Kaepora Gaebora's skips ───────────────────────────
+// A multi-file stand-in: owl-skips.json sits next to games.json, and a file that isn't in the
+// repo yet answers 404 like the real contents API does.
+function fakeRepo(files) {
+  const state = { files: { ...files }, shas: {}, writes: [], failWrites: 0 };
+  Object.keys(state.files).forEach(f => { state.shas[f] = "sha0"; });
+  globalThis.fetch = async (url, init = {}) => {
+    const file = String(url).match(/contents\/([^?]+)/)[1];
+    if ((init.method || "GET") === "GET") {
+      if (!(file in state.files)) return new Response("not found", { status: 404 });
+      return new Response(JSON.stringify({ content: b64(state.files[file]), sha: state.shas[file] }), { status: 200 });
+    }
+    const body = JSON.parse(init.body);
+    if (state.failWrites-- > 0) return new Response("conflict", { status: 409 });
+    if (file in state.files ? body.sha !== state.shas[file] : body.sha !== undefined) return new Response("sha mismatch", { status: 409 });
+    state.files[file] = decodeURIComponent(escape(atob(body.content)));
+    state.shas[file] = "sha" + (state.writes.length + 1);
+    state.writes.push({ file, message: body.message });
+    return new Response("{}", { status: 200 });
+  };
+  return state;
+}
+const skipsOf = (repo) => JSON.parse(repo.files["owl-skips.json"]);
+
+await test("the snooze table matches pick.js's, so the page and the Worker agree on every turn-down", async () => {
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(await readFile(new URL("../pick.js", import.meta.url), "utf8"), ctx);
+  assert.equal(SNOOZE_DAYS.join(), Array.from(ctx.GTPick.SNOOZE_DAYS).join());
+});
+
+await test("POST /owl/skip snoozes 7, then 30, then 90 days, and counts each time", async () => {
+  const repo = fakeRepo({ "games.json": "[]", "owl-skips.json": "{}" });
+  const days = [];
+  for (let i = 0; i < 4; i++) {
+    const res = await post("/owl/skip", { key: "id:12", t: "Hades" });
+    assert.equal(res.status, 200);
+    const e = (await res.json())["id:12"];
+    assert.equal(e.count, i + 1);
+    assert.equal(e.dropped, false);
+    days.push(Math.round((Date.parse(e.until) - Date.parse(e.last)) / 86400000));
+  }
+  assert.deepEqual(days, [7, 30, 90, 90]);
+  assert.equal(repo.files["games.json"], "[]", "a skip must never touch games.json");
+  assert.ok(repo.writes.every(w => w.file === "owl-skips.json"));
+});
+
+await test("drop flags the game instead of removing it, and restore undoes it completely", async () => {
+  const repo = fakeRepo({ "owl-skips.json": "{}" });
+  await post("/owl/skip", { key: "steam:730", t: "Counter-Strike 2" });
+  await post("/owl/skip", { key: "id:3", t: "Brotato" });
+  const dropped = await (await post("/owl/skip", { key: "steam:730", t: "Counter-Strike 2", drop: true })).json();
+  assert.equal(dropped["steam:730"].dropped, true);
+  assert.equal(dropped["steam:730"].until, null);
+  assert.equal(dropped["steam:730"].count, 2);
+  assert.equal(dropped["steam:730"].t, "Counter-Strike 2", "the title stays so Restore can name it");
+  const back = await (await post("/owl/restore", { key: "steam:730" })).json();
+  assert.deepEqual(Object.keys(back), ["id:3"], "only that game's entry goes");
+  assert.deepEqual(Object.keys(skipsOf(repo)), ["id:3"]);
+});
+
+await test("restoring a game that has no entry is a quiet no-op, with no commit", async () => {
+  const repo = fakeRepo({ "owl-skips.json": JSON.stringify({ "id:1": { t: "A", count: 1, until: null, dropped: true, last: "2026-10-01" } }) });
+  const res = await post("/owl/restore", { key: "id:99" });
+  assert.equal(res.status, 200);
+  assert.equal(repo.writes.length, 0);
+  assert.deepEqual(Object.keys(await res.json()), ["id:1"]);
+});
+
+await test("the first skip creates owl-skips.json when the repo doesn't have it yet", async () => {
+  const repo = fakeRepo({ "games.json": "[]" });
+  const res = await post("/owl/skip", { key: "canon:contra iii", t: "Contra III" });
+  assert.equal(res.status, 200);
+  assert.equal(skipsOf(repo)["canon:contra iii"].count, 1);
+});
+
+await test("skips retry on a sha conflict and don't lose the other entries", async () => {
+  const repo = fakeRepo({ "owl-skips.json": JSON.stringify({ "id:1": { t: "A", count: 1, until: "2099-01-01", dropped: false, last: "2026-10-01" } }) });
+  repo.failWrites = 2;
+  const res = await post("/owl/skip", { key: "id:2", t: "B" });
+  assert.equal(res.status, 200);
+  assert.deepEqual(Object.keys(skipsOf(repo)).sort(), ["id:1", "id:2"]);
+});
+
+await test("skip and restore reject a bad key, title or drop flag without writing", async () => {
+  const repo = fakeRepo({ "owl-skips.json": "{}" });
+  for (const body of [{ t: "A" }, { key: "games.json", t: "A" }, { key: "id:../x", t: "A" }, { key: "id:1" }, { key: "id:1", t: "A", drop: "yes" }, { key: "ra:" + "a".repeat(200), t: "A" }])
+    assert.equal((await post("/owl/skip", body)).status, 400, JSON.stringify(body));
+  assert.equal((await post("/owl/restore", { key: "../games.json" })).status, 400);
+  assert.equal(repo.writes.length, 0);
+});
+
+await test("the owl endpoints sit behind the same key and origin checks", async () => {
+  const repo = fakeRepo({ "owl-skips.json": "{}" });
+  assert.equal((await post("/owl/skip", { key: "id:1", t: "A" }, { "X-Sync-Key": "wrong" })).status, 401);
+  assert.equal((await post("/owl/restore", { key: "id:1" }, { Origin: "https://evil.example" })).status, 403);
+  assert.equal(repo.writes.length, 0);
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);

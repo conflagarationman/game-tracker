@@ -40,7 +40,7 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 
 // A page with the Worker stubbed and the outside world cut off. Returns the page, the writes
 // it attempted, and the uncaught errors it hit.
-async function open(path, width, { clock = false, reducedMotion = "no-preference" } = {}) {
+async function open(path, width, { clock = false, reducedMotion = "no-preference", init = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 500, isMobile: width < 500, reducedMotion });
   const page = await ctx.newPage();
   const writes = [], errors = [];
@@ -58,6 +58,7 @@ async function open(path, width, { clock = false, reducedMotion = "no-preference
     }
     return route.abort();
   });
+  if (init) await page.addInitScript(init);
   if (clock) await page.clock.install();
   await page.goto(BASE + "/" + path);
   return { page, writes, errors, ctx };
@@ -203,7 +204,7 @@ for (const width of [390, 1280]) {
     await page.waitForFunction(() => /^2 of|^1 of 1$/.test(document.getElementById("count").textContent));
     const total = await page.locator("#count").innerText();
     if (!/of 1$/.test(total)) ok(await page.locator(".pick-title").innerText() !== first, "Yes didn't change the pick");
-    await page.locator('.opt:has-text("No"):not([disabled])').click();
+    await page.locator(".opt:not([disabled])", { hasText: /^No$/ }).click();
     await page.waitForFunction(() => /off you go/i.test(document.getElementById("text").textContent));
     // "No" starts a tracked game (/games/edit) or adds a wildcard as Now Playing (/games/add).
     ok(writes.every(w => /\/games\/(edit|add)$/.test(w.path) && w.body.s === "playing" && w.body.start), "No sent " + JSON.stringify(writes));
@@ -211,6 +212,109 @@ for (const width of [390, 1280]) {
     ok(await noSideScroll(page), "page scrolls sideways");
     ok(errors.length === 0, errors.join(" | "));
     await ctx.close();
+  });
+}
+
+for (const width of [390, 1280]) {
+  await test(`owl.html at ${width}px: Not this one snoozes, the fourth asks before dropping, and Restore undoes it`, async () => {
+    const { page, writes, errors, ctx } = await open("owl.html", width, { reducedMotion: "reduce" });
+    const answer = async () => { const b = page.locator(".choice:not([disabled])").first(); await b.waitFor(); await b.click(); };
+    await answer(); await answer(); await answer();
+    await page.waitForSelector("#pick.show");
+    const notThis = () => page.locator('.opt:has-text("Not this one"):not([disabled])').click();
+    const asked = () => page.waitForFunction(() => document.querySelectorAll(".opt").length === 3 && !document.getElementById("box").classList.contains("danger"));
+    await asked();
+    const first = await page.locator(".pick-title").innerText();
+    await notThis();
+    await page.waitForFunction(t => document.querySelector(".pick-title").textContent !== t && document.querySelectorAll(".opt").length === 3, first);
+    ok(writes.length === 1 && writes[0].path.endsWith("/owl/skip") && writes[0].body.drop === false && writes[0].body.key, "first turn-down wrote " + JSON.stringify(writes));
+    ok(!writes.some(w => /\/games\//.test(w.path)), "a snooze touched the tracker");
+    // Pretend the game now showing has been turned down three times already: the fourth asks.
+    await asked();
+    const key = await page.evaluate(() => { const p = PICKS[AT]; SKIPS = { ...SKIPS, [p.key]: { t: p.t, count: 3, until: null, dropped: false, last: "2026-01-01" } }; return p.key; });
+    await notThis();
+    await page.waitForFunction(() => document.getElementById("box").classList.contains("danger"));
+    const warn = await page.locator("#said").innerText();
+    ok(/four times/.test(warn) && /for good/.test(warn), "no DROP warning: " + warn);
+    ok(await page.locator(".opt").first().innerText() === "Just snooze it", "the safe answer isn't first");
+    ok(writes.length === 1, "the warning wrote before an answer");
+    await page.locator('.opt:has-text("Drop it")').click();
+    await page.waitForSelector("#struck-link:not([hidden])");
+    const drop = writes[writes.length - 1];
+    ok(drop.path.endsWith("/owl/skip") && drop.body.drop === true && drop.body.key === key, "drop wrote " + JSON.stringify(drop));
+    ok(/\(1\)/.test(await page.locator("#struck-link").innerText()), "footer link didn't count the drop");
+    if (await page.locator('.opt:has-text("Move it to Someday")').count()) await page.locator('.opt:has-text("No, leave it")').click();
+    await page.locator("#struck-link").click();
+    ok(await noSideScroll(page), "page scrolls sideways with the struck list open");
+    await page.locator("#struck .restore").click();
+    await page.waitForSelector("#struck-link", { state: "hidden" });
+    ok(writes[writes.length - 1].path.endsWith("/owl/restore") && writes[writes.length - 1].body.key === key, "restore wrote " + JSON.stringify(writes[writes.length - 1]));
+    ok(await page.evaluate(k => !(k in SKIPS), key), "restored game still has an entry");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
+for (const width of [390, 1280]) {
+  await test(`owl.html at ${width}px: text blips and the hoot play after a tap, and stop when 🔈 is off`, async () => {
+    const { page, errors, ctx } = await open("owl.html", width, { init: () => {
+      // A stand-in for Web Audio that only counts the tones asked of it: headless Chromium
+      // plays nothing anyway, and the count is what says whether the owl is making sound.
+      window.__tones = 0;
+      const param = { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} };
+      const node = () => ({ gain: { ...param }, frequency: { ...param }, connect: (x) => x, start() {}, stop() {} });
+      window.AudioContext = class {
+        constructor() { this.currentTime = 0; this.state = "running"; this.destination = {}; }
+        resume() { return Promise.resolve(); }
+        createGain() { return node(); }
+        createOscillator() { window.__tones++; return node(); }
+      };
+    } });
+    const tones = () => page.evaluate(() => window.__tones);
+    ok(await tones() === 0, "sound before any tap");
+    await page.locator(".choice:not([disabled])").first().waitFor();
+    await page.locator(".choice:not([disabled])").first().click();      // the first tap wakes the audio
+    await page.waitForFunction(() => window.__tones >= 3);               // a hoot (2 tones) and a blip
+    ok(await page.locator("#sfx").getAttribute("aria-pressed") === "true", "🔈 not on by default");
+    await page.locator("#sfx").click();
+    ok(await page.locator("#sfx").getAttribute("aria-pressed") === "false", "🔈 didn't switch off");
+    ok(await page.evaluate(() => localStorage.getItem("gt_owl_sfx")) === "0", "the choice wasn't remembered");
+    const quiet = await tones();
+    await page.locator(".choice:not([disabled])").first().click();      // the next question, typed out in silence
+    await page.waitForFunction(() => document.getElementById("box").classList.contains("done") && document.querySelectorAll(".choice").length > 0);
+    ok(await tones() === quiet, "sound after switching it off");
+    await page.locator("#sfx").click();                                  // back on: a hoot to say so
+    await page.waitForFunction(n => window.__tones > n, quiet);
+    ok(await noSideScroll(page), "page scrolls sideways with both toggles");
+    // Syne's wide title once ran under the buttons on a phone without making the page scroll.
+    ok(await page.evaluate(async () => {
+      await document.fonts.ready;
+      const r = document.createRange(); r.selectNodeContents(document.querySelector("h1"));
+      return r.getBoundingClientRect().right <= document.querySelector(".tools").getBoundingClientRect().left;
+    }), "the title runs under the sound and music buttons");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
+for (const width of [390, 1280]) {
+  await test(`owl.html?pick= at ${width}px opens on the weekend pick, and a key that's gone falls back to the questions`, async () => {
+    const games = JSON.parse(await readFile(join(ROOT, "games.json"), "utf8"));
+    const want = games.find(g => g.s === "queue" && !g.release);
+    const { page, writes, errors, ctx } = await open(`owl.html?pick=${encodeURIComponent("id:" + want.id)}`, width, { reducedMotion: "reduce" });
+    await page.waitForSelector("#pick.show");
+    ok(await page.locator(".pick-title").innerText() === want.t, "opened on " + await page.locator(".pick-title").innerText());
+    await page.waitForFunction(() => document.querySelectorAll(".opt").length === 3);
+    ok(await page.evaluate(() => /weekend/.test(document.getElementById("said").textContent) || document.getElementById("count").textContent.startsWith("1 of")), "no weekend greeting");
+    ok(writes.length === 0, "opening the link wrote something");
+    ok(await noSideScroll(page), "page scrolls sideways");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+    const gone = await open("owl.html?pick=id%3A99999999", width, { reducedMotion: "reduce" });
+    await gone.page.waitForSelector(".choice");
+    ok(await gone.page.locator("#pick.show").count() === 0, "a missing game was shown");
+    ok(gone.errors.length === 0, gone.errors.join(" | "));
+    await gone.ctx.close();
   });
 }
 
@@ -239,6 +343,28 @@ for (const path of ["index.html", "add.html", "owl.html", "wrapped.html"]) {
     await page.click("#korok-btn");
     ok(/again/.test(await page.textContent("#korok-say")), "a second tap should not recount");
     ok(await noSideScroll(page), "page scrolls sideways");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
+for (const width of [390, 1280]) {
+  await test(`wrapped.html poster at ${width}px draws, exports a 3600x4800 PNG and prints on its own`, async () => {
+    const { page, errors, ctx } = await open("wrapped.html?year=2026", width);
+    await page.waitForSelector("#poster-canvas");
+    await page.evaluate(() => document.fonts.ready);
+    ok(await noSideScroll(page), "page scrolls sideways");
+    const drawn = await page.evaluate(() => document.getElementById("poster-canvas").toDataURL("image/png").length);
+    ok(drawn > 50000, `poster preview looks empty (${drawn} bytes)`);
+    const [download] = await Promise.all([page.waitForEvent("download"), page.click("text=Download poster")]);
+    ok(/^year-of-play-\d{4}\.png$/.test(download.suggestedFilename()), `odd filename ${download.suggestedFilename()}`);
+    const { readFile: rf } = await import("node:fs/promises");
+    const png = await rf(await download.path());
+    ok(png.readUInt32BE(16) === 3600 && png.readUInt32BE(20) === 4800, `export is ${png.readUInt32BE(16)}x${png.readUInt32BE(20)}, not 3600x4800`);
+    // Print: everything but the poster is hidden. (visibility, so check the computed style.)
+    await page.emulateMedia({ media: "print" });
+    const vis = await page.evaluate(() => [getComputedStyle(document.getElementById("wr-hero")).visibility, getComputedStyle(document.getElementById("poster-canvas")).visibility]);
+    ok(vis[0] === "hidden" && vis[1] === "visible", `print visibility ${vis}`);
     ok(errors.length === 0, errors.join(" | "));
     await ctx.close();
   });

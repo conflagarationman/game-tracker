@@ -56,6 +56,9 @@ jobs:
       - name: Library meta tests
         run: node scripts/library-meta.test.mjs
 
+      - name: Wildcard play-length estimates
+        run: node scripts/library-hltb.test.mjs
+
       - name: Year in review numbers
         run: node scripts/wrapped.test.mjs
 

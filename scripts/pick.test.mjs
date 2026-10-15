@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 const ctx = {};
 vm.createContext(ctx);
 vm.runInContext(await readFile(new URL("../pick.js", import.meta.url), "utf8"), ctx);
-const { pickGames, remaining, devicesWithGames, achLeft, wildcards, owlLineup } = ctx.GTPick;
+const { pickGames, remaining, devicesWithGames, achLeft, wildcards, owlLineup, nextSkip, isHidden, wildKey } = ctx.GTPick;
 
 let pass = 0, fail = 0;
 const test = async (name, fn) => {
@@ -207,5 +207,123 @@ await test("lineup: a wildcard every third suggestion, and wildcards alone when 
   assert.deepEqual(kinds(r).slice(0, 6), ["tracked", "tracked", "retro-canon", "tracked", "tracked", "retro-canon"]);
   assert.deepEqual(kinds(owlLineup([], { canon }, { device: "thor", now: NOW }, () => 0.5)), ["retro-canon", "retro-canon"]);
 });
+
+// ─── Snoozes and drops ─────────────────────────────────
+const D = (y, m, d) => new Date(y, m - 1, d);
+
+await test("snoozes escalate 7, 30, 90 days and stay at 90; a drop is only a flag", () => {
+  let e = null;
+  const seen = [];
+  for (let i = 0; i < 4; i++) { e = nextSkip(e, "Game 1", { now: NOW }); seen.push([e.count, e.until]); }
+  assert.deepEqual(seen, [[1, "2026-10-18"], [2, "2026-11-10"], [3, "2027-01-09"], [4, "2027-01-09"]]);
+  assert.equal(Array.from(ctx.GTPick.SNOOZE_DAYS).join(), "7,30,90");
+  const d = nextSkip({ t: "Game 1", count: 3, until: null, dropped: false }, "Game 1", { drop: true, now: NOW });
+  assert.deepEqual({ ...d }, { t: "Game 1", count: 4, until: null, dropped: true, last: "2026-10-11" });
+});
+
+await test("a snooze lapses on its day, a drop never does", () => {
+  const snooze = nextSkip(null, "Game 1", { now: NOW });                 // until 2026-10-18
+  assert.equal(isHidden(snooze, D(2026, 10, 17)), true);
+  assert.equal(isHidden(snooze, D(2026, 10, 18)), false);
+  assert.equal(isHidden(nextSkip(null, "Game 1", { drop: true, now: NOW }), D(2030, 1, 1)), true);
+  assert.equal(isHidden(undefined, NOW), false);
+});
+
+await test("keys: id for tracked, appid for Steam, normalised title for RA, club and canon", () => {
+  const games = [g(7, { h: "5h" })];
+  const library = { steam: [{ appid: 1145360, name: "Hades", hours: 40, lastPlayed: "2026-01-01" }],
+    ra: [{ title: "Super Mario Kart", console: "SNES", earned: 8, total: 40 }] };
+  const gotm = { picks: [{ tag: "Sep 2026", game: "Kirby's Dream Land", monthsLeft: 11, retired: false }] };
+  const canon = [{ t: "Contra III: The Alien Wars", c: "SNES", y: 1992, g: "Run and Gun", h: "2h", why: "x" }];
+  const lineup = owlLineup(games, { library, canon, gotm }, { device: "any", now: NOW }, () => 0.5);
+  assert.equal(lineup.find(r => r.g).key, "id:7");
+  const keys = Object.fromEntries(Array.from(wildcards(games, { library, canon, gotm }, { device: "any", now: NOW }), w => [w.kind, w.key]));
+  assert.deepEqual(keys, { "steam-favourite": "steam:1145360", "retro-started": "ra:super mario kart",
+    "retro-club": "ra:kirby s dream land", "retro-canon": "canon:contra iii the alien wars" });
+  assert.equal(wildKey({ kind: "retro-canon", t: "Contra III: The Alien Wars" }), "canon:contra iii the alien wars");
+});
+
+await test("lineup leaves out snoozed and dropped games, tracked and wildcard, and restoring brings them back", () => {
+  const games = [1, 2, 3].map(i => g(i, { h: "40h" }));
+  const canon = [{ t: "Contra III", c: "SNES", y: 1992, g: "Run and Gun", h: "2h", why: "x" }];
+  const all = (skips) => Array.from(owlLineup(games, { canon, skips }, { device: "any", now: NOW }, () => 0.5), r => r.key).sort();
+  assert.deepEqual(all({}), ["canon:contra iii", "id:1", "id:2", "id:3"]);
+  const skips = { "id:1": nextSkip(null, "Game 1", { now: NOW }), "canon:contra iii": nextSkip(null, "Contra III", { drop: true, now: NOW }) };
+  assert.deepEqual(all(skips), ["id:2", "id:3"]);
+  delete skips["canon:contra iii"];                                       // Restore deletes the entry
+  assert.deepEqual(all(skips), ["canon:contra iii", "id:2", "id:3"]);
+  assert.deepEqual(all({ "id:1": skips["id:1"] }).includes("id:1"), false);
+  // Once the 7 days are up, he's back.
+  const later = Array.from(owlLineup(games, { skips }, { device: "any", now: D(2026, 10, 18) }, () => 0.5), r => r.key);
+  assert.ok(later.includes("id:1"));
+});
+
+await test("snoozing the top pick doesn't shorten the lineup while there are games to fill it", () => {
+  const games = Array.from({ length: 14 }, (_, i) => g(i + 1, { h: "40h" }));
+  const skips = { "id:1": nextSkip(null, "Game 1", { now: NOW }), "id:2": nextSkip(null, "Game 2", { now: NOW }) };
+  assert.equal(owlLineup(games, { skips }, { device: "any", now: NOW }, () => 0.5).length, 12);
+});
+
+// ─── HowLongToBeat estimates for wildcards ─────────────
+const hl = (steam, ra = [], hltb = {}, device = "any", time = "quick", mood) =>
+  wildcards([], { library: { steam, ra }, meta: { 2: { g: [], m: 90, d: 3 }, 3: { g: [], m: 90, d: 3 } }, hltb }, { device, time, mood, now: NOW });
+const fav = (appid, name, hours = 40) => ({ appid, name, hours, lastPlayed: "2025-01-01" });
+const unplayed = (appid, name) => ({ appid, name, hours: 0, lastPlayed: null });
+const scoreOf = (r, t) => r.find(w => w.t === t).score;
+
+await test("a wildcard with no estimate scores exactly as it did before estimates existed", () => {
+  const steam = [unplayed(2, "Short"), unplayed(3, "Long")];
+  assert.deepEqual(hl(steam, [], {}).map(w => w.score), hl(steam, [], undefined).map(w => w.score));
+  assert.deepEqual(Array.from(hl(steam, [], {})[0].reasons), ["Metacritic 90"]);
+});
+
+await test("half an hour favours the short wildcard and a long haul the big one", () => {
+  const steam = [unplayed(2, "Short"), unplayed(3, "Long")];
+  const hltb = { "steam:2": { t: "Short", h: "2h" }, "steam:3": { t: "Long", h: "60h" } };
+  const quick = hl(steam, [], hltb, "any", "quick"), none = hl(steam, [], {}, "any", "quick");
+  assert.equal(scoreOf(quick, "Short") - scoreOf(none, "Short"), 10);
+  assert.equal(scoreOf(quick, "Long") - scoreOf(none, "Long"), -10);
+  const long = hl(steam, [], hltb, "any", "long"), noneLong = hl(steam, [], {}, "any", "long");
+  assert.equal(scoreOf(long, "Long") - scoreOf(noneLong, "Long"), 8);
+  assert.equal(scoreOf(long, "Short") - scoreOf(noneLong, "Short"), 0);
+  assert.ok(Array.from(quick.find(w => w.t === "Long").reasons).includes("~60h to beat"));
+});
+
+await test("a favourite is measured by what's left, so one you've sunk past the estimate counts as replayable", () => {
+  const steam = [fav(10, "Done To Death", 80), fav(11, "Barely Touched", 16)];
+  const hltb = { "steam:10": { t: "x", h: "30h" }, "steam:11": { t: "x", h: "30h" } };
+  const q = hl(steam, [], hltb, "any", "quick"), n = hl(steam, [], {}, "any", "quick");
+  assert.equal(scoreOf(q, "Done To Death") - scoreOf(n, "Done To Death"), 10, "0h left favours a short session");
+  assert.equal(scoreOf(q, "Barely Touched") - scoreOf(n, "Barely Touched"), 0, "14h left is neither short nor huge");
+  assert.ok(!Array.from(q.find(w => w.t === "Done To Death").reasons).some(r => /to beat/.test(r)));
+});
+
+await test("an RA run in progress is measured by the share left", () => {
+  const ra = [{ title: "Super Mario Kart", console: "SNES", earned: 30, total: 40 }];   // 75% done
+  const withEst = wildcards([], { library: { steam: [], ra }, hltb: { "ra:super mario kart": { t: "x", h: "40h" } } }, { device: "thor", time: "quick", now: NOW });
+  const without = wildcards([], { library: { steam: [], ra } }, { device: "thor", time: "quick", now: NOW });
+  assert.equal(withEst[0].score - without[0].score, 0, "10h left is neither short nor huge");
+  const big = wildcards([], { library: { steam: [], ra }, hltb: { "ra:super mario kart": { t: "x", h: "100h" } } }, { device: "thor", time: "quick", now: NOW });
+  assert.equal(big[0].score - without[0].score, -10, "25h left is too long for half an hour");
+});
+
+await test("an estimate feeds the mood too: a big unplayed game fits 'sink in', a tiny one doesn't", () => {
+  const steam = [unplayed(2, "Short"), unplayed(3, "Long")];
+  const hltb = { "steam:2": { t: "x", h: "2h" }, "steam:3": { t: "x", h: "40h" } };
+  const r = hl(steam, [], hltb, "any", "evening", "deep");
+  assert.equal(r.find(w => w.t === "Long").fits, true);
+  assert.equal(r.find(w => w.t === "Short").fits, false);
+  assert.ok(Array.from(r.find(w => w.t === "Long").reasons).some(x => /sink into/.test(x)));
+});
+
+await test("declined entries (h: null) and the canon's own h leave scoring alone", () => {
+  const steam = [unplayed(2, "Short")];
+  assert.deepEqual(hl(steam, [], { "steam:2": { t: "Short", h: null, why: "no exact title match" } }).map(w => w.score), hl(steam, []).map(w => w.score));
+  const c = [{ t: "Contra III", c: "SNES", y: 1992, g: "Run and Gun", h: "2h", why: "x" }];
+  const a = wildcards([], { canon: c, hltb: { "canon:contra iii": { h: "90h" } } }, { device: "thor", time: "quick", now: NOW });
+  const b = wildcards([], { canon: c }, { device: "thor", time: "quick", now: NOW });
+  assert.equal(a[0].score, b[0].score);
+});
+
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);

@@ -156,7 +156,89 @@
     return { title: 'The Explorer', line: `${n} games across ${genres} genre${genres === 1 ? '' : 's'}`, also: null };
   }
 
-  const api = { yearStats, persona, hours, isIdle, parseHltb, DEVICE, RECENT_YEARS };
+
+  // ─── Year of Play poster ───────────────────────────────────────────────────────────────
+  // Every game finished in the year is a cartridge on a shelf, sized by hours, with the year's
+  // Game of the Year on its own pedestal in the middle. This is only the numbers and the
+  // geometry (poster units, a 4:3-tall 900x1200 sheet); wrapped.html draws it, at preview size
+  // and again at 4x for the PNG, so nothing here touches a canvas or a cover image.
+  const POSTER = { W: 900, H: 1200, GRID: 4, MARGIN: 60, SHELF_TOP: 215, SHELF_BOTTOM: 1030,
+    BOARD: 16, GAP: 12, ROW_GAP: 18, GOTY_W: 188 };
+
+  const snap = (n, grid) => Math.max(grid * 2, Math.round(n / grid) * grid);
+  // Cartridge width 56..104 by hours, rising fast then flattening (a 60h game is not 6x a 10h one).
+  const cartWidth = (h) => 56 + 48 * Math.min(1, Math.sqrt(Math.max(0, h) / 80));
+  const cartHeight = (w) => w * 1.18;
+
+  // Chronological like the Year Log: by month finished (undated last), then title.
+  const byFinish = (a, b) => (a.cm == null ? 99 : a.cm) - (b.cm == null ? 99 : b.cm) || a.t.localeCompare(b.t);
+
+  // Fill rows left to right inside `inner` width, each row centred, every cart bottom-aligned.
+  function packRows(games, scale, inner) {
+    const G = POSTER.GRID, rows = [];
+    let row = null;
+    for (const g of games) {
+      const w = snap(cartWidth(hours(g)) * scale, G), h = snap(cartHeight(w), G);
+      const cart = { g, w, h, hours: hours(g) };
+      if (!row || row.w + POSTER.GAP + w > inner) { row = { carts: [], w: -POSTER.GAP, h: 0 }; rows.push(row); }
+      row.carts.push(cart); row.w += POSTER.GAP + w; row.h = Math.max(row.h, h);
+    }
+    return rows;
+  }
+
+  function posterStats(games, year) {
+    const done = games.filter(g => g.cy === year && g.s === 'done' && !isIdle(g));
+    const rated = done.filter(g => g.r > 0).sort(byStanding);
+    const goty = rated[0] || null;
+    const others = done.filter(g => g !== goty).sort(byFinish);
+    const totalH = done.reduce((t, g) => t + hours(g), 0);
+    const byPlat = {};
+    done.forEach(g => { const o = byPlat[g.p] || (byPlat[g.p] = { p: g.p, n: 0, h: 0 }); o.n++; o.h += hours(g); });
+    const topPlatform = Object.values(byPlat).sort((a, b) => b.n - a.n || b.h - a.h || a.p.localeCompare(b.p))[0] || null;
+    // Longest streak uses every finish that year (idle games included), same as the page's streak.
+    const months = new Set(games.filter(g => g.cy === year && g.s === 'done' && g.cm != null).map(g => g.cm));
+    let streak = 0, run = 0;
+    for (let m = 0; m < 12; m++) { run = months.has(m) ? run + 1 : 0; streak = Math.max(streak, run); }
+    return { year, games: done.length, hours: totalH, topPlatform, streak, goty, others,
+      layout: layoutPoster(goty, others) };
+  }
+
+  // Shrinks the carts until the shelves fit between the header and the footer. Positions are in
+  // poster units; a cart's y is its top edge and its bottom sits on the board of its shelf.
+  function layoutPoster(goty, others) {
+    const P = POSTER, inner = P.W - P.MARGIN * 2, avail = P.SHELF_BOTTOM - P.SHELF_TOP;
+    const gotyH = goty ? snap(cartHeight(P.GOTY_W), P.GRID) + 70 : 0;     // plaque + pedestal
+    const split = goty ? Math.ceil(others.length / 2) : others.length;
+    let scale = 1.5, top, bottom, total;   // sparse years get bigger carts, up to 1.5x
+    for (;;) {
+      top = packRows(others.slice(0, split), scale, inner);
+      bottom = packRows(others.slice(split), scale, inner);
+      const rows = top.length + bottom.length + (goty ? 1 : 0);
+      total = [...top, ...bottom].reduce((t, r) => t + r.h + P.BOARD, 0) + gotyH + (rows - 1) * P.ROW_GAP;
+      if (total <= avail || scale <= 0.25) break;
+      scale = Math.round((scale - 0.05) * 100) / 100;
+    }
+    let y = P.SHELF_TOP + Math.max(0, (avail - total) / 2);
+    const carts = [], shelves = [];
+    const place = (rows) => rows.forEach(r => {
+      let x = (P.W - r.w) / 2;
+      r.carts.forEach(c => { carts.push({ g: c.g, x, y: y + r.h - c.h, w: c.w, h: c.h, hours: c.hours }); x += c.w + P.GAP; });
+      shelves.push({ y: y + r.h, x0: P.MARGIN - 20, x1: P.W - P.MARGIN + 20 });
+      y += r.h + P.BOARD + P.ROW_GAP;
+    });
+    place(top);
+    let gotyCart = null;
+    if (goty) {
+      const w = P.GOTY_W, h = snap(cartHeight(w), P.GRID), gy = y + 54;       // 54 = plaque above
+      gotyCart = { g: goty, x: (P.W - w) / 2, y: gy, w, h, hours: hours(goty), plaqueY: y };
+      shelves.push({ y: gy + h, x0: P.MARGIN - 20, x1: P.W - P.MARGIN + 20, goty: true });
+      y += gotyH + P.ROW_GAP;
+    }
+    place(bottom);
+    return { carts, goty: gotyCart, shelves, scale, W: P.W, H: P.H, grid: P.GRID };
+  }
+
+  const api = { posterStats, layoutPoster, POSTER, yearStats, persona, hours, isIdle, parseHltb, DEVICE, RECENT_YEARS };
   root.GTWrapped = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

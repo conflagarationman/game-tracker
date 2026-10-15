@@ -24,7 +24,9 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .back:hover{color:var(--text);}
 /* Syne's 800 weight is wide: at 1.4rem the title alone overflowed a 375px phone. */
 h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);white-space:nowrap;min-width:0;}
-@media (max-width:440px){ h1{font-size:1.1rem;} .back{padding:.35rem .6rem;} .back-l{display:none;} }
+/* Two round buttons (the sounds and the music) leave the title less room on a 375px phone. */
+@media (max-width:440px){ .top{gap:.5rem;} h1{font-size:1rem;} .back{padding:.35rem .6rem;} .back-l{display:none;} .tools{gap:.3rem;} }
+.tools{display:flex;gap:.4rem;flex:none;}
 .music{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--border2);background:transparent;color:var(--muted);
   font-size:1rem;cursor:pointer;}
 .music:hover,.music:focus-visible{color:var(--text);border-color:var(--muted);outline:none;}
@@ -96,6 +98,11 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .opt:focus{outline:none;} .opt:focus-visible{text-decoration:underline;}
 @keyframes point{to{transform:translateX(3px);}}
 
+/* The DROP warning: the same box, gone red. "Drop it" is red too, and sits second, so the
+   cursor (and an absent-minded Enter) lands on the harmless "Just snooze it". */
+.box.danger{border-color:var(--hy-red);box-shadow:inset 0 0 0 3px #00000099,inset 0 0 0 4px #ff5a5a40,0 12px 30px #000a,0 0 22px #ff5a5a30;}
+.opt.danger,.opt.danger::before{color:var(--hy-red);}
+
 .choices{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;}
 .choice{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;color:var(--text);background:var(--surface);
   border:1px solid var(--border2);border-radius:99px;padding:.6rem 1.1rem;cursor:pointer;animation:rise .3s ease both;}
@@ -117,9 +124,21 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .badges{display:flex;gap:.35rem;flex-wrap:wrap;}
 .plat.kind{background:#c8f54218;color:var(--accent);}
 .why{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);line-height:1.5;}
-.foot{display:flex;justify-content:center;align-items:center;gap:1rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);}
+.foot{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.25rem 1rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);}
 .redo{background:none;border:none;color:var(--muted);font:inherit;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;text-decoration:underline;padding:.4rem;}
 .redo[hidden]{display:none;}
+/* Dropped games, restorable: nothing the owl strikes from his list is gone for good. */
+.struck{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.8rem .9rem;display:flex;flex-direction:column;gap:.5rem;}
+.struck[hidden]{display:none;}
+.struck h2{font-size:.8rem;font-weight:700;color:var(--muted);}
+.struck ul{list-style:none;display:flex;flex-direction:column;gap:.4rem;}
+.struck li{display:flex;align-items:center;justify-content:space-between;gap:.75rem;font-size:.9rem;}
+.struck .st-t{min-width:0;overflow-wrap:anywhere;}
+.struck .st-t small{display:block;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--dim);}
+.struck .restore{flex:none;font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;color:var(--accent);background:none;border:1px solid #c8f54270;border-radius:99px;padding:.35rem .8rem;cursor:pointer;}
+.struck .restore:hover,.struck .restore:focus-visible{border-color:var(--accent);outline:none;}
+.struck .restore:disabled{opacity:.5;cursor:default;}
+.struck .st-say{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before{animation:none !important;transition:none !important;}
@@ -131,7 +150,10 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   <div class="top">
     <a class="back" href="index.html" aria-label="Back to the tracker">←<span class="back-l"> Tracker</span></a>
     <h1>Kaepora Gaebora</h1>
-    <button type="button" class="music" id="music" aria-pressed="false" title="Music: Kaepora Gaebora, by The 8-Bit Big Band" onclick="toggleMusic()">♪</button>
+    <div class="tools">
+      <button type="button" class="music" id="sfx" aria-pressed="true" aria-label="Owl sounds" title="Owl sounds: text blips and hoots" onclick="toggleSfx()">🔈</button>
+      <button type="button" class="music" id="music" aria-pressed="false" title="Music: Kaepora Gaebora, by The 8-Bit Big Band" onclick="toggleMusic()">♪</button>
+    </div>
   </div>
 
   <div class="scene" id="scene" aria-hidden="true">
@@ -222,7 +244,12 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 
   <div class="pick" id="pick"></div>
   <div class="choices" id="choices"></div>
-  <div class="foot"><span id="count"></span><button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button></div>
+  <div class="foot"><span id="count"></span><button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button><button type="button" class="redo" id="struck-link" hidden aria-expanded="false" aria-controls="struck" onclick="toggleStruck()"></button></div>
+  <section class="struck" id="struck" hidden aria-label="Struck from the list">
+    <h2>Struck from the list</h2>
+    <ul id="struck-list"></ul>
+    <div class="st-say" id="struck-say" role="status"></div>
+  </section>
   <aside class="musicbox" id="musicbox" hidden aria-label="Music">
     <div class="mb-head">
       <span class="mb-note" aria-hidden="true">♪</span>
@@ -248,7 +275,7 @@ const CAN_EDIT = !!(typeof WORKER !== 'undefined' && WORKER.url && WORKER.key);
 const DEVICE_SAY = { any:'whatever is nearest', pc:'the PC', deck:'the Deck', thor:'the Thor', switch:'the Switch', ps5:'the PS5', wiiu:'the Wii U' };
 const MOOD_ASK = { chill:'Something easy on the mind', deep:'Something to sink into', finish:'Wrap something up' };
 
-let G = [], COVERS = {}, PLAY = null, GOTM = null, SRC = {};
+let G = [], COVERS = {}, PLAY = null, GOTM = null, SRC = {}, SKIPS = {};
 let ANS = { device:null, time:null, mood:null };
 let PICKS = [], AT = 0, timer = null, finishTyping = null;
 // Bumped by every fresh ask(). An await that wakes up in an older conversation (a slow save,
@@ -266,6 +293,8 @@ function todayStr(){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// A pause to let a line be read before the next one replaces it (none with reduced motion).
+const beat = (ms) => new Promise(r => setTimeout(r, reduced ? 0 : ms));
 const $ = (id) => document.getElementById(id);
 
 function owlPose(...classes){
@@ -280,12 +309,14 @@ function flap(){
 $('owl').addEventListener('animationend', e => { if (e.animationName.startsWith('flap')) $('owl').classList.remove('flap'); });
 
 // Typed out a couple of characters at a time; tapping the box finishes the line at once.
-function say(html){
+function say(html, danger = false){
   return new Promise(resolve => {
     clearInterval(timer);
     const box = $('box'), out = $('text'), owl = $('owl');
+    box.classList.toggle('danger', danger);
     choices([]); opts([]);                          // nothing to answer while the owl is talking
     box.classList.remove('done');
+    hoot();
     const tmp = document.createElement('div'); tmp.innerHTML = html;
     $('said').textContent = tmp.textContent;
     const end = () => { clearInterval(timer); out.innerHTML = html; box.classList.add('done'); owl.classList.remove('talking'); finishTyping = null; resolve(); };
@@ -297,6 +328,7 @@ function say(html){
       n += 2;
       if (n >= total) return end();
       out.innerHTML = clip(html, n);
+      if (/\S/.test(tmp.textContent[n - 1] || '')) blip();
     }, 22);
   });
 }
@@ -396,7 +428,7 @@ async function ask(){
 async function decide(){
   const conv = CONV;
   try { localStorage.setItem('gt_owl', JSON.stringify(ANS)); } catch(e){}
-  PICKS = GTPick.owlLineup(G, SRC, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM });
+  PICKS = GTPick.owlLineup(G, { ...SRC, skips: SKIPS }, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM });
   AT = 0;
   if (!PICKS.length){
     owlPose();
@@ -425,7 +457,7 @@ const WILD_OPENERS = {
 };
 const MOOD_SAY = { chill:'easy on the mind', deep:'one to sink into', finish:'close to done' };
 
-async function reveal(first){
+async function reveal(first, lead = ''){
   const conv = CONV;
   const p = PICKS[AT];
   $('pick').classList.remove('show');
@@ -439,13 +471,125 @@ async function reveal(first){
   }
   const opener = WILD_OPENERS[p.kind] || (first ? OPENERS[0] : OPENERS[1 + (AT - 1) % (OPENERS.length - 1)]);
   const why = p.reasons.length ? ' ' + esc(p.reasons.join('. ')) + '.' : '';
+  // The owl remembers: a game you keep turning down gets a remark when it comes round again.
+  // It goes in the question, not the line naming the game: that one is replaced the moment it's
+  // typed, while the question stays up until you answer.
+  const n = skipCount(p);
+  const memory = n >= 2 ? ` You've turned this one down ${times(n)}, you know.` : '';
+  if (lead){
+    await say(lead);
+    await beat(1700);
+    if (conv !== CONV) return;
+  }
   await say(`${esc(opener)} ${red(p.t)}.${why}`);
   if (conv !== CONV) return;
   showCard(p);
   owlPose('tilt');
-  await say('Hoo hoot! …Did you get all that? Do you want to hear it again?');
+  await say(`Hoo hoot! …Did you get all that?${memory} Do you want to hear it again?`);
   if (conv !== CONV) return;
-  opts([['Yes', again], ['No', () => commit(p)]]);
+  opts([['Yes', again], ['No', () => commit(p)], ['Not this one', () => notThis(p)]]);
+}
+
+// ─── The weekend hoot ──────────────────────────────────
+// owl.html?pick=<key> is where the Home Hub's Friday nudge lands: the weekend pick from
+// owl-pick.json, named by its key (id:12, steam:730, ra:… or canon:…). He opens on that game with
+// the usual Yes / No / Not this one, and Yes carries on down the same "any device, a long
+// session, no mood" lineup. The key is looked up in the whole pool, not today's lineup, so the
+// link still works after the data has moved on; a game that's gone, or that you've since set
+// aside, sends you to the normal questions instead.
+async function openPick(key){
+  const conv = ++CONV;
+  const opts = { ...GTPick.WEEKEND, play: PLAY, gotm: GOTM };
+  const hit = GTPick.owlFind(G, SRC, key, opts);
+  if (!hit || GTPick.isHidden(SKIPS[key])){
+    owlPose('tilt');
+    await say("Hoo… I can't find the one I had in mind. Let me ask you properly.");
+    await beat(1500);
+    if (conv === CONV) ask();
+    return;
+  }
+  ANS = { ...ANS, ...GTPick.WEEKEND, mood: null };   // this visit only; the saved answers aren't touched
+  PICKS = [hit, ...GTPick.owlLineup(G, { ...SRC, skips: SKIPS }, opts).filter(x => x.key !== key)];
+  AT = 0;
+  owlPose('tilt');
+  await say('Hoo hoot! You came about the weekend, hoo?');
+  await beat(1500);
+  if (conv === CONV) reveal(true);
+}
+
+// ─── "Not this one" ────────────────────────────────────
+// Turning a game down snoozes it for the owl only (7, 30, then 90 days, pick.js's SNOOZE_DAYS),
+// so nothing disappears for good by accident. Only after three snoozes does he offer to strike
+// it off his list, with a warning, and even that is a flag "Struck from the list" can undo.
+// None of it changes the game's status in the tracker.
+const TIMES_SAY = ['', 'once', 'twice', 'three times', 'four times', 'five times'];
+const times = (n) => TIMES_SAY[n] || `${n} times`;
+const SNOOZE_SAY = [
+  'Hoo. Another time, then.',
+  "Hoo… not this one again? I'll leave it a while.",
+  "That's three times now. I'll keep quiet about it for a season.",
+];
+const skipCount = (p) => (SKIPS[p.key] && SKIPS[p.key].count) || 0;
+
+async function notThis(p){
+  const before = skipCount(p);
+  if (before >= SNOOZE_SAY.length) return warnDrop(p, before + 1);
+  await setAside(p, false, SNOOZE_SAY[before]);
+}
+
+// Writes the turn-down, then moves on to the next pick the way Yes does. The saved copy the
+// Worker returns replaces ours; if it can't be reached the owl says so and remembers it only
+// until the page closes.
+async function setAside(p, drop, line, offerSomeday = false){
+  const conv = CONV;
+  owlPose();
+  const local = GTPick.nextSkip(SKIPS[p.key], p.t, { drop });
+  let saved = false;
+  if (CAN_EDIT){
+    await say('Hoo…');
+    const data = await workerCall('/owl/skip', { key: p.key, t: p.t, drop });
+    if (conv !== CONV) return;
+    if (data) saved = true;
+    SKIPS = data && typeof data === 'object' && !Array.isArray(data) && data[p.key] ? data : { ...SKIPS, [p.key]: local };
+  } else SKIPS = { ...SKIPS, [p.key]: local };
+  updateStruck();
+  const lead = (CAN_EDIT && !saved ? "Hoo… the tracker didn't hear that, so I'll only remember it until you leave. " : '') + line;
+  PICKS = PICKS.filter(x => x !== p);
+  if (AT >= PICKS.length) AT = 0;
+  const onward = async (said) => {
+    if (PICKS.length) return reveal(false, said);
+    flap();
+    await say(`${said} That was the last road I had. Come back when the snoozes end, or add something to Up Next.`);
+    if (conv === CONV) choices([['Ask again', ask]]);
+  };
+  if (!offerSomeday) return onward(lead);
+  flap();
+  await say(`${lead} Shall I move it to your Someday pile instead?`);
+  if (conv !== CONV) return;
+  opts([['No, leave it', () => onward('Very well, it stays in Up Next.')],
+        ['Move it to Someday', async () => {
+          const ok = await postWorker('/games/edit', { id: p.g.id, s: 'soon' });
+          if (conv !== CONV) return;
+          if (ok) p.g.s = 'soon';
+          onward(ok ? 'Hoo. It rests in your Someday pile now.' : "Hoo… the tracker didn't hear that, so it stays in Up Next.");
+        }]]);
+}
+
+async function warnDrop(p, n){
+  const conv = CONV;
+  owlPose('tilt');
+  flap();
+  await say(`Hoo! You've turned ${red(p.t)} away ${times(n)}. Shall I strike it from my list ${red('for good')}?`, true);
+  if (conv !== CONV) return;
+  // The harmless answer comes first, where the cursor starts.
+  opts([['Just snooze it', () => setAside(p, false, 'Very well. Ninety more days, and I will ask again.')],
+        ['Drop it', () => dropIt(p), 'danger']]);
+}
+
+async function dropIt(p){
+  const line = 'Hoo… struck from my list. It waits under "Struck from the list" below, should you change your mind.';
+  // A game in Up Next stays there either way, so offer to tidy it into Someday.
+  await setAside(p, true, line, !!(p.g && p.g.s === 'queue' && CAN_EDIT));
 }
 
 async function again(){
@@ -476,13 +620,16 @@ async function commit(p){
       ? `Hoo hoo hoo! ${red(p.t)} is in Now Playing. Off you go. I'll be watching.`
       : `Hoo… the message didn't reach the tracker. Go play ${red(p.t)} anyway, and mark it later.`;
   }
+  // Accepting a game wipes its turn-downs, so one you went and played isn't remembered as unwanted.
+  if (skipCount(p) > 0) forget(p.key);
   flap();
   await say(line);
   if (conv !== CONV) return;
   choices([['Ask me again', ask], ['Back to the tracker', () => { location.href = 'index.html'; }]]);
 }
 
-async function postWorker(path, body){
+// The Worker's JSON answer, or null when the write didn't go through.
+async function workerCall(path, body){
   try {
     const res = await fetch(WORKER.url + path, {
       method:'POST',
@@ -490,12 +637,13 @@ async function postWorker(path, body){
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`request failed (${res.status})`);
-    return true;
+    return await res.json().catch(() => true);
   } catch (err) {
     console.error('Save failed', path, err);
-    return false;
+    return null;
   }
 }
+const postWorker = async (path, body) => !!(await workerCall(path, body));
 // A tracked or Someday game: the same edit as the picker's ▶ Start on index.html.
 async function startGame(g){
   const ok = await postWorker('/games/edit', { id: g.id, s:'playing', start: todayStr() });
@@ -536,6 +684,124 @@ function showCard(p){
     <div class="why">${p.reasons.map(esc).join(' · ')}</div></div>`;
   el.classList.add('show');
 }
+
+// ─── Struck from the list ──────────────────────────────
+// Every drop is listed here with a Restore, which deletes its entry in owl-skips.json: the game
+// is back in the owl's lineup and its count starts again from zero.
+const dropped = () => Object.entries(SKIPS).filter(([, e]) => e && e.dropped);
+function updateStruck(){
+  const list = dropped();
+  const link = $('struck-link');
+  link.hidden = !list.length;
+  link.textContent = `Struck from the list (${list.length})`;
+  if (!list.length) { $('struck').hidden = true; link.setAttribute('aria-expanded', 'false'); }
+  const ul = $('struck-list');
+  ul.innerHTML = '';
+  list.forEach(([key, e]) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="st-t">${esc(e.t || key)}<small>turned away ${esc(times(e.count || 0) || 'before')}${e.last ? ' · ' + esc(e.last) : ''}</small></span>`;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'restore'; b.textContent = 'Restore';
+    b.setAttribute('aria-label', `Restore ${e.t || key}`);
+    b.disabled = !CAN_EDIT;
+    if (!CAN_EDIT) b.title = 'Needs the tracker connection';
+    b.onclick = async () => {
+      b.disabled = true;
+      const ok = await forget(key);
+      $('struck-say').textContent = ok ? `Hoo. ${e.t || key} is back on my list.` : "Hoo… the tracker didn't hear that. It's still struck.";
+      if (!ok) b.disabled = false;
+    };
+    li.appendChild(b);
+    ul.appendChild(li);
+  });
+}
+function toggleStruck(){
+  const box = $('struck'), open = box.hidden;
+  box.hidden = !open;
+  $('struck-link').setAttribute('aria-expanded', open);
+  $('struck-say').textContent = '';
+  if (open) box.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+}
+// Deletes a game's entry (restore, or accepting it with "No"). True when it's gone.
+async function forget(key){
+  if (!CAN_EDIT) return false;
+  const data = await workerCall('/owl/restore', { key });
+  if (!data) return false;
+  if (data && typeof data === 'object' && !Array.isArray(data)) SKIPS = data;
+  else { const { [key]: gone, ...rest } = SKIPS; SKIPS = rest; }
+  updateStruck();
+  return true;
+}
+// ─── Sounds ────────────────────────────────────────────
+// Text blips and a hoot, made here with Web Audio: nothing is downloaded and nothing is
+// Nintendo's. A quiet square-wave blip goes with every couple of letters as the owl types (the
+// way OoT's text boxes do), and each line opens with an original two-note "hoo-hoo", a falling
+// minor third in soft sines with a little pitch bend. Tapping a line to skip it ends the typing,
+// and the blips with it.
+//
+// Browsers only allow sound after a tap or key press, so the AudioContext is made on the first
+// one, like the music; the greeting before it is silent. The 🔈 switches it off, remembered
+// separately from the music, since you may want one without the other. Volume stays low.
+let AC = null, sfxOn = true, lastBlip = 0, lastHoot = 0;
+try { sfxOn = localStorage.getItem('gt_owl_sfx') !== '0'; } catch(e){}
+function wakeAudio(){
+  if (!sfxOn) return null;
+  if (!AC){
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    try {
+      const ctx = new Ctx(), out = ctx.createGain();
+      out.gain.value = 0.7; out.connect(ctx.destination);
+      AC = { ctx, out };
+    } catch(e){ return null; }
+  }
+  if (AC.ctx.state === 'suspended') AC.ctx.resume();
+  return AC;
+}
+// One short tone: a gentle attack, then it dies away by `dur`; `bend` starts it that many times
+// too high and slides it down to `freq`.
+function tone(type, freq, at, dur, vol, bend = 1){
+  const { ctx, out } = AC, o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq * bend, at);
+  if (bend !== 1) o.frequency.exponentialRampToValueAtTime(freq, at + dur * 0.35);
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.linearRampToValueAtTime(vol, at + Math.min(0.02, dur / 4));
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g); g.connect(out);
+  o.start(at); o.stop(at + dur + 0.02);
+}
+function blip(){
+  if (!sfxOn || !AC) return;
+  const t = performance.now();
+  if (t - lastBlip < 40) return;                     // never a buzz, however fast the typing
+  lastBlip = t;
+  tone('square', 440 * (1 + (Math.random() - 0.5) * 0.14), AC.ctx.currentTime, 0.045, 0.035);
+}
+function hoot(){
+  if (!sfxOn || !AC) return;
+  const t = performance.now();
+  // Lines often follow each other within a second; one hoot is charming, a stutter of them isn't.
+  if (t - lastHoot < 1500) return;
+  lastHoot = t;
+  const at = AC.ctx.currentTime + 0.02;
+  tone('sine', 392.0, at, 0.26, 0.11, 1.05);          // G4
+  tone('sine', 329.63, at + 0.3, 0.34, 0.1, 1.05);    // down a minor third, to E4
+}
+function showSfx(){
+  const b = $('sfx');
+  b.setAttribute('aria-pressed', sfxOn);
+  b.textContent = sfxOn ? '🔈' : '🔇';
+}
+function toggleSfx(){
+  sfxOn = !sfxOn;
+  try { localStorage.setItem('gt_owl_sfx', sfxOn ? '1' : '0'); } catch(e){}
+  showSfx();
+  if (sfxOn && wakeAudio()){ lastHoot = 0; hoot(); }   // a hoot to show it's on
+}
+showSfx();
+const firstGesture = () => { document.removeEventListener('pointerdown', firstGesture); document.removeEventListener('keydown', firstGesture); wakeAudio(); };
+document.addEventListener('pointerdown', firstGesture); document.addEventListener('keydown', firstGesture);
 
 // ─── Music ─────────────────────────────────────────────
 // The 8-Bit Big Band's cover of Kaepora Gaebora's theme, through YouTube's own embedded player.
@@ -632,12 +898,17 @@ Promise.all([
   fresh('library.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('library-meta.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('retro-canon.json').then(r => r.ok ? r.json() : []).catch(() => []),
+  fresh('library-hltb.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  // What he's snoozed or struck from his list. Missing just means nothing is hidden.
+  fresh('owl-skips.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   // Let him land before he starts talking.
   new Promise(r => setTimeout(r, reduced ? 0 : 900)),
-]).then(([games, covers, gotm, play, library, meta, canon]) => {
-  G = games; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
-  SRC = { library, meta, canon, gotm: GOTM };
-  ask();
+]).then(([games, covers, gotm, play, library, meta, canon, hltb, skips]) => {
+  G = games; SKIPS = skips && typeof skips === 'object' && !Array.isArray(skips) ? skips : {}; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
+  SRC = { library, meta, canon, hltb, gotm: GOTM };
+  updateStruck();
+  const want = new URLSearchParams(location.search).get('pick');
+  if (want) openPick(want); else ask();
 }).catch(err => {
   console.error('Failed to load game data', err);
   say(`Hoo… I can't see the tracker from here (${esc(err.message || 'network error')}). Try again in a moment.`);

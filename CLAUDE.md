@@ -26,14 +26,16 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
-| `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start (or, for a wildcard, add it as Now Playing via `/games/add`). Uses `GTPick.owlLineup()`: tracked + Someday games, with a wildcard every third pick and in the lead when nothing tracked fits the mood. Music is The 8-Bit Big Band's cover of Kaepora's theme through YouTube's player, in a credited "music box" at the bottom of the page: YouTube's terms need the player visible (200px+), and the recording isn't ours to host. On by default from the first tap or key press; nothing loads from YouTube before it. |
+| `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start (or, for a wildcard, add it as Now Playing via `/games/add`), `?pick=<key>` opens straight on that game ("You came about the weekend, hoo?") with the usual three answers, looked up in the whole pool so a Friday link survives the data moving on. Not this one = snooze it for the owl (see `owl-skips.json`; the fourth turn-down shows a red DROP warning whose safe answer comes first, and drops are listed under "Struck from the list" in the footer with a Restore). Uses `GTPick.owlLineup()`: tracked + Someday games, with a wildcard every third pick and in the lead when nothing tracked fits the mood. Music is The 8-Bit Big Band's cover of Kaepora's theme through YouTube's player, in a credited "music box" at the bottom of the page: YouTube's terms need the player visible (200px+), and the recording isn't ours to host. On by default from the first tap or key press; nothing loads from YouTube before it. **Text sounds** are made in the page with Web Audio (no files): a quiet square blip every couple of typed letters (≥40ms apart) and an original falling-minor-third "hoo-hoo" at the start of each line (≥1.5s apart). They start on the first tap too, and have their own 🔈 toggle (`gt_owl_sfx`), separate from the ♪. |
 | `library.json` | bot only (`sync-games.yml`, daily) | Every owned Steam game (hours minus the ASF ledger's recorded idling) and every RetroAchievements game with progress, one per line. For the owl's wildcards. **Published in full on purpose** (Jonny's call). Only rewritten when Steam answers. |
 | `library-meta.json` | bot only (`scripts/library-meta.mjs`, scheduled runs only) | Steam genres (`g`), Metacritic (`m`) and Deck rating (`d`: 3 verified, 2 playable, 1 unsupported, 0 unknown) per appid. Filled ~120 games a day, most-played first; known appids are never re-fetched. |
+| `library-hltb.json` | bot only (`scripts/library-hltb.mjs`, scheduled runs only) | HowLongToBeat estimates (`h`) for the owl's wildcards, keyed like `owl-skips.json` (`steam:<appid>`, `ra:<normTitle>`), `{ t, h, checked }`. The candidates are `pick.js`'s own `wildcards()` (not the canon, which has its own `h`), ~40 a day, best-scoring first, through `backfill-hltb.mjs`'s client and exact-title matching. **A title that was found or declined (`h: null` with a `why`) is never asked again**; delete its entry to retry (e.g. after a `STEAM_NAME_ALIASES` entry). A lookup that errored isn't recorded, so it's retried. Never fails the sync. `wildcards()` scores with it like tracked games' `h` (a favourite or RA run by what's left, the rest by length). |
 | `retro-canon.json` | you | Hand-curated retro must-plays (`t`, `c` console, `y`, `g`, `h`, `why`) for the owl's "never logged" wildcard. Anything tracked or with RA progress is skipped automatically, so it never needs pruning. |
-| `owl-pick.json` | bot only (`sync-games.yml`, daily, via `scripts/owl-pick.mjs`) | The owl's pick for tonight (any device, an evening, no mood), for the Home Hub's peeking owl. Runs the real `pick.js` so the hub (Python, token in its URL) neither re-implements the ranking nor loads remote script. `pick` is null when there's nothing to suggest. |
+| `owl-pick.json` | bot only (`sync-games.yml`, daily, via `scripts/owl-pick.mjs`) | The owl's pick for tonight (any device, an evening, no mood), for the Home Hub's peeking owl. Runs the real `pick.js` so the hub (Python, token in its URL) neither re-implements the ranking nor loads remote script. `pick` is null when there's nothing to suggest. **`weekend`** is the Friday hoot's pick (`{ key, t, p, reasons, week }`, or null): any device, a long session, no mood, wildcards included, anything in `owl-skips.json` left out, drawn with a seed from the ISO week. Friday to Sunday the previous run's pick is kept while it still stands, so the hub's nudge and the page agree all weekend. `key` is what `owl.html?pick=<key>` opens (URL-encode it: `id:12`, `steam:730`, `ra:…`, `canon:…`). |
+| `owl-skips.json` | **Worker only** (`/owl/skip`, `/owl/restore`) | What the owl has set aside, from "Not this one": `{ key: { t, count, until, dropped, last } }`, keyed `id:<n>` (tracked), `steam:<appid>`, `ra:<normTitle>` (RA runs and club picks) or `canon:<normTitle>`. Turn-downs snooze 7, 30, then 90 days; the fourth asks before a drop, and a drop is only `dropped: true`. Restore deletes the entry (count back to zero), and so does accepting the game with "No". **Never touches `games.json`**, and nothing writes it but the Worker, so keep human edits out. |
 | `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
-| `worker/` | you | The only thing that can commit to `games.json` from a browser. |
+| `worker/` | you | The only thing that can commit to `games.json` (and `owl-skips.json`) from a browser. `worker/index.mjs` keeps its own copy of the 7/30/90 snooze table; its test compares it with `pick.js`'s. |
 
 Bot-written files are overwritten wholesale on each run. Anything a human needs to edit and
 keep belongs in `games.json`, never in `covers.json` or `last-synced.json`.
@@ -177,6 +179,15 @@ switch/switch2, everything else PC & TV (Steam can't be told apart from Deck pla
 persona is whichever trait clears its threshold by the most, with the number behind it, and
 "vs last year" compares with the closest earlier year that has finishes.
 
+The **Year of Play poster** on the same page (`posterStats` / `layoutPoster` in
+`wrapped-stats.js`, painted by `drawPoster` in `wrapped.html`) is every non-Idle finish of the
+year as a pixel-art cartridge on a shelf, sized by hours (`actualHours`, else the HLTB
+estimate), coloured by platform, with the title on a procedurally drawn label. **Never put cover
+art on this canvas:** cross-origin images taint it and `toBlob` then fails. Game of the Year
+is the highest rating, ties to the most hours, on the middle pedestal. "Download poster" renders
+3600x4800 (falling back to 3000x4000, then 1800x2400, where a browser caps canvas size);
+the print stylesheet prints only the poster.
+
 ### Array order is meaningful
 
 **The order of records in `games.json` is the Up Next priority.** `index.html` numbers the
@@ -303,17 +314,18 @@ node scripts/sync-apis.test.mjs        # 44
 node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
-node scripts/fetch-gotm.test.mjs       # 23
-node scripts/pick.test.mjs             # 24
+node scripts/fetch-gotm.test.mjs       # 26
+node scripts/pick.test.mjs             # 35
 node scripts/wrapped.test.mjs          # 14
-node scripts/owl-pick.test.mjs         # 4
+node scripts/owl-pick.test.mjs         # 12
 node scripts/library-meta.test.mjs     # 4
-cd worker && node index.test.mjs       # 27
+node scripts/library-hltb.test.mjs     # 8
+cd worker && node index.test.mjs       # 35
 ```
 
-`tests.yml` runs all ten on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all eleven on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-ten commands above.
+eleven commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails

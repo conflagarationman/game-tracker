@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 const ctx = {};
 vm.createContext(ctx);
 vm.runInContext(await readFile(new URL("../wrapped-stats.js", import.meta.url), "utf8"), ctx);
-const { yearStats } = ctx.GTWrapped;
+const { yearStats, posterStats, layoutPoster, POSTER } = ctx.GTWrapped;
 
 let pass = 0, fail = 0;
 const test = async (name, fn) => {
@@ -115,6 +115,63 @@ await test("the real games.json produces a full review for every year it has", a
     const s = yearStats(games, y, NOW);
     assert.ok(s.months.length === 12 && s.streak.len >= (s.done.some(x => x.cm != null) ? 1 : 0), `${y} months/streak`);
     if (s.done.length >= 3) assert.ok(s.persona && s.persona.line, `${y} has no persona`);
+  }
+});
+
+// ─── Year of Play poster ───
+const rects = (l) => [...l.carts, ...(l.goty ? [l.goty] : [])];
+
+await test("poster: Game of the Year is the highest rating, ties go to the most hours", () => {
+  const p = posterStats([g({ t: "Nine Short", r: 9, h: "5h" }), g({ t: "Nine Long", r: 9, h: "40h" }), g({ t: "Eight", r: 8, h: "90h" })], 2026);
+  assert.equal(p.goty.t, "Nine Long");
+  assert.equal(rects(p.layout).length, 3);
+  const real = posterStats([g({ t: "Est", r: 9, h: "50h" }), g({ t: "Played", r: 9, h: "5h", actualHours: 120 })], 2026);
+  assert.equal(real.goty.t, "Played", "actualHours outranks the HLTB estimate");
+});
+
+await test("poster: Idle-genre games, other years and unfinished games are left off", () => {
+  const p = posterStats([g({ t: "Keep" }), g({ t: "Clicker", g: "Idle", r: 10 }), g({ t: "Old", cy: 2025 }), g({ t: "Playing", s: "playing", cy: null })], 2026);
+  assert.deepEqual(plain(rects(p.layout).map(c => c.g.t)), ["Keep"]);
+  assert.equal(p.games, 1);
+  assert.equal(p.goty, null, "an Idle game never wins Game of the Year");
+});
+
+await test("poster: carts grow with hours, using real playtime before the estimate", () => {
+  const p = posterStats([g({ t: "Tiny", h: "1h" }), g({ t: "Mid", h: "20h" }), g({ t: "Huge", h: "9h", actualHours: 200 })], 2026);
+  const w = Object.fromEntries(rects(p.layout).map(c => [c.g.t, c.w]));
+  assert.ok(w.Tiny < w.Mid && w.Mid < w.Huge, JSON.stringify(w));
+});
+
+await test("poster: the winner sits dead centre and every cart stays on the sheet without overlapping", () => {
+  for (const n of [0, 1, 7, 42, 160]) {
+    const gs = Array.from({ length: n }, (_, i) => g({ t: `G${i}`, r: i % 10 + 1, h: `${i % 40 + 1}h`, cm: i % 12 }));
+    const l = posterStats(gs, 2026).layout, all = rects(l);
+    assert.equal(all.length, n);
+    if (n) assert.equal(l.goty.x + l.goty.w / 2, POSTER.W / 2, `${n}: goty centred`);
+    for (const c of all) assert.ok(c.x >= 0 && c.x + c.w <= POSTER.W && c.y >= POSTER.SHELF_TOP - 1 && c.y + c.h <= POSTER.SHELF_BOTTOM + 1, `${n}: ${c.g.t} off the shelf area`);
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+      const a = all[i], b = all[j];
+      assert.ok(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y, `${n}: ${a.g.t} overlaps ${b.g.t}`);
+    }
+  }
+});
+
+await test("poster: footer numbers are the year's games, hours, top platform and longest streak", () => {
+  const p = posterStats([g({ p: "switch", cm: 0, h: "10h" }), g({ p: "switch", cm: 1, h: "20h" }), g({ p: "steam", cm: 2, h: "30h" }),
+    g({ p: "steam", cm: 5, h: "1h" }), g({ p: "steam", cm: 5, g: "Idle" })], 2026);
+  assert.equal(p.games, 4);                                   // the Idle game is off the shelf
+  assert.equal(p.hours, 61);
+  assert.equal(p.topPlatform.p, "steam");                     // 2 vs 2 games: steam has 31h, switch 30h
+  assert.equal(p.streak, 3);                                  // Jan, Feb, Mar
+  const tie = posterStats([g({ p: "ps5", h: "5h" }), g({ p: "steam", h: "50h" })], 2026);
+  assert.equal(tie.topPlatform.p, "steam", "a tied platform count goes to the most hours");
+});
+
+await test("poster: the real games.json lays out for every year", async () => {
+  const games = JSON.parse(await readFile(new URL("../games.json", import.meta.url), "utf8"));
+  for (const y of new Set(games.filter(x => x.cy).map(x => x.cy))) {
+    const p = posterStats(games, y);
+    assert.equal(rects(p.layout).length, p.games, `${y}`);
   }
 });
 
