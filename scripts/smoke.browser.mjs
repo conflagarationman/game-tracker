@@ -332,6 +332,28 @@ for (const width of [390, 1280]) {
   });
 }
 
+for (const width of [390, 1280]) {
+  await test(`wrapped.html poster at ${width}px draws, exports a 3600x4800 PNG and prints on its own`, async () => {
+    const { page, errors, ctx } = await open("wrapped.html?year=2026", width);
+    await page.waitForSelector("#poster-canvas");
+    await page.evaluate(() => document.fonts.ready);
+    ok(await noSideScroll(page), "page scrolls sideways");
+    const drawn = await page.evaluate(() => document.getElementById("poster-canvas").toDataURL("image/png").length);
+    ok(drawn > 50000, `poster preview looks empty (${drawn} bytes)`);
+    const [download] = await Promise.all([page.waitForEvent("download"), page.click("text=Download poster")]);
+    ok(/^year-of-play-\d{4}\.png$/.test(download.suggestedFilename()), `odd filename ${download.suggestedFilename()}`);
+    const { readFile: rf } = await import("node:fs/promises");
+    const png = await rf(await download.path());
+    ok(png.readUInt32BE(16) === 3600 && png.readUInt32BE(20) === 4800, `export is ${png.readUInt32BE(16)}x${png.readUInt32BE(20)}, not 3600x4800`);
+    // Print: everything but the poster is hidden. (visibility, so check the computed style.)
+    await page.emulateMedia({ media: "print" });
+    const vis = await page.evaluate(() => [getComputedStyle(document.getElementById("wr-hero")).visibility, getComputedStyle(document.getElementById("poster-canvas")).visibility]);
+    ok(vis[0] === "hidden" && vis[1] === "visible", `print visibility ${vis}`);
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
 await browser.close();
 server.close();
 console.log(`\n${pass}/${pass + fail} passing`);
