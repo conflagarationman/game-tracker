@@ -529,5 +529,22 @@ await test("getAsfLedger fails safe to null on a hub error", async () => {
   assert.ok(log.some(l => l.includes("ASF farm ledger failed")));
 });
 
+
+await test("library: Steam hours lose recorded card idling; RA keeps one row per game; one row per line", async () => {
+  const { buildLibrary, formatLibrary } = await import("./sync-apis.mjs");
+  const asf = { byAppid: new Map([[10, { total: 180 }]]) };
+  const lib = buildLibrary(
+    [{ appid: 10, name: "Farmed", playtime_forever: 200, rtime_last_played: 1789000000 },
+     { appid: 5, name: "Loved", playtime_forever: 6000, rtime_last_played: 0 }],
+    [{ GameID: "3", Title: "Super Metroid", ConsoleName: "SNES", NumAwarded: "12", MaxPossible: "40" }],
+    asf);
+  assert.deepEqual(lib.steam.map(g => [g.appid, g.hours]), [[5, 100], [10, 0.3]]);
+  assert.equal(lib.steam[0].lastPlayed, null);
+  assert.deepEqual(lib.ra[0], { gameId: 3, title: "Super Metroid", console: "SNES", earned: 12, total: 40 });
+  const text = formatLibrary(lib);
+  assert.deepEqual(JSON.parse(text), lib);
+  assert.equal(text.split("\n").filter(l => l.includes('"appid"')).length, 2);
+});
+
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);

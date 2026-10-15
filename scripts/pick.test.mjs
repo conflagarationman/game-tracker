@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 const ctx = {};
 vm.createContext(ctx);
 vm.runInContext(await readFile(new URL("../pick.js", import.meta.url), "utf8"), ctx);
-const { pickGames, remaining, devicesWithGames, achLeft } = ctx.GTPick;
+const { pickGames, remaining, devicesWithGames, achLeft, wildcards, owlLineup } = ctx.GTPick;
 
 let pass = 0, fail = 0;
 const test = async (name, fn) => {
@@ -138,5 +138,74 @@ await test("deep mood prefers a long game over a short one", () => {
   assert.equal(titles(pickGames(games, { mood: "deep", time: "long", now: NOW }))[0], "Game 2");
 });
 
+
+// ─── owl.html: Someday, wildcards and the lineup ─────────
+const kinds = (r) => Array.from(r, x => x.kind);
+const canon = [{ t: "Tetris Attack", c: "SNES", y: 1996, g: "Puzzle", h: "5h", why: "chains" },
+               { t: "Contra III", c: "SNES", y: 1992, g: "Run and Gun", h: "1h", why: "boom" }];
+
+await test("Someday stays out of the plain picker and comes in for the owl", () => {
+  const games = [g(1, { s: "soon", t: "Someday game" })];
+  assert.equal(pickGames(games, { now: NOW }).length, 0);
+  const r = pickGames(games, { someday: true, now: NOW });
+  assert.equal(r[0].kind, "someday");
+  assert.ok(r[0].reasons.includes("From your Someday pile"));
+});
+
+await test("chill: shooters and action platformers don't count as easy on the mind", () => {
+  const r = pickGames([g(1, { s: "playing", g: "Shooter" }), g(2, { s: "playing", g: "Action Platformer" }),
+                       g(3, { s: "playing", g: "Puzzle" })], { mood: "chill", now: NOW });
+  assert.deepEqual(Array.from(r, x => [x.g.id, x.fits]), [[3, true], [1, false], [2, false]]);
+});
+
+await test("God of War is not the owl's first answer for a chill half-hour on the Thor", () => {
+  const games = [g(400, { t: "God of War", p: "ayn", g: "Action-Adventure", h: "9h", lastPlayed: "2026-10-09" }),
+                 g(401, { t: "Pokemon Lazarus", p: "ayn", g: "RPG" })];
+  const r = owlLineup(games, { canon }, { device: "thor", time: "quick", mood: "chill", now: NOW }, () => 0.5);
+  assert.notEqual(r[0].t, "God of War");
+  assert.equal(r[0].t, "Tetris Attack");
+  assert.ok(r[0].fits);
+});
+
+await test("wildcards: favourites, acclaimed-unplayed, Deck-unsupported and already-tracked", () => {
+  const library = { steam: [
+    { appid: 1, name: "Brotato", hours: 112, lastPlayed: "2026-07-07" },
+    { appid: 2, name: "Balatro", hours: 88, lastPlayed: "2026-10-10" },        // played lately: not a wildcard
+    { appid: 3, name: "Hades", hours: 0, lastPlayed: null },
+    { appid: 4, name: "Meh Game", hours: 0, lastPlayed: null },                 // no score: skipped
+    { appid: 5, name: "Farmed", hours: 3, lastPlayed: "2025-01-01" },           // card-idle range
+    { appid: 6, name: "Steep™", hours: 40, lastPlayed: "2025-01-01" },          // tracked as "Steep"
+    { appid: 7, name: "No Deck", hours: 0, lastPlayed: null } ], ra: [] };
+  const meta = { 3: { g: ["Action"], m: 93, d: 3 }, 4: { g: [], m: null, d: 0 }, 7: { g: [], m: 90, d: 1 } };
+  const games = [g(9, { t: "Steep" })];
+  const pc = wildcards(games, { library, meta }, { device: "pc", now: NOW });
+  assert.deepEqual(Array.from(pc, w => w.t).sort(), ["Brotato", "Hades", "No Deck"]);
+  assert.equal(pc.find(w => w.t === "Brotato").reasons[0], "112h logged · last played Jul 2026");
+  const deck = wildcards(games, { library, meta }, { device: "deck", now: NOW });
+  assert.ok(!deck.some(w => w.t === "No Deck"));
+  assert.equal(wildcards(games, { library, meta }, { device: "thor", now: NOW }).length, 0);
+});
+
+await test("retro wildcards: half-finished RA runs, unclaimed club picks, and the canon minus what you've logged", () => {
+  const library = { steam: [], ra: [
+    { title: "Super Mario Kart", console: "SNES", earned: 8, total: 40 },
+    { title: "Tetris Attack", console: "SNES", earned: 0, total: 30 },       // touched on RA: not "unlogged"
+    { title: "Done Deal", console: "NES", earned: 39, total: 40 } ] };       // 98%: not half-finished
+  const gotm = { picks: [{ tag: "Sep 2026", game: "Kirby's Dream Land", monthsLeft: 11, retired: false },
+                         { tag: "Aug 2026", game: "Tracked Pick", monthsLeft: 10, retired: false },
+                         { tag: "Jan 2025", game: "Retired Pick", monthsLeft: 0, retired: true }] };
+  const games = [g(1, { t: "Something", gotm: "Aug 2026" })];
+  const r = wildcards(games, { library, canon, gotm }, { device: "thor", now: NOW });
+  assert.deepEqual(Array.from(r, w => w.kind + ":" + w.t).sort(),
+    ["retro-canon:Contra III", "retro-club:Kirby's Dream Land", "retro-started:Super Mario Kart"]);
+  assert.equal(wildcards(games, { library, canon, gotm }, { device: "pc", now: NOW }).length, 0);
+});
+
+await test("lineup: a wildcard every third suggestion, and wildcards alone when nothing is tracked", () => {
+  const games = [1, 2, 3, 4, 5].map(i => g(i, { h: "40h" }));
+  const r = owlLineup(games, { canon }, { device: "any", now: NOW }, () => 0.5);
+  assert.deepEqual(kinds(r).slice(0, 6), ["tracked", "tracked", "retro-canon", "tracked", "tracked", "retro-canon"]);
+  assert.deepEqual(kinds(owlLineup([], { canon }, { device: "thor", now: NOW }, () => 0.5)), ["retro-canon", "retro-canon"]);
+});
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);

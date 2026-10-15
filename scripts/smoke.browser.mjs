@@ -205,7 +205,8 @@ for (const width of [390, 1280]) {
     if (!/of 1$/.test(total)) ok(await page.locator(".pick-title").innerText() !== first, "Yes didn't change the pick");
     await page.locator('.opt:has-text("No"):not([disabled])').click();
     await page.waitForFunction(() => /off you go/i.test(document.getElementById("text").textContent));
-    ok(writes.every(w => w.path.endsWith("/games/edit") && w.body.s === "playing" && w.body.start), "No sent " + JSON.stringify(writes));
+    // "No" starts a tracked game (/games/edit) or adds a wildcard as Now Playing (/games/add).
+    ok(writes.every(w => /\/games\/(edit|add)$/.test(w.path) && w.body.s === "playing" && w.body.start), "No sent " + JSON.stringify(writes));
     ok(writes.length <= 1, "more than one write");
     ok(await noSideScroll(page), "page scrolls sideways");
     ok(errors.length === 0, errors.join(" | "));

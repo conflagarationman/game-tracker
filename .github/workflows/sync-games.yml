@@ -3,7 +3,12 @@ name: Sync Steam & RetroAchievements
 on:
   schedule:
     - cron: '0 13 * * *'   # daily, ~1pm UTC — matches steph-tv-tracker's own nightly job
-  workflow_dispatch: {}     # lets you trigger it manually from the Actions tab
+  workflow_dispatch:        # lets you trigger it manually from the Actions tab
+    inputs:
+      library_meta:
+        description: "Also fill a slice of library-meta.json (Steam genres/Metacritic/Deck)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -46,6 +51,14 @@ jobs:
         continue-on-error: true
         run: node scripts/fetch-gotm.mjs
 
+      # Genres, Metacritic and Deck rating for the owl's Steam wildcards, a slice a day (it
+      # takes several minutes, so not on every Worker-dispatched run). Never fails the sync.
+      - name: Library meta for the owl's wildcards
+        if: github.event_name == 'schedule' || inputs.library_meta
+        continue-on-error: true
+        timeout-minutes: 12
+        run: node scripts/library-meta.mjs
+
       # Kaepora Gaebora's pick for the Home Hub's owl: the real pick.js, run here so the hub
       # reads plain data instead of re-implementing the ranking. Never fails the sync.
       - name: Owl's pick for the Home Hub
@@ -56,7 +69,7 @@ jobs:
         run: |
           git config user.name "game-tracker-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add games.json last-synced.json gotm.json play-check.json asf-idle.json owl-pick.json
+          git add games.json last-synced.json gotm.json play-check.json asf-idle.json owl-pick.json library.json library-meta.json
           git diff --staged --quiet || git commit -m "Sync Steam & RetroAchievements data"
           # actions/checkout sets the local branch to track its own origin ref, so a bare
           # `pull --rebase` reconciles against whatever branch actually got checked out — on

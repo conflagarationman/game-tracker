@@ -2,9 +2,12 @@
 // and which device is in your hand. Pure and DOM-free so it runs in Node too
 // (scripts/pick.test.mjs); index.html loads it as a plain script and reads globalThis.GTPick.
 //
-// It only ever suggests from what you've already decided to play (Now Playing, Up Next,
-// Ongoing for short sessions) plus Someday games whose club pick is about to expire. It does
-// not mine Someday for ideas: that's what Someday triage is for.
+// By default it only suggests from what you've already decided to play (Now Playing, Up Next,
+// Ongoing for short sessions) plus Someday games whose club pick is about to expire; that's
+// index.html's picker, which doesn't mine Someday for ideas (Someday triage does that).
+// owl.html (Kaepora Gaebora) asks for more: `someday: true` lets the Someday pile in, and
+// owlLineup() mixes in wildcards from outside the tracker: the Steam library, half-finished
+// RetroAchievements games, unclaimed club picks and retro-canon.json's must-plays.
 (function (root) {
   // Which tracker platforms each device can play. Steam games count as playable on the Deck;
   // "retro" is RetroAchievements emulation, which lives on the Thor.
@@ -31,8 +34,10 @@
     deep:   { label: 'Sink in' },
     finish: { label: 'Wrap one up' },
   };
-  const CHILL_G = /puzzle|sim|platformer|rhythm|pinball|sports|racing|incremental|idle|visual novel|creature|ccg|cozy/i;
+  const CHILL_G = /puzzle|sim|platformer|rhythm|pinball|sports|racing|incremental|idle|visual novel|creature|ccg|cozy|casual|party/i;
   const HARD_G = /soulslike|bullet hell|horror|roguelike/i;
+  // Not hard, but not "easy on the mind" either.
+  const INTENSE_G = /shooter|fps|fighting|beat 'em up|run and gun|hack and slash|stealth|action platformer/i;
   const DEEP_G = /rpg|metroidvania|adventure|strategy|survival|soulslike|anthology/i;
 
   // Achievements left to 100%, or null when it isn't worth saying: casual games, games with
@@ -80,7 +85,38 @@
       || games.some(g => ['playing', 'queue', 'ongoing'].includes(g.s) && DEVICES[k].plats.includes(g.p)));
   }
 
-  // Returns [{ g, score, reasons: [string], remaining }] best first.
+  // Mood scoring shared by tracked games and wildcards. `genre` is free text (the tracker's,
+  // or Steam's genre list joined); unknown genre is neutral rather than a miss.
+  function moodFit(mood, genre, { ongoing = false, diff = null, left = null, ach = null, time = TIMES.evening, quick = false } = {}) {
+    const gen = genre || '';
+    if (!mood) return { score: 0, fits: true, reason: null };
+    if (mood === 'chill') {
+      if (HARD_G.test(gen) || INTENSE_G.test(gen) || (diff || 0) >= 4) return { score: -25, fits: false, reason: null };
+      if (CHILL_G.test(gen)) return { score: 18, fits: true, reason: [26, `Low-stakes ${gen.split(',')[0]}`] };
+      if (ongoing) return { score: 18, fits: true, reason: null };         // already says "Easy to dip into"
+      return { score: gen ? -12 : 0, fits: false, reason: null };
+    }
+    if (mood === 'deep') {
+      let score = ongoing ? -15 : 0, fits = false, reason = null;
+      if (DEEP_G.test(gen)) { score += 10; fits = true; }
+      if (left != null && left >= 10) { score += 12; fits = true; reason = [24, `A big one to sink into (~${round(left)}h)`]; }
+      else if (left != null && left <= time.hours * 1.2) { score -= 20; fits = false; }   // one sitting isn't "sink in"
+      return { score, fits, reason };
+    }
+    if (mood === 'finish') {
+      let score = 0, fits = false, reason = null;
+      if (left != null && left <= Math.max(time.hours * 2, 3)) {
+        score += 25; fits = true;
+        // Within tonight's time it already says "Could finish it"; don't say it twice.
+        if (left > time.hours * 1.2) reason = [36, `Nearly at the credits (~${round(left)}h)`];
+      }
+      if (ach) fits = true;
+      return { score, fits, reason };
+    }
+    return { score: 0, fits: true, reason: null };
+  }
+
+  // Returns [{ g, score, reasons: [string], remaining, fits, kind }] best first.
   function pickGames(games, opts = {}) {
     const time = TIMES[opts.time] || TIMES.evening;
     const quick = time === TIMES.quick;
@@ -100,7 +136,8 @@
       const pick = outstandingPick(g, picks);
       const eligible = g.s === 'playing' || g.s === 'queue'
         || (g.s === 'ongoing' && (quick || mood === 'chill'))
-        || (g.s === 'soon' && pick && pick.monthsLeft <= 3);
+        || (g.s === 'soon' && pick && pick.monthsLeft <= 3)
+        || (g.s === 'soon' && opts.someday);
       if (!eligible) continue;
 
       const reasons = [];                                            // [weight, text]
@@ -123,6 +160,10 @@
       } else if (g.s === 'ongoing') {
         score += 28;
         reasons.push([12, 'Easy to dip into']);
+      } else if (g.s === 'soon' && !pick) {
+        score += 6;
+        reasons.push([9, 'From your Someday pile']);
+        if (quick && !mins && !(left != null && left <= 1.5)) score -= 20;
       }
 
       if (mins) {
@@ -159,34 +200,138 @@
         reasons.push([30, ach === 1 ? '1 achievement from 100%' : `${ach} achievements from 100%`]);
       }
 
-      if (mood === 'chill') {
-        if (HARD_G.test(g.g || '') || (g.diff || 0) >= 4) score -= 25;
-        else if (CHILL_G.test(g.g || '')) { score += 18; reasons.push([26, `Low-stakes ${g.g}`]); }
-        else if (g.s === 'ongoing') score += 18;           // already says "Easy to dip into"
-      } else if (mood === 'deep') {
-        if (g.s === 'ongoing') score -= 15;
-        if (DEEP_G.test(g.g || '')) score += 10;
-        if (left != null && left >= 10) { score += 12; reasons.push([24, `A big one to sink into (~${round(left)}h)`]); }
-        // Something you'd finish in one sitting isn't what "sink in" asked for.
-        else if (left != null && left <= time.hours * 1.2) score -= 20;
-        if (g.s === 'playing') score += 8;
-      } else if (mood === 'finish') {
-        if (left != null && left <= Math.max(time.hours * 2, 3)) {
-          score += 25;
-          // Within tonight's time it already says "Could finish it"; don't say it twice.
-          if (left > time.hours * 1.2) reasons.push([36, `Nearly at the credits (~${round(left)}h)`]);
-        }
-        if (g.s === 'queue' && !g.actualHours && !mins) score -= 20;
-      }
+      // `fits` says whether the game actually matches the mood asked for, so the owl can admit
+      // when nothing does instead of passing off the least-bad option as a match.
+      const m = moodFit(mood, g.g, { ongoing: g.s === 'ongoing', diff: g.diff, left, ach, time, quick });
+      score += m.score;
+      if (m.reason) reasons.push(m.reason);
+      if (mood === 'finish' && g.s === 'queue' && !g.actualHours && !mins) score -= 20;
+      if (mood === 'deep' && g.s === 'playing') score += 8;
+      const fits = m.fits;
 
-      out.push({ g, score, remaining: left,
+      out.push({ g, score, remaining: left, fits, kind: g.s === 'soon' && !pick ? 'someday' : 'tracked',
         reasons: reasons.sort((a, b) => b[0] - a[0]).slice(0, 2).map(x => x[1]) });
     }
 
     return out.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
-  const api = { DEVICES, TIMES, MOODS, pickGames, achLeft, remaining, devicesWithGames, parseHltb };
+  // ─── Wildcards (owl.html only) ──────────────────────────
+  // Games from outside the tracker, for the owl's every-third suggestion. `src` is
+  //   { library: library.json, meta: library-meta.json, canon: retro-canon.json, gotm: gotm.json }
+  // Anything already in the tracker, under any status, is left out: the tracker's own games
+  // come through pickGames().
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function normTitle(t) {
+    return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[™®©]/g, '').replace(/^the legend of zelda: /, 'zelda: ').replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  const FAVOURITE_HOURS = 15;      // well above what ASF card idling leaves on a game
+  const STEAM_DEVICES = ['any', 'pc', 'deck'];
+  const RETRO_DEVICES = ['any', 'thor'];
+
+  function wildcards(games, src = {}, opts = {}) {
+    const time = TIMES[opts.time] || TIMES.evening;
+    const quick = time === TIMES.quick;
+    const mood = MOODS[opts.mood] ? opts.mood : null;
+    const device = DEVICES[opts.device] ? opts.device : 'any';
+    const now = opts.now || new Date();
+    const tracked = new Set(games.map(g => normTitle(g.t)));
+    const out = [];
+    const add = (w, genre, base, extra = {}) => {
+      const m = moodFit(mood, genre, { time, quick, ...extra });
+      const reasons = [w.reason];
+      if (m.reason) reasons.push(m.reason[1]);
+      out.push({ ...w, score: base + m.score + (w.timeScore || 0), fits: m.fits, reasons });
+    };
+
+    const lib = src.library || {};
+    const meta = src.meta || {};
+    if (STEAM_DEVICES.includes(device)) {
+      for (const sg of lib.steam || []) {
+        if (tracked.has(normTitle(sg.name))) continue;
+        const mt = meta[sg.appid] || {};
+        if (device === 'deck' && mt.d === 1) continue;            // Deck: unsupported
+        const genre = (mt.g || []).join(', ');
+        if (sg.hours >= FAVOURITE_HOURS && (!sg.lastPlayed || daysSince(sg.lastPlayed, now) > 45)) {
+          const when = sg.lastPlayed ? ` · last played ${MONTHS[localDate(sg.lastPlayed).getMonth()]} ${localDate(sg.lastPlayed).getFullYear()}` : '';
+          add({ kind: 'steam-favourite', t: sg.name, p: 'steam', appid: sg.appid, hours: sg.hours,
+                reason: `${round(sg.hours)}h logged${when}`, timeScore: quick ? 10 : 0 },
+              genre, 20 + Math.min(sg.hours, 100) / 10);
+        } else if (sg.hours < 0.5 && (mt.m || 0) >= 80) {
+          add({ kind: 'steam-unplayed', t: sg.name, p: 'steam', appid: sg.appid, meta: mt.m,
+                reason: `Metacritic ${mt.m}`, timeScore: quick ? -5 : 0 },
+              genre, 15 + (mt.m - 80) / 2);
+        }
+      }
+    }
+
+    if (RETRO_DEVICES.includes(device)) {
+      const raSeen = new Set();
+      for (const r of lib.ra || []) {
+        raSeen.add(normTitle(r.title));
+        if (tracked.has(normTitle(r.title)) || !r.total) continue;
+        const pct = Math.round(r.earned / r.total * 100);
+        if (r.earned < 1 || pct < 5 || pct > 90) continue;
+        add({ kind: 'retro-started', t: r.title, p: 'retro', console: r.console,
+              reason: `${r.earned}/${r.total} achievements${r.console ? ' on ' + r.console : ''}`, timeScore: quick ? 5 : 0 },
+            '', 18 + pct / 10);
+      }
+      const clubTags = new Set(games.map(g => g.gotm).filter(Boolean));
+      for (const c of (src.gotm && src.gotm.picks) || []) {
+        if (!c.game || c.retired || !(c.monthsLeft > 0) || clubTags.has(c.tag) || tracked.has(normTitle(c.game))) continue;
+        add({ kind: 'retro-club', t: c.game, p: 'retro', tag: c.tag, url: c.url || null, monthsLeft: c.monthsLeft,
+              reason: `Club pick (${c.tag}), ${c.monthsLeft === 1 ? 'last month' : c.monthsLeft + ' months'} to claim` },
+            '', 16 + (c.monthsLeft <= 2 ? 12 : 0));
+      }
+      for (const c of src.canon || []) {
+        const key = normTitle(c.t);
+        if (tracked.has(key) || raSeen.has(key)) continue;
+        const hrs = parseHltb(c.h);
+        const timeScore = hrs == null ? 0 : quick ? (hrs <= 3 ? 10 : hrs >= 20 ? -10 : 0) : time.hours >= 8 && hrs >= 20 ? 8 : 0;
+        add({ kind: 'retro-canon', t: c.t, p: 'retro', console: c.c, year: c.y, g: c.g, h: c.h,
+              reason: `${c.c}, ${c.y}: ${c.why}`, timeScore },
+            c.g, 14, { left: hrs });
+      }
+    }
+    return out.sort((a, b) => b.score - a.score);
+  }
+
+  // Weighted random order (Efraimidis–Spirakis): higher scores tend to come first, but every
+  // visit to the owl shuffles them, so "Yes" keeps turning up something new.
+  function shuffleByScore(xs, rand) {
+    return xs.map(x => ({ x, k: Math.pow(rand(), 1 / Math.max(1, x.score)) }))
+      .sort((a, b) => b.k - a.k).map(o => o.x);
+  }
+
+  // The owl's running order: tracked and Someday games by rank, with a wildcard every third
+  // suggestion, and one in the lead when a mood was asked for and the best tracked game doesn't
+  // fit it (or there is no tracked game at all). Each entry: { kind, t, p, reasons, fits, g|w }.
+  function owlLineup(games, src = {}, opts = {}, rand = Math.random) {
+    let tracked = pickGames(games, { ...opts, someday: true, limit: 12 })
+      .map(r => ({ kind: r.kind, t: r.g.t, p: r.g.p, reasons: r.reasons, fits: r.fits, g: r.g }));
+    // With a mood asked for, games that fit it go first (rank kept within each group).
+    if (MOODS[opts.mood]) tracked = [...tracked.filter(r => r.fits), ...tracked.filter(r => !r.fits)];
+    const all = wildcards(games, src, opts);
+    // Prefer ones that fit the mood; take the top slice, then shuffle within it.
+    const pool = [...all.filter(w => w.fits), ...all.filter(w => !w.fits)].slice(0, 15);
+    const wild = shuffleByScore(pool.filter(w => w.fits), rand)
+      .concat(shuffleByScore(pool.filter(w => !w.fits), rand))
+      .map(w => ({ kind: w.kind, t: w.t, p: w.p, reasons: w.reasons, fits: w.fits, w }));
+    const out = [];
+    let ti = 0, wi = 0;
+    const lead = !tracked.length || (opts.mood && !tracked[0].fits && wild.length && wild[0].fits);
+    if (lead && wild.length) out.push(wild[wi++]);
+    while (out.length < 12 && (ti < tracked.length || wi < wild.length)) {
+      const wildTurn = (out.length + 1) % 3 === 0;
+      if ((wildTurn && wi < wild.length) || ti >= tracked.length) out.push(wild[wi++]);
+      else out.push(tracked[ti++]);
+    }
+    return out;
+  }
+
+  const api = { DEVICES, TIMES, MOODS, pickGames, achLeft, remaining, devicesWithGames, parseHltb,
+    wildcards, owlLineup, normTitle };
   root.GTPick = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

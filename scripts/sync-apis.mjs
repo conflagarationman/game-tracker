@@ -321,7 +321,9 @@ export async function syncSteam(games, log, farmedAppids = new Set(), asf = null
   return owned.response.games || [];
 }
 
-export async function syncRA(games, log) {
+// `sink.raGames`, when passed, receives every RA game with any progress (one row per game,
+// the better of hardcore/softcore), for buildLibrary().
+export async function syncRA(games, log, sink = {}) {
   const raUser = process.env.RA_USER;
   if (!raUser || !process.env.RA_API_KEY) {
     log.push("RetroAchievements: missing RA_USER/RA_API_KEY, skipped");
@@ -335,6 +337,7 @@ export async function syncRA(games, log) {
     const existing = byTitle.get(g.Title);
     if (!existing || Number(g.NumAwarded) > Number(existing.NumAwarded)) byTitle.set(g.Title, g);
   }
+  sink.raGames = [...byTitle.values()];
 
   // API_GetUserCompletedGames carries no play date, so for a long time NOTHING updated
   // lastPlayed on a RetroAchievements game — only the Steam path ever wrote that field.
@@ -406,6 +409,43 @@ export async function syncRA(games, log) {
   }
   // RA title -> latest play date, for buildPlayCheck().
   return playedByTitle;
+}
+
+// ─── Library (for the owl's wildcards) ────────────────────
+// Every owned Steam game and every RetroAchievements game with progress, so owl.html can
+// suggest games that aren't in the tracker yet: old favourites, acclaimed games never started,
+// half-finished retro runs. Published in full on purpose (Jonny's call; this repo is public).
+// Steam hours have the ASF ledger's recorded card idling taken out, like actualHours, so a
+// farmed-but-never-played game doesn't pass for a favourite. Idling from before the ledger
+// existed can't be known, which is why the owl's "favourite" bar is set well above what card
+// farming typically leaves behind.
+export function buildLibrary(steamOwned = [], raGames = [], asf = null) {
+  const steam = steamOwned.map(g => {
+    const idle = asf && asf.byAppid.get(g.appid);
+    const mins = Math.max(0, (g.playtime_forever || 0) - (idle ? idle.total : 0));
+    return {
+      appid: g.appid,
+      name: g.name,
+      hours: Math.round(mins / 6) / 10,
+      lastPlayed: g.rtime_last_played ? toDateStr(g.rtime_last_played) : null,
+    };
+  }).sort((a, b) => a.appid - b.appid);
+  const ra = raGames.map(g => ({
+    gameId: Number(g.GameID) || null,
+    title: g.Title,
+    console: g.ConsoleName || null,
+    earned: Number(g.NumAwarded) || 0,
+    total: Number(g.MaxPossible) || 0,
+  })).filter(g => g.title).sort((a, b) => String(a.title).localeCompare(String(b.title)));
+  return { steam, ra };
+}
+
+// One game per line: the file is rewritten daily, and this keeps a day's commit to the rows
+// whose hours actually moved. No timestamp inside, so an unchanged library is no commit at all
+// (last-synced.json already says when the sync ran).
+export function formatLibrary(lib) {
+  const rows = (xs) => xs.length ? "\n" + xs.map(x => "  " + JSON.stringify(x)).join(",\n") + "\n" : "";
+  return `{"steam": [${rows(lib.steam)}],\n"ra": [${rows(lib.ra)}]}\n`;
 }
 
 // ─── Play check ───────────────────────────────────────────
@@ -501,7 +541,8 @@ async function main() {
   const asf = await getAsfLedger(log);
   const farmedAppids = await getFarmingNow(asf, log);
   const steamOwned = await syncSteam(games, log, farmedAppids, asf);
-  const raPlayed = await syncRA(games, log);
+  const raSink = {};
+  const raPlayed = await syncRA(games, log, raSink);
   const check = buildPlayCheck(games, { steamOwned, farmedAppids, raPlayed, asf });
   const asfIdle = buildAsfIdle(games, steamOwned, asf);
   // Only rewritten when the ledger answered, so a hub outage keeps the last good copy.
@@ -509,6 +550,8 @@ async function main() {
 
   await fs.writeFile("games.json", JSON.stringify(games, null, 2) + "\n");
   await fs.writeFile("play-check.json", JSON.stringify(check, null, 2) + "\n");
+  // Only rewritten when Steam answered, so a Steam outage keeps the last good library.
+  if (steamOwned.length) await fs.writeFile("library.json", formatLibrary(buildLibrary(steamOwned, raSink.raGames || [], asf)));
   if (process.env.GITHUB_STEP_SUMMARY) {
     await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, playCheckSummary(check, games));
   }

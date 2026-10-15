@@ -53,6 +53,9 @@ jobs:
       - name: Owl pick tests
         run: node scripts/owl-pick.test.mjs
 
+      - name: Library meta tests
+        run: node scripts/library-meta.test.mjs
+
       - name: Year in review numbers
         run: node scripts/wrapped.test.mjs
 

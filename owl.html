@@ -106,6 +106,8 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .pick-main{min-width:0;display:flex;flex-direction:column;gap:.3rem;}
 .pick-title{font-weight:800;font-size:1.05rem;line-height:1.2;overflow-wrap:anywhere;}
 .plat{font-family:'DM Mono',monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .5rem;border-radius:99px;align-self:flex-start;}
+.badges{display:flex;gap:.35rem;flex-wrap:wrap;}
+.plat.kind{background:#c8f54218;color:var(--accent);}
 .why{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);line-height:1.5;}
 .foot{display:flex;justify-content:center;align-items:center;gap:1rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);}
 .redo{background:none;border:none;color:var(--muted);font:inherit;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;text-decoration:underline;padding:.4rem;}
@@ -231,7 +233,7 @@ const CAN_EDIT = !!(typeof WORKER !== 'undefined' && WORKER.url && WORKER.key);
 const DEVICE_SAY = { any:'whatever is nearest', pc:'the PC', deck:'the Deck', thor:'the Thor', switch:'the Switch', ps5:'the PS5', wiiu:'the Wii U' };
 const MOOD_ASK = { chill:'Something easy on the mind', deep:'Something to sink into', finish:'Wrap something up' };
 
-let G = [], COVERS = {}, PLAY = null, GOTM = null;
+let G = [], COVERS = {}, PLAY = null, GOTM = null, SRC = {};
 let ANS = { device:null, time:null, mood:null };
 let PICKS = [], AT = 0, timer = null, finishTyping = null;
 // Bumped by every fresh ask(). An await that wakes up in an older conversation (a slow save,
@@ -379,11 +381,11 @@ async function ask(){
 async function decide(){
   const conv = CONV;
   try { localStorage.setItem('gt_owl', JSON.stringify(ANS)); } catch(e){}
-  PICKS = GTPick.pickGames(G, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM, limit:8 });
+  PICKS = GTPick.owlLineup(G, SRC, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM });
   AT = 0;
   if (!PICKS.length){
     owlPose();
-    await say(`Hoo… nothing in Now Playing or Up Next plays on ${blue(DEVICE_SAY[ANS.device] || ANS.device)}. Add something to Up Next, and come find me again.`);
+    await say(`Hoo… I've nothing for ${blue(DEVICE_SAY[ANS.device] || ANS.device)}. Add something to Up Next, and come find me again.`);
     if (conv === CONV) choices([['Ask again', ask]]);
     return;
   }
@@ -397,23 +399,38 @@ const OPENERS = [
   'Then hear this, and listen closely:',
   'Hoo hoot! Perhaps instead',
 ];
+// Wildcards come from outside the tracker, so the owl introduces each kind in his own way.
+const WILD_OPENERS = {
+  'someday':         'From the pile you set aside for someday…',
+  'steam-favourite': 'An old friend you haven\'t visited in a while:',
+  'steam-unplayed':  'Hoo! Something you own and have never even opened:',
+  'retro-started':   'Unfinished business, from your old adventures:',
+  'retro-club':      'The club is still waiting on this one:',
+  'retro-canon':     'A legend of an older age, never set down in your log:',
+};
+const MOOD_SAY = { chill:'easy on the mind', deep:'one to sink into', finish:'close to done' };
 
 async function reveal(first){
   const conv = CONV;
-  const p = PICKS[AT], g = p.g;
+  const p = PICKS[AT];
   $('pick').classList.remove('show');
   $('count').textContent = `${AT+1} of ${PICKS.length}`;
   $('redo').hidden = false;
   owlPose();
-  const opener = first ? OPENERS[0] : OPENERS[1 + (AT - 1) % (OPENERS.length - 1)];
+  // Honest when the best he has doesn't match the mood you asked for.
+  if (first && ANS.mood && !p.fits){
+    await say(`Hoo… nothing on ${blue(DEVICE_SAY[ANS.device] || ANS.device)} is truly ${esc(MOOD_SAY[ANS.mood] || 'what you asked for')}. If you insist…`);
+    if (conv !== CONV) return;
+  }
+  const opener = WILD_OPENERS[p.kind] || (first ? OPENERS[0] : OPENERS[1 + (AT - 1) % (OPENERS.length - 1)]);
   const why = p.reasons.length ? ' ' + esc(p.reasons.join('. ')) + '.' : '';
-  await say(`${esc(opener)} ${red(g.t)}.${why}`);
+  await say(`${esc(opener)} ${red(p.t)}.${why}`);
   if (conv !== CONV) return;
   showCard(p);
   owlPose('tilt');
   await say('Hoo hoot! …Did you get all that? Do you want to hear it again?');
   if (conv !== CONV) return;
-  opts([['Yes', again], ['No', () => commit(g)]]);
+  opts([['Yes', again], ['No', () => commit(p)]]);
 }
 
 async function again(){
@@ -429,19 +446,20 @@ async function again(){
   reveal(false);
 }
 
-async function commit(g){
+async function commit(p){
   const conv = CONV;
+  const g = p.g;
   owlPose();
   let line;
-  if (g.s === 'playing' || g.s === 'ongoing' || !CAN_EDIT){
-    line = `Hoo hoo hoo! Then off you go to ${red(g.t)}. I'll be watching.`;
+  if ((g && (g.s === 'playing' || g.s === 'ongoing')) || !CAN_EDIT){
+    line = `Hoo hoo hoo! Then off you go to ${red(p.t)}. I'll be watching.`;
   } else {
     await say('Hoo…');
-    const ok = await startGame(g);
+    const ok = g ? await startGame(g) : await addGame(p);
     if (conv !== CONV) return;
     line = ok
-      ? `Hoo hoo hoo! ${red(g.t)} is in Now Playing. Off you go. I'll be watching.`
-      : `Hoo… the message didn't reach the tracker. Go play ${red(g.t)} anyway, and mark it later.`;
+      ? `Hoo hoo hoo! ${red(p.t)} is in Now Playing. Off you go. I'll be watching.`
+      : `Hoo… the message didn't reach the tracker. Go play ${red(p.t)} anyway, and mark it later.`;
   }
   flap();
   await say(line);
@@ -449,39 +467,66 @@ async function commit(g){
   choices([['Ask me again', ask], ['Back to the tracker', () => { location.href = 'index.html'; }]]);
 }
 
-// Same request as saveEdit() in index.html: the Worker's /games/edit with the shared key.
-async function startGame(g){
+async function postWorker(path, body){
   try {
-    const res = await fetch(WORKER.url + '/games/edit', {
+    const res = await fetch(WORKER.url + path, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'X-Sync-Key': WORKER.key },
-      body: JSON.stringify({ id: g.id, s:'playing', start: todayStr() }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`request failed (${res.status})`);
-    g.s = 'playing';
     return true;
   } catch (err) {
-    console.error('Start failed', err);
+    console.error('Save failed', path, err);
     return false;
   }
 }
+// A tracked or Someday game: the same edit as the picker's ▶ Start on index.html.
+async function startGame(g){
+  const ok = await postWorker('/games/edit', { id: g.id, s:'playing', start: todayStr() });
+  if (ok) g.s = 'playing';
+  return ok;
+}
+// A wildcard isn't in the tracker yet: add it as Now Playing, like add.html would. The Worker
+// assigns the id and kicks off the sync and cover backfill, which fill in hours, art and HLTB.
+async function addGame(p){
+  const w = p.w || {};
+  const body = { t: p.t, p: p.p, s:'playing', start: todayStr() };
+  if (w.g) body.g = w.g;
+  if (w.year) body.y = w.year;
+  if (w.kind === 'retro-club' && w.tag) body.gotm = w.tag;
+  const ok = await postWorker('/games/add', body);
+  if (ok) PICKS = PICKS.filter(x => x !== p);
+  return ok;
+}
 
+const KIND_BADGE = {
+  'someday':'Someday', 'steam-favourite':'Old favourite', 'steam-unplayed':'Never started',
+  'retro-started':'Unfinished', 'retro-club':'Club pick', 'retro-canon':'Must-play',
+};
+function coverFor(p){
+  if (p.g) return COVERS[p.g.t.toLowerCase()] || null;
+  if (p.w && p.w.appid) return `https://cdn.cloudflare.steamstatic.com/steam/apps/${p.w.appid}/library_600x900.jpg`;
+  return null;
+}
 function showCard(p){
-  const g = p.g, url = COVERS[g.t.toLowerCase()], color = PC[g.p] || '#555';
-  const fallback = `<div class="cover-fallback" style="background:${color}20;color:${color}${url ? ';display:none' : ''}">${PLAT_EMOJI[g.p] || '🎮'}</div>`;
+  const url = coverFor(p), color = PC[p.p] || '#555';
+  const fallback = `<div class="cover-fallback" style="background:${color}20;color:${color}${url ? ';display:none' : ''}">${PLAT_EMOJI[p.p] || '🎮'}</div>`;
   const art = url ? `<img class="cover" src="${esc(url)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${fallback}` : fallback;
+  const plat = (p.w && p.w.console) || PL[p.p] || p.p;
+  const kind = KIND_BADGE[p.kind] ? `<span class="plat kind">${esc(KIND_BADGE[p.kind])}</span>` : '';
   const el = $('pick');
-  el.innerHTML = `${art}<div class="pick-main"><div class="pick-title">${esc(g.t)}</div>
-    <span class="plat" style="background:${color}22;color:${color}">${esc(PL[g.p] || g.p)}</span>
+  el.innerHTML = `${art}<div class="pick-main"><div class="pick-title">${esc(p.t)}</div>
+    <div class="badges"><span class="plat" style="background:${color}22;color:${color}">${esc(plat)}</span>${kind}</div>
     <div class="why">${p.reasons.map(esc).join(' · ')}</div></div>`;
   el.classList.add('show');
 }
 
 // ─── Music ─────────────────────────────────────────────
 // Kaepora Gaebora's theme, through YouTube's embedded player rather than a copy of the audio.
-// Off until asked for: nothing is loaded from YouTube until the ♪ is pressed. The choice is
-// remembered, but browsers only allow sound after a tap, so a remembered "on" waits for the
-// first tap anywhere on the page.
+// On by default, but browsers only allow sound after a tap, so it starts on the first tap
+// anywhere on the page (answering his first question is one). Nothing loads from YouTube
+// before that tap. Turning it off with the ♪ is remembered.
 const THEME = 'iAmh9ZClNIU';
 let YT_PLAYER = null, ytLoading = null;
 function loadYouTube(){
@@ -524,7 +569,7 @@ function toggleMusic(){
   musicOn();
 }
 try {
-  if (localStorage.getItem('gt_owl_music') === '1')
+  if (localStorage.getItem('gt_owl_music') !== '0')
     document.addEventListener('pointerdown', function first(e){
       document.removeEventListener('pointerdown', first);
       if (!e.target.closest('#music')) musicOn();
@@ -562,10 +607,15 @@ Promise.all([
   fresh('covers.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('gotm.json').then(r => r.ok ? r.json() : null).catch(() => null),
   fresh('play-check.json').then(r => r.ok ? r.json() : null).catch(() => null),
+  // The owl's wildcards; any of these missing just means fewer of them.
+  fresh('library.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fresh('library-meta.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+  fresh('retro-canon.json').then(r => r.ok ? r.json() : []).catch(() => []),
   // Let him land before he starts talking.
   new Promise(r => setTimeout(r, reduced ? 0 : 900)),
-]).then(([games, covers, gotm, play]) => {
+]).then(([games, covers, gotm, play, library, meta, canon]) => {
   G = games; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
+  SRC = { library, meta, canon, gotm: GOTM };
   ask();
 }).catch(err => {
   console.error('Failed to load game data', err);

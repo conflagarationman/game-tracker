@@ -26,7 +26,10 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
-| `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start. Read-only except that Start. |
+| `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start (or, for a wildcard, add it as Now Playing via `/games/add`). Uses `GTPick.owlLineup()`: tracked + Someday games, with a wildcard every third pick and in the lead when nothing tracked fits the mood. Theme music via YouTube's player, on by default from the first tap. |
+| `library.json` | bot only (`sync-games.yml`, daily) | Every owned Steam game (hours minus the ASF ledger's recorded idling) and every RetroAchievements game with progress, one per line. For the owl's wildcards. **Published in full on purpose** (Jonny's call). Only rewritten when Steam answers. |
+| `library-meta.json` | bot only (`scripts/library-meta.mjs`, scheduled runs only) | Steam genres (`g`), Metacritic (`m`) and Deck rating (`d`: 3 verified, 2 playable, 1 unsupported, 0 unknown) per appid. Filled ~120 games a day, most-played first; known appids are never re-fetched. |
+| `retro-canon.json` | you | Hand-curated retro must-plays (`t`, `c` console, `y`, `g`, `h`, `why`) for the owl's "never logged" wildcard. Anything tracked or with RA progress is skipped automatically, so it never needs pruning. |
 | `owl-pick.json` | bot only (`sync-games.yml`, daily, via `scripts/owl-pick.mjs`) | The owl's pick for tonight (any device, an evening, no mood), for the Home Hub's peeking owl. Runs the real `pick.js` so the hub (Python, token in its URL) neither re-implements the ranking nor loads remote script. `pick` is null when there's nothing to suggest. |
 | `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
@@ -142,6 +145,12 @@ games you chose to keep) live in `localStorage` only.
   and Someday games whose club pick has 3 months or less left) by time left to the credits
   (`h` minus `actualHours`), recent real play, Up Next position and GOTM deadline, filtered by
   device. The device-to-platform map is `DEVICES` in `pick.js`. "Start" sets `s:"playing"`.
+  **The owl (`owlLineup`) differs from this picker on purpose:** it lets Someday in
+  (`someday: true`) and adds wildcards from outside the tracker (`wildcards()`): Steam
+  favourites (15h+ after idling, not played in 45 days), never-started Steam games with
+  Metacritic 80+, RA games 5-90% done, unclaimed club picks, and `retro-canon.json`. Steam
+  wildcards go to PC/Deck (Deck skips "unsupported"), retro ones to the Thor. Each result
+  carries `fits` (does it match the mood?), and the owl says so when his best doesn't.
   `pickGames` also takes an optional `mood` (`MOODS`: chill / deep / finish), used only by
   `owl.html`; with no mood the ranking is unchanged. Moods match the free-text genre by keyword,
   so a new genre may need adding to `CHILL_G` / `HARD_G` / `DEEP_G`. Every mode names a game
@@ -290,20 +299,21 @@ No test runner, no dependencies — each suite is a plain Node script that print
 and exits non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 39
+node scripts/sync-apis.test.mjs        # 44
 node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 23
-node scripts/pick.test.mjs             # 18
+node scripts/pick.test.mjs             # 24
 node scripts/wrapped.test.mjs          # 14
 node scripts/owl-pick.test.mjs         # 4
+node scripts/library-meta.test.mjs     # 4
 cd worker && node index.test.mjs       # 27
 ```
 
-`tests.yml` runs all nine on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all ten on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-nine commands above.
+ten commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
