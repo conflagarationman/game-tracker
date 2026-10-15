@@ -96,6 +96,11 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .opt:focus{outline:none;} .opt:focus-visible{text-decoration:underline;}
 @keyframes point{to{transform:translateX(3px);}}
 
+/* The DROP warning: the same box, gone red. "Drop it" is red too, and sits second, so the
+   cursor (and an absent-minded Enter) lands on the harmless "Just snooze it". */
+.box.danger{border-color:var(--hy-red);box-shadow:inset 0 0 0 3px #00000099,inset 0 0 0 4px #ff5a5a40,0 12px 30px #000a,0 0 22px #ff5a5a30;}
+.opt.danger,.opt.danger::before{color:var(--hy-red);}
+
 .choices{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;}
 .choice{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;color:var(--text);background:var(--surface);
   border:1px solid var(--border2);border-radius:99px;padding:.6rem 1.1rem;cursor:pointer;animation:rise .3s ease both;}
@@ -117,9 +122,21 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .badges{display:flex;gap:.35rem;flex-wrap:wrap;}
 .plat.kind{background:#c8f54218;color:var(--accent);}
 .why{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);line-height:1.5;}
-.foot{display:flex;justify-content:center;align-items:center;gap:1rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);}
+.foot{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.25rem 1rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);}
 .redo{background:none;border:none;color:var(--muted);font:inherit;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;text-decoration:underline;padding:.4rem;}
 .redo[hidden]{display:none;}
+/* Dropped games, restorable: nothing the owl strikes from his list is gone for good. */
+.struck{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.8rem .9rem;display:flex;flex-direction:column;gap:.5rem;}
+.struck[hidden]{display:none;}
+.struck h2{font-size:.8rem;font-weight:700;color:var(--muted);}
+.struck ul{list-style:none;display:flex;flex-direction:column;gap:.4rem;}
+.struck li{display:flex;align-items:center;justify-content:space-between;gap:.75rem;font-size:.9rem;}
+.struck .st-t{min-width:0;overflow-wrap:anywhere;}
+.struck .st-t small{display:block;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--dim);}
+.struck .restore{flex:none;font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;color:var(--accent);background:none;border:1px solid #c8f54270;border-radius:99px;padding:.35rem .8rem;cursor:pointer;}
+.struck .restore:hover,.struck .restore:focus-visible{border-color:var(--accent);outline:none;}
+.struck .restore:disabled{opacity:.5;cursor:default;}
+.struck .st-say{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before{animation:none !important;transition:none !important;}
@@ -222,7 +239,12 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 
   <div class="pick" id="pick"></div>
   <div class="choices" id="choices"></div>
-  <div class="foot"><span id="count"></span><button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button></div>
+  <div class="foot"><span id="count"></span><button type="button" class="redo" id="redo" hidden onclick="ask()">Change my answers</button><button type="button" class="redo" id="struck-link" hidden aria-expanded="false" aria-controls="struck" onclick="toggleStruck()"></button></div>
+  <section class="struck" id="struck" hidden aria-label="Struck from the list">
+    <h2>Struck from the list</h2>
+    <ul id="struck-list"></ul>
+    <div class="st-say" id="struck-say" role="status"></div>
+  </section>
   <aside class="musicbox" id="musicbox" hidden aria-label="Music">
     <div class="mb-head">
       <span class="mb-note" aria-hidden="true">♪</span>
@@ -248,7 +270,7 @@ const CAN_EDIT = !!(typeof WORKER !== 'undefined' && WORKER.url && WORKER.key);
 const DEVICE_SAY = { any:'whatever is nearest', pc:'the PC', deck:'the Deck', thor:'the Thor', switch:'the Switch', ps5:'the PS5', wiiu:'the Wii U' };
 const MOOD_ASK = { chill:'Something easy on the mind', deep:'Something to sink into', finish:'Wrap something up' };
 
-let G = [], COVERS = {}, PLAY = null, GOTM = null, SRC = {};
+let G = [], COVERS = {}, PLAY = null, GOTM = null, SRC = {}, SKIPS = {};
 let ANS = { device:null, time:null, mood:null };
 let PICKS = [], AT = 0, timer = null, finishTyping = null;
 // Bumped by every fresh ask(). An await that wakes up in an older conversation (a slow save,
@@ -266,6 +288,8 @@ function todayStr(){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// A pause to let a line be read before the next one replaces it (none with reduced motion).
+const beat = (ms) => new Promise(r => setTimeout(r, reduced ? 0 : ms));
 const $ = (id) => document.getElementById(id);
 
 function owlPose(...classes){
@@ -280,10 +304,11 @@ function flap(){
 $('owl').addEventListener('animationend', e => { if (e.animationName.startsWith('flap')) $('owl').classList.remove('flap'); });
 
 // Typed out a couple of characters at a time; tapping the box finishes the line at once.
-function say(html){
+function say(html, danger = false){
   return new Promise(resolve => {
     clearInterval(timer);
     const box = $('box'), out = $('text'), owl = $('owl');
+    box.classList.toggle('danger', danger);
     choices([]); opts([]);                          // nothing to answer while the owl is talking
     box.classList.remove('done');
     const tmp = document.createElement('div'); tmp.innerHTML = html;
@@ -396,7 +421,7 @@ async function ask(){
 async function decide(){
   const conv = CONV;
   try { localStorage.setItem('gt_owl', JSON.stringify(ANS)); } catch(e){}
-  PICKS = GTPick.owlLineup(G, SRC, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM });
+  PICKS = GTPick.owlLineup(G, { ...SRC, skips: SKIPS }, { device:ANS.device, time:ANS.time, mood:ANS.mood, play:PLAY, gotm:GOTM });
   AT = 0;
   if (!PICKS.length){
     owlPose();
@@ -425,7 +450,7 @@ const WILD_OPENERS = {
 };
 const MOOD_SAY = { chill:'easy on the mind', deep:'one to sink into', finish:'close to done' };
 
-async function reveal(first){
+async function reveal(first, lead = ''){
   const conv = CONV;
   const p = PICKS[AT];
   $('pick').classList.remove('show');
@@ -439,13 +464,98 @@ async function reveal(first){
   }
   const opener = WILD_OPENERS[p.kind] || (first ? OPENERS[0] : OPENERS[1 + (AT - 1) % (OPENERS.length - 1)]);
   const why = p.reasons.length ? ' ' + esc(p.reasons.join('. ')) + '.' : '';
+  // The owl remembers: a game you keep turning down gets a remark when it comes round again.
+  // It goes in the question, not the line naming the game: that one is replaced the moment it's
+  // typed, while the question stays up until you answer.
+  const n = skipCount(p);
+  const memory = n >= 2 ? ` You've turned this one down ${times(n)}, you know.` : '';
+  if (lead){
+    await say(lead);
+    await beat(1700);
+    if (conv !== CONV) return;
+  }
   await say(`${esc(opener)} ${red(p.t)}.${why}`);
   if (conv !== CONV) return;
   showCard(p);
   owlPose('tilt');
-  await say('Hoo hoot! …Did you get all that? Do you want to hear it again?');
+  await say(`Hoo hoot! …Did you get all that?${memory} Do you want to hear it again?`);
   if (conv !== CONV) return;
-  opts([['Yes', again], ['No', () => commit(p)]]);
+  opts([['Yes', again], ['No', () => commit(p)], ['Not this one', () => notThis(p)]]);
+}
+
+// ─── "Not this one" ────────────────────────────────────
+// Turning a game down snoozes it for the owl only (7, 30, then 90 days, pick.js's SNOOZE_DAYS),
+// so nothing disappears for good by accident. Only after three snoozes does he offer to strike
+// it off his list, with a warning, and even that is a flag "Struck from the list" can undo.
+// None of it changes the game's status in the tracker.
+const TIMES_SAY = ['', 'once', 'twice', 'three times', 'four times', 'five times'];
+const times = (n) => TIMES_SAY[n] || `${n} times`;
+const SNOOZE_SAY = [
+  'Hoo. Another time, then.',
+  "Hoo… not this one again? I'll leave it a while.",
+  "That's three times now. I'll keep quiet about it for a season.",
+];
+const skipCount = (p) => (SKIPS[p.key] && SKIPS[p.key].count) || 0;
+
+async function notThis(p){
+  const before = skipCount(p);
+  if (before >= SNOOZE_SAY.length) return warnDrop(p, before + 1);
+  await setAside(p, false, SNOOZE_SAY[before]);
+}
+
+// Writes the turn-down, then moves on to the next pick the way Yes does. The saved copy the
+// Worker returns replaces ours; if it can't be reached the owl says so and remembers it only
+// until the page closes.
+async function setAside(p, drop, line, offerSomeday = false){
+  const conv = CONV;
+  owlPose();
+  const local = GTPick.nextSkip(SKIPS[p.key], p.t, { drop });
+  let saved = false;
+  if (CAN_EDIT){
+    await say('Hoo…');
+    const data = await workerCall('/owl/skip', { key: p.key, t: p.t, drop });
+    if (conv !== CONV) return;
+    if (data) saved = true;
+    SKIPS = data && typeof data === 'object' && !Array.isArray(data) && data[p.key] ? data : { ...SKIPS, [p.key]: local };
+  } else SKIPS = { ...SKIPS, [p.key]: local };
+  updateStruck();
+  const lead = (CAN_EDIT && !saved ? "Hoo… the tracker didn't hear that, so I'll only remember it until you leave. " : '') + line;
+  PICKS = PICKS.filter(x => x !== p);
+  if (AT >= PICKS.length) AT = 0;
+  const onward = async (said) => {
+    if (PICKS.length) return reveal(false, said);
+    flap();
+    await say(`${said} That was the last road I had. Come back when the snoozes end, or add something to Up Next.`);
+    if (conv === CONV) choices([['Ask again', ask]]);
+  };
+  if (!offerSomeday) return onward(lead);
+  flap();
+  await say(`${lead} Shall I move it to your Someday pile instead?`);
+  if (conv !== CONV) return;
+  opts([['No, leave it', () => onward('Very well, it stays in Up Next.')],
+        ['Move it to Someday', async () => {
+          const ok = await postWorker('/games/edit', { id: p.g.id, s: 'soon' });
+          if (conv !== CONV) return;
+          if (ok) p.g.s = 'soon';
+          onward(ok ? 'Hoo. It rests in your Someday pile now.' : "Hoo… the tracker didn't hear that, so it stays in Up Next.");
+        }]]);
+}
+
+async function warnDrop(p, n){
+  const conv = CONV;
+  owlPose('tilt');
+  flap();
+  await say(`Hoo! You've turned ${red(p.t)} away ${times(n)}. Shall I strike it from my list ${red('for good')}?`, true);
+  if (conv !== CONV) return;
+  // The harmless answer comes first, where the cursor starts.
+  opts([['Just snooze it', () => setAside(p, false, 'Very well. Ninety more days, and I will ask again.')],
+        ['Drop it', () => dropIt(p), 'danger']]);
+}
+
+async function dropIt(p){
+  const line = 'Hoo… struck from my list. It waits under "Struck from the list" below, should you change your mind.';
+  // A game in Up Next stays there either way, so offer to tidy it into Someday.
+  await setAside(p, true, line, !!(p.g && p.g.s === 'queue' && CAN_EDIT));
 }
 
 async function again(){
@@ -476,13 +586,16 @@ async function commit(p){
       ? `Hoo hoo hoo! ${red(p.t)} is in Now Playing. Off you go. I'll be watching.`
       : `Hoo… the message didn't reach the tracker. Go play ${red(p.t)} anyway, and mark it later.`;
   }
+  // Accepting a game wipes its turn-downs, so one you went and played isn't remembered as unwanted.
+  if (skipCount(p) > 0) forget(p.key);
   flap();
   await say(line);
   if (conv !== CONV) return;
   choices([['Ask me again', ask], ['Back to the tracker', () => { location.href = 'index.html'; }]]);
 }
 
-async function postWorker(path, body){
+// The Worker's JSON answer, or null when the write didn't go through.
+async function workerCall(path, body){
   try {
     const res = await fetch(WORKER.url + path, {
       method:'POST',
@@ -490,12 +603,13 @@ async function postWorker(path, body){
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`request failed (${res.status})`);
-    return true;
+    return await res.json().catch(() => true);
   } catch (err) {
     console.error('Save failed', path, err);
-    return false;
+    return null;
   }
 }
+const postWorker = async (path, body) => !!(await workerCall(path, body));
 // A tracked or Someday game: the same edit as the picker's ▶ Start on index.html.
 async function startGame(g){
   const ok = await postWorker('/games/edit', { id: g.id, s:'playing', start: todayStr() });
@@ -535,6 +649,54 @@ function showCard(p){
     <div class="badges"><span class="plat" style="background:${color}22;color:${color}">${esc(plat)}</span>${kind}</div>
     <div class="why">${p.reasons.map(esc).join(' · ')}</div></div>`;
   el.classList.add('show');
+}
+
+// ─── Struck from the list ──────────────────────────────
+// Every drop is listed here with a Restore, which deletes its entry in owl-skips.json: the game
+// is back in the owl's lineup and its count starts again from zero.
+const dropped = () => Object.entries(SKIPS).filter(([, e]) => e && e.dropped);
+function updateStruck(){
+  const list = dropped();
+  const link = $('struck-link');
+  link.hidden = !list.length;
+  link.textContent = `Struck from the list (${list.length})`;
+  if (!list.length) { $('struck').hidden = true; link.setAttribute('aria-expanded', 'false'); }
+  const ul = $('struck-list');
+  ul.innerHTML = '';
+  list.forEach(([key, e]) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="st-t">${esc(e.t || key)}<small>turned away ${esc(times(e.count || 0) || 'before')}${e.last ? ' · ' + esc(e.last) : ''}</small></span>`;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'restore'; b.textContent = 'Restore';
+    b.setAttribute('aria-label', `Restore ${e.t || key}`);
+    b.disabled = !CAN_EDIT;
+    if (!CAN_EDIT) b.title = 'Needs the tracker connection';
+    b.onclick = async () => {
+      b.disabled = true;
+      const ok = await forget(key);
+      $('struck-say').textContent = ok ? `Hoo. ${e.t || key} is back on my list.` : "Hoo… the tracker didn't hear that. It's still struck.";
+      if (!ok) b.disabled = false;
+    };
+    li.appendChild(b);
+    ul.appendChild(li);
+  });
+}
+function toggleStruck(){
+  const box = $('struck'), open = box.hidden;
+  box.hidden = !open;
+  $('struck-link').setAttribute('aria-expanded', open);
+  $('struck-say').textContent = '';
+  if (open) box.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+}
+// Deletes a game's entry (restore, or accepting it with "No"). True when it's gone.
+async function forget(key){
+  if (!CAN_EDIT) return false;
+  const data = await workerCall('/owl/restore', { key });
+  if (!data) return false;
+  if (data && typeof data === 'object' && !Array.isArray(data)) SKIPS = data;
+  else { const { [key]: gone, ...rest } = SKIPS; SKIPS = rest; }
+  updateStruck();
+  return true;
 }
 
 // ─── Music ─────────────────────────────────────────────
@@ -632,11 +794,14 @@ Promise.all([
   fresh('library.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('library-meta.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fresh('retro-canon.json').then(r => r.ok ? r.json() : []).catch(() => []),
+  // What he's snoozed or struck from his list. Missing just means nothing is hidden.
+  fresh('owl-skips.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   // Let him land before he starts talking.
   new Promise(r => setTimeout(r, reduced ? 0 : 900)),
-]).then(([games, covers, gotm, play, library, meta, canon]) => {
-  G = games; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
+]).then(([games, covers, gotm, play, library, meta, canon, skips]) => {
+  G = games; SKIPS = skips && typeof skips === 'object' && !Array.isArray(skips) ? skips : {}; COVERS = covers; GOTM = refreshGotmWindows(gotm); PLAY = play;
   SRC = { library, meta, canon, gotm: GOTM };
+  updateStruck();
   ask();
 }).catch(err => {
   console.error('Failed to load game data', err);
