@@ -492,7 +492,7 @@
     "id": 529,
     "t": "Castlevania: Belmont's Curse",
     "p": "steam",
-    "s": "queue",
+    "s": "playing",
     "r": 0,
     "g": "Metroidvania",
     "y": 2026,
@@ -512,7 +512,7 @@
     "lastPlayed": null,
     "casual": false,
     "note": "Day one.",
-    "start": null,
+    "start": "2026-10-16",
     "queued": "2026-10-04",
     "release": "2026-10-15"
   },
