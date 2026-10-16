@@ -503,13 +503,13 @@
     "gotmFlair": false,
     "mastery": null,
     "diff": null,
-    "achPct": 0,
+    "achPct": 14,
     "achCount": [
-      0,
+      4,
       29
     ],
-    "actualHours": null,
-    "lastPlayed": null,
+    "actualHours": 2.5,
+    "lastPlayed": "2026-10-16",
     "casual": false,
     "note": "Day one.",
     "start": "2026-10-16",
