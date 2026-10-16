@@ -53,6 +53,9 @@ jobs:
       - name: Owl pick tests
         run: node scripts/owl-pick.test.mjs
 
+      - name: Koroks and Hestu
+        run: node scripts/korok.test.mjs
+
       - name: Library meta tests
         run: node scripts/library-meta.test.mjs
 

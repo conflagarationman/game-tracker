@@ -333,16 +333,47 @@ for (const width of [390, 1280]) {
 }
 
 for (const path of ["index.html", "add.html", "owl.html", "wrapped.html"]) {
-  await test(`${path}: the hidden Korok says Yahaha, counts once, and works from the keyboard`, async () => {
+  await test(`${path}: the hidden Koroks say Yahaha, count once, and work from the keyboard`, async () => {
     const { page, errors, ctx } = await open(path, 390);
-    await page.waitForSelector("#korok-btn", { state: "attached" });
-    ok(await page.getAttribute("#korok-btn", "aria-label"), "Korok has no aria-label");
-    await page.focus("#korok-btn"); await page.keyboard.press("Enter");
+    await page.waitForSelector(".korok-btn", { state: "attached" });
+    ok(await page.locator(".korok-btn").count() >= 2, "expected 2+ Koroks on the page");
+    ok(await page.getAttribute(".korok-btn", "aria-label"), "Korok has no aria-label");
+    ok(await page.locator("#korok-foot").isHidden(), "seed counter shows before the first find");
+    await page.focus(".korok-btn"); await page.keyboard.press("Enter");
     const first = await page.textContent("#korok-say");
-    ok(/Yahaha! You found me!/.test(first) && /\(1\/4 Koroks found\)/.test(first), first);
-    await page.click("#korok-btn");
+    ok(/Yahaha! You found me!/.test(first) && /\(1\/12 Koroks found\)/.test(first), first);
+    ok(/Seeds: 1\/12/.test(await page.textContent("#korok-foot")), "counter should read Seeds: 1/12");
+    await page.click(".korok-btn");
     ok(/again/.test(await page.textContent("#korok-say")), "a second tap should not recount");
     ok(await noSideScroll(page), "page scrolls sideways");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
+// Hestu: stub storage with 2 seeds already found (and the old per-repo key to migrate), find a
+// third, and he dances. Six seeds unlock the Forest toggle. Reduced motion stops the animation.
+for (const path of ["index.html", "owl.html"]) {
+  await test(`${path}: Hestu dances at 3 seeds, 6 unlock the Korok Forest, reduced motion holds still`, async () => {
+    const init = () => { localStorage.setItem("korok:game-tracker", '["add","wrapped"]'); };
+    const { page, errors, ctx } = await open(path, 390, { init, reducedMotion: "reduce" });
+    await page.waitForSelector(".korok-btn", { state: "attached" });
+    ok(await page.evaluate(() => JSON.parse(localStorage.getItem("korok:all")).join()) === "game-tracker/add,game-tracker/wrapped", "legacy key not migrated");
+    await page.locator(".korok-btn").first().click();
+    await page.waitForSelector("#korok-hestu:not([hidden])");
+    ok(/Shaka-laka/.test(await page.textContent("#korok-hestu")), "Hestu's line missing");
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector("#korok-hestu .hs-body")).animationName) === "none", "dance should stop under reduced motion");
+    ok(await noSideScroll(page), "page scrolls sideways with Hestu out");
+    ok(await page.locator("#korok-forest-btn").isHidden(), "forest unlocks at 6, not 3");
+    await page.evaluate(() => localStorage.setItem("korok:all", JSON.stringify(["a/1", "a/2", "a/3", "a/4", "a/5"])));
+    await page.reload(); await page.waitForSelector(".korok-btn", { state: "attached" });
+    await page.locator(".korok-btn").first().click();
+    await page.waitForSelector("#korok-forest-btn:not([hidden])");
+    await page.click("#korok-forest-btn");
+    ok(await page.evaluate(() => document.documentElement.classList.contains("korok-forest")), "forest theme not applied");
+    ok(await page.evaluate(() => getComputedStyle(document.body).backgroundColor) === "rgb(11, 26, 16)", "forest background not green");
+    await page.reload();
+    ok(await page.evaluate(() => document.documentElement.classList.contains("korok-forest")), "forest theme should persist");
     ok(errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
