@@ -58,7 +58,7 @@ const VALID_MASTERY = new Set(["in-progress", "mastered", "platinum", "100pct"])
 const DEFAULT_GAME = {
   r: 0, h: null, cy: null, cm: null, gotm: null, gotmFlair: false, mastery: null, diff: null,
   achPct: null, achCount: null, actualHours: null, lastPlayed: null,
-  casual: false, note: null, start: null, queued: null, release: null,
+  casual: false, replay: false, note: null, start: null, queued: null, release: null,
 };
 
 const json = (body, status, origin) => new Response(JSON.stringify(body), {
@@ -145,6 +145,7 @@ export function validateGameFields(input) {
   if (input.r != null && !(typeof input.r === "number" && input.r >= 0 && input.r <= 10)) {
     return "rating (r) must be a number 0-10";
   }
+  if (input.replay != null && typeof input.replay !== "boolean") return "replay must be true or false";
   if (input.mastery != null && !VALID_MASTERY.has(input.mastery)) {
     return `mastery must be one of: ${[...VALID_MASTERY].join(", ")}`;
   }

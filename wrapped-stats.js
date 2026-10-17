@@ -49,7 +49,107 @@
   // Best first: rating, then hours, then title so ties don't shuffle between loads.
   const byStanding = (a, b) => (b.r || 0) - (a.r || 0) || hours(b) - hours(a) || a.t.localeCompare(b.t);
 
-  function yearStats(games, year, now = new Date(), asfIdle = null) {
+  // ─── From the ledgers (ledger.json, achievements-log.json) ──────────────────────────────
+  // Hours actually played in a year, every game, finished or not. A snapshot can dip (a game's
+  // hours froze while ASF farmed it, or the sync's definition moved), so play is only a rise
+  // above the game's previous high. A game's first number is a baseline, not play, except for a
+  // game that came out this year (`y`): then every hour of it was played this year (when in the
+  // year isn't known, so it isn't in the month chart). A `start` in the year is not enough: Palworld
+  // and Brotato were restarted in 2026 with hours from earlier years (Jonny, 2026-10-17), so an
+  // older game counts only what the log saw. Idle-genre games are left out.
+  function playedHours(ledger, games, year) {
+    if (!ledger || !ledger.days) return null;
+    const byId = new Map(games.map(g => [g.id, g]));
+    const from = `${year}-01-01`, to = `${year}-12-31`;
+    const high = {}, first = {}, per = {}, months = Array(12).fill(0);
+    const counts = (id) => byId.has(id) && !isIdle(byId.get(id));
+    const add = (id, h, m) => { if (!counts(id)) return; per[id] = (per[id] || 0) + h; if (m != null) months[m] += h; };
+    for (const d of Object.keys(ledger.days).sort()) {
+      if (d > to) break;
+      for (const [k, h] of Object.entries(ledger.days[d])) {
+        const id = Number(k);
+        if (!(id in high)) { high[id] = h; first[id] = { d, h }; continue; }
+        if (h > high[id]) { if (d >= from) add(id, h - high[id], Number(d.slice(5, 7)) - 1); high[id] = h; }
+      }
+    }
+    const fromStart = new Set();
+    for (const [k, f] of Object.entries(first)) {
+      const g = byId.get(Number(k));
+      if (g && f.h > 0 && f.d >= from && g.y === year) { add(g.id, f.h, null); fromStart.add(g.id); }
+    }
+    const list = Object.entries(per).map(([k, h]) => ({ g: byId.get(Number(k)), hours: Math.round(h * 10) / 10 }))
+      .filter(x => x.g && !isIdle(x.g) && x.hours > 0)
+      .map(x => ({ ...x, fromStart: fromStart.has(x.g.id), replay: !!x.g.replay }))
+      .sort((a, b) => b.hours - a.hours || a.g.t.localeCompare(b.g.t));
+    const total = Math.round(list.reduce((s, x) => s + x.hours, 0) * 10) / 10;
+    return { total, games: list, months: months.map(h => Math.round(h * 10) / 10),
+      since: ledger.since && ledger.since > from ? ledger.since : null,
+      untimed: Math.round(list.filter(x => x.fromStart).reduce((s, x) => s + (first[x.g.id] ? first[x.g.id].h : 0), 0) * 10) / 10 };
+  }
+
+  // Unlock times are UTC; every hour and day here is Eastern, so an 11 PM Dec 31 unlock is
+  // 2026's and the night-owl hours are the ones on your clock.
+  const ET = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit',
+    day: '2-digit', hour: '2-digit', hourCycle: 'h23', weekday: 'short' });
+  function etParts(ts) {
+    const p = {};
+    for (const x of ET.formatToParts(new Date(ts * 1000))) p[x.type] = x.value;
+    return { date: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour) % 24, dow: p.weekday };
+  }
+  const dayNum = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 86400000;
+  const NIGHT = (h) => h >= 22 || h < 4;
+
+  function unlockStats(unlocks, year) {
+    const rows = (unlocks || []).map(r => Object.assign({}, r, etParts(r.ts))).filter(r => r.date.slice(0, 4) === String(year));
+    if (!rows.length) return null;
+    rows.sort((a, b) => a.ts - b.ts);
+    const hours = Array(24).fill(0), byDay = new Map(), games = new Set();
+    for (const r of rows) {
+      hours[r.hour]++;
+      games.add(r.game);
+      if (!byDay.has(r.date)) byDay.set(r.date, []);
+      byDay.get(r.date).push(r);
+    }
+    const peakHour = hours.indexOf(Math.max(...hours));
+    const night = rows.filter(r => NIGHT(r.hour)).length;
+    let busiest = null;
+    for (const [date, list] of byDay) if (!busiest || list.length > busiest.n) {
+      const count = {};
+      list.forEach(r => { count[r.game] = (count[r.game] || 0) + 1; });
+      busiest = { date, n: list.length, game: Object.entries(count).sort((a, b) => b[1] - a[1])[0][0] };
+    }
+    const days = [...byDay.keys()].sort();
+    let streak = { len: 0, from: null, to: null }, run = 0;
+    days.forEach((d, i) => {
+      run = i && dayNum(d) - dayNum(days[i - 1]) === 1 ? run + 1 : 1;
+      if (run > streak.len) streak = { len: run, from: days[i - run + 1], to: d };
+    });
+    const rare = rows.filter(r => r.pct != null && r.pct > 0);
+    const rarest = rare.length ? rare.reduce((a, b) => (b.pct < a.pct ? b : a)) : null;
+    return { count: rows.length, games: games.size, days: days.length, hours, peakHour, nightPct: Math.round(night / rows.length * 100),
+      busiest, streak, rarest, first: rows[0], last: rows[rows.length - 1],
+      steam: rows.filter(r => r.src === 'steam').length, ra: rows.filter(r => r.src === 'ra').length };
+  }
+
+  // Added to the backlog vs taken off it, from the dates the tracker keeps (`queued`, `start`, `cy`).
+  // A day with IMPORT_BURST or more games queued is the tracker being filled in (2026-06-16: 51
+  // games the day it was built), not games being added, so it's counted apart as `imported`.
+  const IMPORT_BURST = 15;
+  function backlogMath(games, year) {
+    const ys = String(year), inYear = (d) => !!d && String(d).slice(0, 4) === ys;
+    const perDay = {};
+    games.forEach(g => { if (inYear(g.queued)) perDay[g.queued] = (perDay[g.queued] || 0) + 1; });
+    const burst = (d) => perDay[d] >= IMPORT_BURST;
+    const added = games.filter(g => inYear(g.queued) && !burst(g.queued));
+    const imported = games.filter(g => inYear(g.queued) && burst(g.queued)).length;
+    const finished = games.filter(g => g.s === 'done' && g.cy === year).length;
+    const dropped = games.filter(g => g.s === 'dropped' && g.cy === year).length;
+    return { added: added.length, imported, started: games.filter(g => inYear(g.start)).length, finished, dropped,
+      net: added.length - finished - dropped,
+      waiting: added.filter(g => g.s === 'queue' || g.s === 'soon').length };
+  }
+
+  function yearStats(games, year, now = new Date(), asfIdle = null, extra = {}) {
     const { done, rated, totalH, avg } = basic(games, year);
     const current = year === now.getFullYear();
     const monthsElapsed = current ? now.getMonth() + 1 : 12;
@@ -122,7 +222,12 @@
       asf: asfIdle && asfIdle.years && asfIdle.years[year] ? { ...asfIdle.years[year], coverageFrom: asfIdle.coverageFrom } : null,
       asfCoverageFrom: asfIdle ? asfIdle.coverageFrom || null : null,
       dropped: games.filter(g => g.cy === year && g.s === 'dropped'),
+      // Replays count like any other finish or hour; the page just labels them.
+      replays: done.filter(g => g.replay),
       genres: Object.entries(done.reduce((o, g) => { if (g.g) o[g.g] = (o[g.g] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]),
+      played: playedHours(extra.ledger, games, year),
+      unlocks: unlockStats(extra.unlocks, year),
+      backlog: backlogMath(games, year),
     };
     stats.persona = persona(stats);
     return stats;
@@ -150,6 +255,12 @@
         line: `a typical game this year ran ${Math.round(s.medianHours || 0)} hours` },
       { title: 'The Club Regular', score: s.flairs.length / 3,
         line: `${s.flairs.length} Game of the Month flairs` },
+      { title: 'The Night Owl', score: s.unlocks && s.unlocks.count >= 30 ? s.unlocks.nightPct / 30 : 0,
+        line: `${s.unlocks ? s.unlocks.nightPct : 0}% of your unlocks came between 10 PM and 4 AM` },
+      { title: 'The Backlog Slayer', score: s.backlog && s.backlog.added >= 5 ? (s.backlog.finished / s.backlog.added) / 0.9 : 0,
+        line: `${s.backlog ? s.backlog.finished : 0} finished against ${s.backlog ? s.backlog.added : 0} added` },
+      { title: 'The Collector', score: s.backlog && s.backlog.finished >= 3 ? (s.backlog.added / s.backlog.finished) / 2 : 0,
+        line: `${s.backlog ? s.backlog.added : 0} games added to the list, ${s.backlog ? s.backlog.finished : 0} finished` },
     ].filter(c => c.score >= 1).sort((a, b) => b.score - a.score);
     if (candidates.length) return { title: candidates[0].title, line: candidates[0].line, also: candidates[1] ? candidates[1].title : null };
     const genres = s.genres.length;
@@ -238,7 +349,8 @@
     return { carts, goty: gotyCart, shelves, scale, W: P.W, H: P.H, grid: P.GRID };
   }
 
-  const api = { posterStats, layoutPoster, POSTER, yearStats, persona, hours, isIdle, parseHltb, DEVICE, RECENT_YEARS };
+  const api = { posterStats, layoutPoster, POSTER, yearStats, persona, hours, isIdle, parseHltb, DEVICE, RECENT_YEARS,
+    playedHours, unlockStats, backlogMath, etParts };
   root.GTWrapped = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -118,7 +118,54 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
   #poster-sec h2,#poster-sec .poster-acts,#poster-sec .note{display:none;}
   #poster-canvas{max-width:none;width:100vw;height:auto;border:0;border-radius:0;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
 }
+.rp{font-family:'DM Mono',monospace;font-size:0.58rem;color:#c8f542b0;border:1px solid #c8f54230;border-radius:99px;padding:1px 6px;margin-left:6px;vertical-align:middle;white-space:nowrap;}
 .err{color:#f54242;font-family:'DM Mono',monospace;font-size:0.75rem;}
+.hero-top{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;}
+.btn.play{min-height:36px;padding:0.45rem 0.9rem;}
+.clock{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;align-items:end;height:68px;}
+.ccol{display:flex;align-items:flex-end;height:100%;}
+.cbar{width:100%;border-radius:2px 2px 0 0;background:var(--playing);opacity:0.7;}
+.cbar.night{background:#a06bff;opacity:0.9;}
+.clock-axis{display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--dim);margin-top:4px;}
+
+/* Story mode: the same numbers as full-screen cards, one at a time, for the Jan 1 reveal. */
+.story{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;color:var(--text);background:var(--bg);
+  padding:calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 18px);overscroll-behavior:contain;}
+.story[hidden]{display:none;}
+.st-bars{display:flex;gap:4px;position:relative;z-index:2;}
+.st-bar{flex:1;height:3px;border-radius:2px;background:#ffffff26;overflow:hidden;}
+.st-bar i{display:block;height:100%;width:0;background:var(--text);}
+.st-bar.seen i{width:100%;}
+.st-head{display:flex;justify-content:space-between;align-items:center;margin-top:10px;position:relative;z-index:2;}
+.st-x{font-family:'DM Mono',monospace;font-size:0.75rem;background:#ffffff14;color:var(--text);border:0;border-radius:99px;min-height:36px;padding:0 14px;cursor:pointer;}
+.st-x:focus-visible,.st-nav:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.st-card{flex:1;display:flex;flex-direction:column;justify-content:center;gap:0.9rem;max-width:520px;width:100%;margin:0 auto;position:relative;z-index:1;min-height:0;}
+.st-card.enter{animation:st-in .45s cubic-bezier(.2,.8,.2,1);}
+@keyframes st-in{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion: reduce){.st-card.enter{animation:none;}}
+.st-k{font-family:'DM Mono',monospace;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.16em;color:var(--muted);}
+.st-n{font-size:clamp(3.5rem,22vw,7.5rem);font-weight:800;letter-spacing:-0.05em;line-height:0.95;}
+.st-n.mid{font-size:clamp(2rem,10vw,3.6rem);letter-spacing:-0.03em;line-height:1.05;text-wrap:balance;overflow-wrap:anywhere;}
+.st-l{font-size:clamp(1.05rem,4.6vw,1.4rem);font-weight:600;line-height:1.35;text-wrap:balance;}
+.st-s{font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--muted);line-height:1.6;}
+.st-art{border-radius:10px;overflow:hidden;aspect-ratio:460/215;background:var(--surface2);max-width:420px;width:100%;}
+.st-art img,.st-art .goty-img-ph{width:100%;height:100%;object-fit:cover;align-items:center;justify-content:center;font-size:3rem;}
+.st-list{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.st-list li{display:flex;align-items:baseline;gap:12px;font-size:clamp(1rem,4.4vw,1.25rem);font-weight:700;min-width:0;}
+.st-list .r{font-family:'DM Mono',monospace;color:var(--dim);font-size:0.8rem;width:1.2em;flex-shrink:0;}
+.st-list .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.st-list .v{font-family:'DM Mono',monospace;font-size:0.85rem;color:var(--accent);flex-shrink:0;}
+.st-clock{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;align-items:end;height:110px;}
+.st-clock div{border-radius:2px 2px 0 0;background:#ffffff40;}
+.st-clock div.night{background:#a06bff;}
+.st-clock div.peak{background:var(--accent);}
+.st-acts{display:flex;gap:8px;flex-wrap:wrap;position:relative;z-index:3;}
+.st-tap{position:absolute;left:0;right:0;top:0;bottom:0;z-index:1;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.st-tap.prev{right:auto;width:30%;}
+.st-tap.next{left:auto;width:70%;}
+.st-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;position:relative;z-index:2;}
+.st-nav{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);background:#0e0e1080;border:1px solid var(--border2);border-radius:99px;min-height:40px;padding:0 14px;cursor:pointer;}
+.st-nav:disabled{opacity:0.35;cursor:default;}
 </style>
 </head>
 <body>
@@ -128,6 +175,15 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
     <nav class="years" id="years" aria-label="Year"></nav>
   </div>
   <main id="main"><div class="empty">loading…</div></main>
+</div>
+
+<div class="story" id="story" role="dialog" aria-modal="true" aria-labelledby="st-title" hidden>
+  <div class="st-bars" id="st-bars"></div>
+  <div class="st-head"><span class="st-k" id="st-title"></span><button type="button" class="st-x" id="st-x" onclick="closeCards()">Close ✕</button></div>
+  <button type="button" class="st-tap prev" tabindex="-1" aria-hidden="true" onclick="stepCard(-1)"></button>
+  <button type="button" class="st-tap next" tabindex="-1" aria-hidden="true" onclick="stepCard(1)"></button>
+  <div class="st-card" id="st-card" aria-live="polite"></div>
+  <div class="st-foot"><button type="button" class="st-nav" id="st-prev" onclick="stepCard(-1)">← Back</button><span class="st-s" id="st-count"></span><button type="button" class="st-nav" id="st-next" onclick="stepCard(1)">Next →</button></div>
 </div>
 
 <script src="wrapped-stats.js"></script>
@@ -140,15 +196,20 @@ const PL={steam:'Steam',steamdeck:'Steam Deck',pc:'PC',ps5:'PS5',switch:'Switch'
 const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
 const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DEV_COL={handheld:'#ff4af0',hybrid:'#4aff8c',desk:'#00e5ff'};
-let G=[], COVERS={}, Y=null, D=null, ASF=null, POSTER_D=null;
+let G=[], COVERS={}, Y=null, D=null, ASF=null, POSTER_D=null, LEDGER=null, UNLOCKS=[];
+// wrapped-<year>.json: a finished year's inputs as they stood on Jan 1 (scripts/freeze-wrapped.mjs).
+// Preferred over the live files, which keep moving after the year is over.
+const FROZEN={};
 
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const hours = g => GTWrapped.hours(g);
 const fmtH = h => h >= 100 ? Math.round(h).toLocaleString() : Math.round(h*10)/10;
 
 // The numbers come from wrapped-stats.js (unit-tested); this adds the few page-only extras.
+function yearSource(year){ return FROZEN[year]||{games:G,asfIdle:ASF,ledger:LEDGER,unlocks:UNLOCKS}; }
 function yearData(year){
-  const s=GTWrapped.yearStats(G,year,new Date(),ASF);
+  const src=yearSource(year);
+  const s=GTWrapped.yearStats(src.games,year,new Date(),src.asfIdle,{ledger:src.ledger,unlocks:src.unlocks});
   const byPlat={}; s.done.forEach(g=>{ byPlat[g.p]=(byPlat[g.p]||0)+1; });
   const timed=s.done.filter(hours);
   return Object.assign(s,{
@@ -156,7 +217,7 @@ function yearData(year){
     busiest: s.months.some(m=>m.n) ? s.months.reduce((a,b)=>b.n>a.n?b:a).m : null,
     longest: timed.length ? timed.reduce((a,b)=>hours(b)>hours(a)?b:a) : null,
     shortest: timed.length ? timed.reduce((a,b)=>hours(b)<hours(a)?b:a) : null,
-    undated: G.filter(g=>(g.s==='done'||g.s==='dropped')&&!g.cy).length,
+    undated: src.games.filter(g=>(g.s==='done'||g.s==='dropped')&&!g.cy).length,
     undatedMonth: s.done.filter(g=>g.cm==null).length,
   });
 }
@@ -170,6 +231,9 @@ const fact=(l,g,s)=>g?`<div class="fact"><div class="fact-l">${l}</div><div clas
 const factN=(l,n,s,tip='')=>`<div class="fact"${tip?` title="${esc(tip)}"`:''}><div class="fact-l">${l}</div><div class="fact-v">${n}</div><div class="fact-s">${s}</div></div>`;
 const fmtDay=iso=>{ const [y,m,dd]=String(iso).split('-').map(Number); return m?`${M[m-1]} ${dd}, ${y}`:esc(iso); };
 const signed=n=>n>0?`+${n}`:String(n);
+const hourName=h=>`${(h%12)||12} ${h<12?'AM':'PM'}`;
+const NIGHT_H=h=>h>=22||h<4;
+const RP=g=>g&&g.replay?'<span class="rp">↻ replay</span>':'';
 const monthSpan=(a,b)=>a===b?M[a]:`${M[a]}–${M[b]}`;
 
 function render(){
@@ -177,6 +241,10 @@ function render(){
   if(!years.length){ document.getElementById('main').innerHTML='<div class="empty">No finished games with a year yet.</div>'; return; }
   const q=parseInt(new URLSearchParams(location.search).get('year'),10);
   Y = years.includes(q) ? q : years[0];
+  if(Y<new Date().getFullYear() && !(Y in FROZEN)){
+    FROZEN[Y]=null;
+    fresh(`wrapped-${Y}.json`).then(r=>r.ok?r.json():null).then(f=>{ if(f&&f.games){ FROZEN[Y]=f; render(); } }).catch(()=>{});
+  }
   document.getElementById('years').innerHTML=years.map(y=>`<a class="yr-chip" href="?year=${y}"${y===Y?' aria-current="page"':''}>${y}</a>`).join('');
   document.title=`${Y} in Games`;
   const d=D=yearData(Y);
@@ -195,11 +263,12 @@ function render(){
   const e=d.eras, eraRow=(k,label,col)=>`<span class="lg"><span class="dot" style="background:${col}"></span>${label} ${Math.round(e[k].pct)}% <span class="dim">(${e[k].n})</span></span>`;
   const goty=d.goty;
   const standouts=d.months.filter(m=>m.top);
-  const P=POSTER_D=GTWrapped.posterStats(G,Y);
+  const P=POSTER_D=GTWrapped.posterStats(yearSource(Y).games,Y);
 
   document.getElementById('main').innerHTML=`
   <section class="hero" id="wr-hero" aria-label="Summary">
-    <div class="kicker">${d.current?'So far this year':'Year in games'}</div>
+    <div class="hero-top"><div class="kicker">${d.current?'So far this year':'Year in games'}${FROZEN[Y]?' · final':''}</div>
+      <button type="button" class="btn play" onclick="openCards()" aria-label="Play ${Y} as a story">▶ Play the story</button></div>
     <h1>${Y}</h1>
     ${d.persona?`<div class="persona"><span class="kicker">Your play style</span><div class="persona-t">${esc(d.persona.title)}</div>
       <div class="persona-l">${esc(d.persona.line)}${d.persona.also?` · part ${esc(d.persona.also.replace(/^The /,''))} too`:''}</div></div>`:''}
@@ -215,19 +284,19 @@ function render(){
   <div class="grid">
     ${goty?`<section class="panel goty" aria-labelledby="h-goty"><h2 id="h-goty">Game of the year</h2>
       <div class="goty-art">${cover(goty,'goty-img')}</div>
-      <div class="goty-t">${esc(goty.t)}</div>
+      <div class="goty-t">${esc(goty.t)}${RP(goty)}</div>
       <div class="t5-s">${goty.r}/10 · ${PL[goty.p]||goty.p}${goty.cm!=null?' · finished '+M[goty.cm]:''}${goty.y?' · '+goty.y:''}${hours(goty)?' · '+fmtH(hours(goty))+'h':''}</div>
     </section>`:''}
     <section class="panel" aria-labelledby="h-top"><h2 id="h-top">Best of the year</h2>
       ${d.top.length?`<ol class="top5">${d.top.map((g,i)=>`<li><span class="rank">${i+1}</span>${cover(g)}
-        <div class="t5-main"><div class="t5-t" title="${esc(g.t)}">${esc(g.t)}</div><div class="t5-s">${PL[g.p]||g.p}${g.cm!=null?' · '+M[g.cm]:''}${g.y?' · '+g.y:''}</div></div>
+        <div class="t5-main"><div class="t5-t" title="${esc(g.t)}">${esc(g.t)}${RP(g)}</div><div class="t5-s">${PL[g.p]||g.p}${g.cm!=null?' · '+M[g.cm]:''}${g.y?' · '+g.y:''}</div></div>
         <span class="score">${g.r}/10</span></li>`).join('')}</ol>`:'<div class="note">Nothing rated yet this year.</div>'}
     </section>
   </div>
 
   <div class="grid">
     <section class="panel" aria-labelledby="h-hours"><h2 id="h-hours">Where the hours went</h2>
-      ${share.map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}</span><span class="sval">${Math.round(x.pct)}%${x.real?'':'<span class="dim" title="HowLongToBeat estimate, not tracked playtime">*</span>'}</span>
+      ${share.map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}${RP(x.g)}</span><span class="sval">${Math.round(x.pct)}%${x.real?'':'<span class="dim" title="HowLongToBeat estimate, not tracked playtime">*</span>'}</span>
         <div class="strack"><div style="width:${x.pct/maxS*100}%;background:${PC[x.g.p]||'#888'}"></div></div></div>`).join('')||'<div class="note">No hours recorded.</div>'}
       <p class="note" style="margin-top:0.6rem">Share of ${fmtH(d.totalH)}h across ${d.done.length} finished games. Steam hours are real play (lifetime, with ASF card idling taken out); <span class="dim">*</span> is a HowLongToBeat estimate.${d.idleGames.length?` Idle games left out: ${d.idleGames.map(g=>esc(g.t)).join(', ')}.`:''}</p>
     </section>
@@ -239,6 +308,27 @@ function render(){
       ${d.oldest?`<p class="note"><b class="hi">Oldest:</b> ${esc(d.oldest.t)}, from ${d.oldest.y}${d.oldest.y<Y?`, ${Y-d.oldest.y} years before you got to it`:''}.</p>`:''}
     </section>
   </div>
+
+  ${d.played||d.unlocks?`<div class="grid">
+    ${d.played?`<section class="panel" aria-labelledby="h-played"><h2 id="h-played">Hours played this year</h2>
+      <div class="facts" style="margin-bottom:0.75rem">${factN('Tracked play',`${fmtH(d.played.total)}h`,`across ${d.played.games.length} games, finished or not`)}
+        ${d.played.games[0]?factN('Most played',esc(d.played.games[0].g.t),`${fmtH(d.played.games[0].hours)}h`):''}</div>
+      ${d.played.games.slice(0,6).map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}${RP(x.g)}</span><span class="sval">${fmtH(x.hours)}h</span>
+        <div class="strack"><div style="width:${x.hours/d.played.games[0].hours*100}%;background:${PC[x.g.p]||'#888'}"></div></div></div>`).join('')}
+      <p class="note" style="margin-top:0.6rem">Steam play, card idling taken out, from the daily log${d.played.since?` kept since ${fmtDay(d.played.since)}`:''}. A game that came out this year counts its hours from before the log too; a replay counts what the log saw this year, since its earlier hours can’t be told apart.</p>
+    </section>`:''}
+    ${d.unlocks?`<section class="panel" aria-labelledby="h-clock"><h2 id="h-clock">When you played</h2>
+      <div class="clock" role="img" aria-label="Unlocks by hour of day, Eastern time. Peak: ${hourName(d.unlocks.peakHour)}">${d.unlocks.hours.map((n,h)=>`<div class="ccol"><div class="cbar${NIGHT_H(h)?' night':''}" style="height:${Math.max(2,n/Math.max(...d.unlocks.hours)*64)}px"></div></div>`).join('')}</div>
+      <div class="clock-axis"><span>12a</span><span>6a</span><span>12p</span><span>6p</span><span>11p</span></div>
+      <div class="facts" style="margin-top:0.75rem">
+        ${factN('Peak hour',hourName(d.unlocks.peakHour),`${d.unlocks.nightPct}% after 10 PM`)}
+        ${factN('Busiest day',fmtDay(d.unlocks.busiest.date),`${d.unlocks.busiest.n} unlocks · ${esc(d.unlocks.busiest.game)}`)}
+        ${d.unlocks.streak.len>1?factN('Unlock streak',`${d.unlocks.streak.len} days`,`${fmtDay(d.unlocks.streak.from)} to ${fmtDay(d.unlocks.streak.to)}`):''}
+        ${d.unlocks.rarest?factN('Rarest unlock',esc(d.unlocks.rarest.name),`${d.unlocks.rarest.pct}% of players · ${esc(d.unlocks.rarest.game)}`):''}
+      </div>
+      <p class="note" style="margin-top:0.6rem">${d.unlocks.count.toLocaleString()} achievement unlocks (Steam and RetroAchievements), by the clock in Eastern time.</p>
+    </section>`:''}
+  </div>`:''}
 
   <section class="panel" aria-labelledby="h-month" style="margin-bottom:1rem"><h2 id="h-month">Month by month</h2>
     <div class="months" role="img" aria-label="${M.map((m,i)=>`${m}: ${d.months[i].n}`).join(', ')}">
@@ -287,6 +377,8 @@ function render(){
         ${fact('Quickest',d.shortest&&d.shortest!==d.longest?d.shortest:null,d.shortest?`${fmtH(hours(d.shortest))}h`:'')}
         ${d.medianHours?factN('Typical length',`${fmtH(d.medianHours)}h`,'median finished game'):''}
         ${d.dropped.length?factN('Dropped',d.dropped.length,'no shame',d.dropped.map(g=>g.t).join(', ')):''}
+        ${d.replays.length?factN('Replays',d.replays.length,esc(d.replays.slice(0,2).map(g=>g.t).join(', '))+(d.replays.length>2?'…':''),d.replays.map(g=>g.t).join(', ')):''}
+        ${d.backlog&&d.backlog.added?factN('Backlog',`${signed(-(d.backlog.finished+d.backlog.dropped-d.backlog.added))}`,`${d.backlog.added} added, ${d.backlog.finished} finished`,d.backlog.imported?`Not counting the ${d.backlog.imported} games entered when the tracker was set up`:''):''}
       </div>
     </section>
 
@@ -512,10 +604,98 @@ async function shareImage(){
   }catch(e){ if(e.name!=='AbortError') msg.textContent=`Couldn’t make the image: ${e.message}`; }
 }
 
+// ─── Story mode ────────────────────────────────────────
+// The year as full-screen cards: tap the right of the screen (or swipe left, or →) for the next,
+// the left for the previous, Esc to close. Built from the same D as the page; a card whose data
+// is missing (no unlock log yet, nothing rated) is left out rather than shown empty.
+const ST={i:0,cards:[]};
+function buildCards(d){
+  const out=[], C=(bg,html)=>out.push({bg,html});
+  const y=d.year, P=d.played, U=d.unlocks, B=d.backlog;
+  C('radial-gradient(120% 90% at 0% 0%,#c8f54233,transparent 60%),#0e0e10',
+    `<div class="st-k">${d.current?'Your year so far':'Your year in games'}</div><div class="st-n" style="color:var(--accent)">${y}</div>
+     <div class="st-l">${d.current?`${d.monthsElapsed} months in. Here’s the story so far.`:'Here’s how it went.'}</div><div class="st-s">Tap or swipe to keep going</div>`);
+  if(d.done.length) C('radial-gradient(110% 80% at 100% 0%,#42f5a033,transparent 60%),#0e0e10',
+    `<div class="st-k">You finished</div><div class="st-n" style="color:var(--done)">${d.done.length}</div><div class="st-l">games${d.busiest!=null?`, the most in ${M[d.busiest]} (${d.months[d.busiest].n})`:''}.</div>
+     ${d.replays.length?`<div class="st-s">${d.replays.length} of them ${d.replays.length===1?'was a replay':'were replays'}: ${esc(d.replays.slice(0,3).map(g=>g.t).join(', '))}${d.replays.length>3?'…':''}.</div>`:''}
+     ${d.streak.len>1?`<div class="st-s">A ${d.streak.len}-month streak, ${monthSpan(d.streak.from,d.streak.to)}, with something finished every month.</div>`:''}`);
+  if(P&&P.total>0) C('radial-gradient(110% 80% at 0% 100%,#42c8f533,transparent 60%),#0e0e10',
+    `<div class="st-k">You played</div><div class="st-n" style="color:var(--playing)">${fmtH(P.total)}h</div>
+     <div class="st-l">${P.games[0]?`Most of it in <b>${esc(P.games[0].g.t)}</b>${P.games[0].replay?' (a replay)':''}: ${fmtH(P.games[0].hours)} hours.`:''}</div>
+     <div class="st-s">Tracked Steam play across ${P.games.length} games, card idling taken out${P.since?`, logged since ${fmtDay(P.since)}`:''}.</div>`);
+  if(d.goty) C('radial-gradient(100% 70% at 50% 0%,#ffd23a33,transparent 60%),#0e0e10',
+    `<div class="st-k">★ Game of the year</div><div class="st-art">${cover(d.goty,'goty-img')}</div><div class="st-n mid">${esc(d.goty.t)}</div>${d.goty.replay?'<div class="st-s">↻ a replay, and still the best of the year</div>':''}
+     <div class="st-s">${d.goty.r}/10 · ${PL[d.goty.p]||d.goty.p}${d.goty.cm!=null?' · finished in '+M[d.goty.cm]:''}</div>`);
+  if(d.top.length>1) C('radial-gradient(120% 80% at 100% 100%,#c8f54222,transparent 60%),#0e0e10',
+    `<div class="st-k">Best of the year</div><ol class="st-list">${d.top.map((g,i)=>`<li><span class="r">${i+1}</span><span class="t">${esc(g.t)}${RP(g)}</span><span class="v">${g.r}/10</span></li>`).join('')}</ol>`);
+  if(U){
+    const mx=Math.max(...U.hours);
+    C('radial-gradient(120% 80% at 50% 100%,#a06bff40,transparent 60%),#0e0e10',
+      `<div class="st-k">Your gaming hour</div><div class="st-n" style="color:#c9a6ff">${hourName(U.peakHour)}</div>
+       <div class="st-clock" role="img" aria-label="Unlocks by hour of day">${U.hours.map((n,h)=>`<div class="${h===U.peakHour?'peak':NIGHT_H(h)?'night':''}" style="height:${Math.max(3,n/mx*100)}%"></div>`).join('')}</div>
+       <div class="st-l">${U.nightPct>=30?`A night owl: ${U.nightPct}% of your unlocks came after 10 PM.`:`${U.nightPct}% of your unlocks came after 10 PM.`}</div>
+       <div class="st-s">${U.count.toLocaleString()} unlocks, by the clock in Eastern time.</div>`);
+    C('radial-gradient(110% 80% at 0% 0%,#ff4af033,transparent 60%),#0e0e10',
+      `<div class="st-k">Your biggest day</div><div class="st-n mid">${fmtDay(U.busiest.date)}</div>
+       <div class="st-l">${U.busiest.n} unlocks, mostly in <b>${esc(U.busiest.game)}</b>.</div>
+       ${U.streak.len>1?`<div class="st-s">Longest run: ${U.streak.len} days in a row with an unlock (${fmtDay(U.streak.from)} to ${fmtDay(U.streak.to)}).</div>`:''}`);
+    if(U.rarest) C('radial-gradient(100% 70% at 50% 0%,#ffd23a2e,transparent 60%),#0e0e10',
+      `<div class="st-k">Rarest unlock</div><div class="st-n mid">${esc(U.rarest.name)}</div>
+       <div class="st-l">Only <b style="color:#ffd23a">${U.rarest.pct}%</b> of ${esc(U.rarest.game)} players have it.</div><div class="st-s">${fmtDay(U.rarest.date)}</div>`);
+  }
+  if(d.oldest||d.launchYear.length) C('radial-gradient(110% 80% at 100% 0%,#a06bff33,transparent 60%),#0e0e10',
+    `<div class="st-k">Old and new</div>
+     ${d.oldest?`<div class="st-n mid">${esc(d.oldest.t)}</div><div class="st-l">from ${d.oldest.y}${d.oldest.y<y?`, ${y-d.oldest.y} years before you got to it`:''}.</div>`:''}
+     ${d.launchYear.length?`<div class="st-s">${d.launchYear.length} played the year ${d.launchYear.length===1?'it':'they'} came out, like ${esc(d.launchYear[0].t)}.</div>`:''}`);
+  if(B&&B.added){ const net=B.added-B.finished-B.dropped;
+    C('radial-gradient(110% 80% at 0% 100%,#42f5a02e,transparent 60%),#0e0e10',
+      `<div class="st-k">The backlog</div><div class="st-n" style="color:${net<=0?'var(--done)':'#ff6b4a'}">${signed(net)}</div>
+       <div class="st-l">${net<0?`You shrank the pile by ${-net}.`:net>0?`The pile grew by ${net}.`:'The pile held steady.'}</div>
+       <div class="st-s">${B.added} added, ${B.finished} finished${B.dropped?`, ${B.dropped} dropped`:''}.</div>`); }
+  if(d.asf&&d.asf.hours) C('radial-gradient(110% 80% at 100% 100%,#00e5ff26,transparent 60%),#0e0e10',
+    `<div class="st-k">Behind the scenes</div><div class="st-n" style="color:#00e5ff">${fmtH(d.asf.hours)}h</div>
+     <div class="st-l">of card farming across ${d.asf.gameCount} games. None of it counted as play.</div>`);
+  C('radial-gradient(120% 90% at 50% 0%,#c8f54233,transparent 60%),radial-gradient(120% 90% at 50% 100%,#42c8f526,transparent 60%),#0e0e10',
+    `<div class="st-k">Your play style</div><div class="st-n mid" style="color:var(--accent)">${esc(d.persona?d.persona.title:'The Player')}</div>
+     <div class="st-l">${esc(d.persona?d.persona.line:`${d.done.length} games this year`)}.</div>
+     <div class="st-acts"><button type="button" class="btn" onclick="shareImage()">Save share image</button>${POSTER_D&&POSTER_D.games?'<button type="button" class="btn" onclick="downloadPoster()">Poster</button>':''}<button type="button" class="btn" onclick="closeCards()">See all the numbers</button></div>`);
+  return out;
+}
+function showCard(){
+  const c=ST.cards[ST.i], el=document.getElementById('st-card');
+  document.getElementById('story').style.background=c.bg;
+  el.innerHTML=c.html; el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter');
+  document.getElementById('st-bars').innerHTML=ST.cards.map((_,i)=>`<span class="st-bar${i<=ST.i?' seen':''}"><i></i></span>`).join('');
+  document.getElementById('st-count').textContent=`${ST.i+1} / ${ST.cards.length}`;
+  document.getElementById('st-prev').disabled=ST.i===0;
+  document.getElementById('st-next').disabled=ST.i===ST.cards.length-1;
+}
+function stepCard(n){ const i=ST.i+n; if(i<0||i>=ST.cards.length) return; ST.i=i; showCard(); }
+function openCards(){
+  if(!D) return;
+  ST.cards=buildCards(D); ST.i=0;
+  document.getElementById('st-title').textContent=`${D.year} in games`;
+  document.getElementById('story').hidden=false; document.body.style.overflow='hidden';
+  showCard(); document.getElementById('st-x').focus({preventScroll:true});
+}
+function closeCards(){ document.getElementById('story').hidden=true; document.body.style.overflow=''; }
+function openCardsFromUrl(){ if(new URLSearchParams(location.search).get('cards')==='1') openCards(); }
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('story').hidden) return;
+  if(e.key==='Escape') closeCards(); else if(e.key==='ArrowRight') stepCard(1); else if(e.key==='ArrowLeft') stepCard(-1);
+});
+(()=>{ // swipe: a mostly-horizontal drag of 50px or more
+  let x0=null,y0=null; const st=document.getElementById('story');
+  st.addEventListener('touchstart',e=>{ x0=e.touches[0].clientX; y0=e.touches[0].clientY; },{passive:true});
+  st.addEventListener('touchend',e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0; x0=null;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5) stepCard(dx<0?1:-1); },{passive:true});
+})();
+
 const fresh=f=>fetch(`${f}?_=${Date.now()}`);
+const optional=f=>fresh(f).then(r=>r.ok?r.json():null).catch(()=>null);
 Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
-  fresh('asf-idle.json').then(r=>r.ok?r.json():null).catch(()=>null)])
-  .then(([g,c,a])=>{ G=g; COVERS=c; ASF=a; render(); })
+  optional('asf-idle.json'), optional('ledger.json'), optional('achievements-log.json')])
+  .then(([g,c,a,l,u])=>{ G=g; COVERS=c; ASF=a; LEDGER=l; UNLOCKS=(u&&u.unlocks)||[]; render(); openCardsFromUrl(); })
   .catch(e=>{ document.getElementById('main').innerHTML=`<p class="err">Couldn’t load game data (${esc(e.message)}).</p>`; });
 </script>
 <script src="korok.js" data-repo="game-tracker" data-total="12" data-spots="wrapped:22%,wrapped-hang:81%:top"></script>

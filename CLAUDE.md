@@ -36,6 +36,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `owl-skips.json` | **Worker only** (`/owl/skip`, `/owl/restore`) | What the owl has set aside, from "Not this one": `{ key: { t, count, until, dropped, last } }`, keyed `id:<n>` (tracked), `steam:<appid>`, `ra:<normTitle>` (RA runs and club picks) or `canon:<normTitle>`. Turn-downs snooze 7, 30, then 90 days; the fourth asks before a drop, and a drop is only `dropped: true`. Restore deletes the entry (count back to zero), and so does accepting the game with "No". **Never touches `games.json`**, and nothing writes it but the Worker, so keep human edits out. |
 | `ledger.json` | bot only (`sync-games.yml`, daily); backfilled once by `scripts/backfill-ledger.mjs` | Every game's `actualHours`, one row per UTC day, one line per day: `{ version, since, rawUntil, days: { "YYYY-MM-DD": { id: hours } } }`. The source for hours played in a year. **Backfilled from git on 2026-10-17** (57 days from 2026-07-28); days up to `rawUntil` (2026-10-11) were Steam's raw playtime, so the backfill took the hub farm ledger's cumulative idling out of them, and the whole file reads as hours minus card idling. Snapshots can dip (a game frozen while ASF farmed it), so read play as rises above the game's previous high, never as plain differences. A game's first number is a baseline, not play: null-then-populated is a sync change. The repo's git history is no longer the only playtime record, but still don't squash it casually. |
 | `achievements-log.json` | bot only (`sync-games.yml`, daily) | One row per unlock, one per line: `{ src: steam|ra, id (tracker id or null), key, ts (unix UTC), name, game, pct, hc }`. Steam: every tracked Steam game's unlocks with their real times (Steam keeps them, so the first run filled every year); `pct` is Steam's global unlock %, fetched for the current year's rows only. RA: `API_GetAchievementsEarnedBetween` from an hour before the newest RA row (Jan 1 for an empty log), **every** RA game, tracked or not; RA's zoneless dates are read as UTC. Merged, never rebuilt: rows are only added or filled in. Bucket hours and days in America/New_York, never UTC. |
+| `wrapped-<year>.json` | bot only (`scripts/freeze-wrapped.mjs` in `sync-games.yml`) | A finished year's review inputs, frozen by the first sync on or after Jan 1 (8 AM ET): all of `games.json` and `asf-idle.json`, that year's `ledger.json` days plus the last day before, and that year's unlocks with a day of margin. Written once, never overwritten. `wrapped.html` loads it for any past year and prefers it over the live files. Rehearse with `node scripts/freeze-wrapped.mjs --year 2026 --force --out /tmp/w.json`. |
 | `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` (and `owl-skips.json`) from a browser. `worker/index.mjs` keeps its own copy of the 7/30/90 snooze table; its test compares it with `pick.js`'s. |
@@ -95,6 +96,8 @@ One flat array. Every record carries every key, with `null` for unset.
                           // farm ledger has recorded for that appid (see Automation)
   "lastPlayed": null,     // bot-owned, YYYY-MM-DD
   "casual": false,        // true = deliberately excluded from achievement display
+  "replay": false,        // OPTIONAL (absent = false): played before, back for another run.
+                          // Counts like any other game everywhere; pages label it "↻ replay".
   "note": null,
   "start": null,          // YYYY-MM-DD
   "queued": null,         // YYYY-MM-DD
@@ -181,6 +184,22 @@ finish (there's no daily play data). Devices: handheld = steamdeck/ayn/retro, Sw
 switch/switch2, everything else PC & TV (Steam can't be told apart from Deck play). The
 persona is whichever trait clears its threshold by the most, with the number behind it, and
 "vs last year" compares with the closest earlier year that has finishes.
+
+**From the ledgers** (`playedHours`, `unlockStats`, `backlogMath`): hours played in the year come from
+`ledger.json`, every Steam game finished or not, as rises above each game's previous high (never plain
+differences, which dips would corrupt); a game's first number is a baseline, except for a game released
+that year (`y`), whose baseline counts too (every hour of it is that year's; a `start` in the year isn't enough,
+since a restart carries old hours, e.g. Palworld and Brotato in 2026; the month
+chart leaves it out since when isn't known). Unlock stats bucket every timestamp in America/New_York:
+peak hour, share between 10 PM and 4 AM, busiest day, longest run of days with an unlock, and the
+rarest Steam unlock by global %. Backlog math is games queued that year vs finished or dropped; a day
+with 15+ games queued is the tracker being filled in (2026-06-16: 51 games) and counts as `imported`,
+not added. Personas gained The Night Owl, The Backlog Slayer and The Collector.
+
+**Story mode** (`▶ Play the story` on the hero, or `?cards=1` to open straight into it): the same
+numbers as full-screen cards, one at a time; tap the right 70% or swipe left for the next, the left 30%
+for back, arrow keys, Esc closes. A card whose data is missing is skipped, not shown empty. The last
+card has the share image and poster buttons.
 
 The **Year of Play poster** on the same page (`posterStats` / `layoutPoster` in
 `wrapped-stats.js`, painted by `drawPoster` in `wrapped.html`) is every non-Idle finish of the
@@ -316,22 +335,23 @@ and exits non-zero on failure.
 node scripts/sync-apis.test.mjs        # 44
 node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
-node scripts/validate-games.test.mjs   # 9
+node scripts/validate-games.test.mjs   # 10
 node scripts/fetch-gotm.test.mjs       # 26
 node scripts/pick.test.mjs             # 35
-node scripts/wrapped.test.mjs          # 20
+node scripts/wrapped.test.mjs          # 29
 node scripts/ledger.test.mjs           # 15
 node scripts/usage.test.mjs            # 29
+node scripts/freeze-wrapped.test.mjs   # 3
 node scripts/owl-pick.test.mjs         # 12
-node scripts/korok.test.mjs            # 32
+node scripts/korok.test.mjs            # 37
 node scripts/library-meta.test.mjs     # 4
 node scripts/library-hltb.test.mjs     # 8
 cd worker && node index.test.mjs       # 35
 ```
 
-`tests.yml` runs all fourteen on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all fifteen on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-fourteen commands above.
+fifteen commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails

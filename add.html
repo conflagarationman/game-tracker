@@ -192,6 +192,10 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
     <input type="checkbox" id="casual">
     <label for="casual" style="margin:0;text-transform:none;font-size:0.85rem;color:var(--text);font-family:'Syne',sans-serif;">Casual play (no achievement tracking)</label>
   </div>
+  <div class="check">
+    <input type="checkbox" id="replay">
+    <label for="replay" style="margin:0;text-transform:none;font-size:0.85rem;color:var(--text);font-family:'Syne',sans-serif;">Replay (played it before)</label>
+  </div>
 
   <div class="fieldset" id="completion-block" style="display:none;">
     <div class="fieldset-lbl">Completion</div>
@@ -349,6 +353,7 @@ function fillForm(g) {
   $('queued').value = g.queued || '';
   $('release').value = g.release || '';
   $('casual').checked = !!g.casual;
+  $('replay').checked = !!g.replay;
   $('completed').value = toMonthInput(g.cy, g.cm);
   $('r').value = g.r ? String(g.r) : '';
   $('mastery').value = g.mastery || '';
@@ -372,6 +377,7 @@ function clearForm() {
   $('queued').value = '';
   $('release').value = '';
   $('casual').checked = false;
+  $('replay').checked = false;
   $('completed').value = '';
   $('r').value = '';
   $('mastery').value = '';
@@ -397,6 +403,7 @@ function readForm() {
     queued: $('queued').value || null,
     release: $('release').value || null,
     casual: $('casual').checked,
+    replay: $('replay').checked,
     cy, cm,
     // r defaults to 0 rather than null: that's what DEFAULT_GAME uses and what
     // index.html's `g.r > 0` rated-filter expects.

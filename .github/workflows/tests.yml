@@ -68,6 +68,9 @@ jobs:
       - name: Playtime ledger and unlock log
         run: node scripts/ledger.test.mjs
 
+      - name: Wrapped Jan 1 freeze
+        run: node scripts/freeze-wrapped.test.mjs
+
       - name: Usage counts
         run: node scripts/usage.test.mjs
 
