@@ -37,6 +37,12 @@
   const hours = (g) => isIdle(g) ? 0 : (g.actualHours || parseHltb(g.h) || 0);
   const median = (xs) => { const s = [...xs].sort((a, b) => a - b); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null; };
   const isPerfect = (g) => PERFECT.has(g.mastery) || g.achPct === 100;
+  // A return trip (games.json `replay`): 'replay', '100pct' or '1.0'; true is the old plain replay.
+  const RETURN_KINDS = ['replay', '100pct', '1.0'];
+  const returnKind = (g) => g.replay === true ? 'replay' : RETURN_KINDS.includes(g.replay) ? g.replay : null;
+  // The release year that matters for old-vs-new and "played at launch": a 1.0 launch counts as
+  // coming out the year it was finished (Palworld left early access in 2026), everything else its `y`.
+  const relYear = (g) => returnKind(g) === '1.0' && g.cy ? g.cy : g.y;
   const deviceOf = (p) => Object.keys(DEVICE).find(k => DEVICE[k].includes(p)) || 'desk';
 
   function basic(games, year) {
@@ -72,19 +78,23 @@
         if (h > high[id]) { if (d >= from) add(id, h - high[id], Number(d.slice(5, 7)) - 1); high[id] = h; }
       }
     }
-    const fromStart = new Set();
+    // Hours from before the log that are this year's: all of them for a game released this year;
+    // for a game with `priorH` (hours from before this run, e.g. Palworld's early access), the rest.
+    const fromStart = new Set(), credited = {};
     for (const [k, f] of Object.entries(first)) {
       const g = byId.get(Number(k));
-      if (g && f.h > 0 && f.d >= from && g.y === year) { add(g.id, f.h, null); fromStart.add(g.id); }
+      if (!g || f.h <= 0 || f.d < from) continue;
+      const h = typeof g.priorH === 'number' ? Math.max(0, f.h - g.priorH) : g.y === year ? f.h : 0;
+      if (h > 0) { add(g.id, h, null); fromStart.add(g.id); credited[g.id] = h; }
     }
     const list = Object.entries(per).map(([k, h]) => ({ g: byId.get(Number(k)), hours: Math.round(h * 10) / 10 }))
       .filter(x => x.g && !isIdle(x.g) && x.hours > 0)
-      .map(x => ({ ...x, fromStart: fromStart.has(x.g.id), replay: !!x.g.replay }))
+      .map(x => ({ ...x, fromStart: fromStart.has(x.g.id), replay: returnKind(x.g) }))
       .sort((a, b) => b.hours - a.hours || a.g.t.localeCompare(b.g.t));
     const total = Math.round(list.reduce((s, x) => s + x.hours, 0) * 10) / 10;
     return { total, games: list, months: months.map(h => Math.round(h * 10) / 10),
       since: ledger.since && ledger.since > from ? ledger.since : null,
-      untimed: Math.round(list.filter(x => x.fromStart).reduce((s, x) => s + (first[x.g.id] ? first[x.g.id].h : 0), 0) * 10) / 10 };
+      untimed: Math.round(list.filter(x => x.fromStart).reduce((s, x) => s + (credited[x.g.id] || 0), 0) * 10) / 10 };
   }
 
   // Unlock times are UTC; every hour and day here is Eastern, so an 11 PM Dec 31 unlock is
@@ -161,15 +171,15 @@
 
     // New / recent / classic, weighted by hours like Steam's, with counts alongside.
     const cutoff = year - RECENT_YEARS;
-    const eraOf = (g) => !g.y ? null : g.y >= year ? 'new' : g.y >= cutoff ? 'recent' : 'classic';
+    const eraOf = (g) => { const y = relYear(g); return !y ? null : y >= year ? 'new' : y >= cutoff ? 'recent' : 'classic'; };
     const eras = { new: { n: 0, h: 0 }, recent: { n: 0, h: 0 }, classic: { n: 0, h: 0 } };
     done.forEach(g => { const e = eraOf(g); if (e) { eras[e].n++; eras[e].h += hours(g); } });
     const eraH = eras.new.h + eras.recent.h + eras.classic.h;
     const eraN = eras.new.n + eras.recent.n + eras.classic.n;
     for (const e of Object.values(eras)) e.pct = eraH ? e.h / eraH * 100 : eraN ? e.n / eraN * 100 : 0;
-    const launchYear = done.filter(g => g.y === year).sort(byStanding);
-    const withY = done.filter(g => g.y);
-    const oldest = withY.length ? withY.reduce((a, b) => (b.y < a.y ? b : a)) : null;
+    const launchYear = done.filter(g => relYear(g) === year).sort(byStanding);
+    const withY = done.filter(g => relYear(g));
+    const oldest = withY.length ? withY.reduce((a, b) => (relYear(b) < relYear(a) ? b : a)) : null;
 
     // Month by month, with each month's standout.
     const months = Array.from({ length: 12 }, (_, m) => {
@@ -223,7 +233,7 @@
       asfCoverageFrom: asfIdle ? asfIdle.coverageFrom || null : null,
       dropped: games.filter(g => g.cy === year && g.s === 'dropped'),
       // Replays count like any other finish or hour; the page just labels them.
-      replays: done.filter(g => g.replay),
+      replays: done.filter(g => returnKind(g)),
       genres: Object.entries(done.reduce((o, g) => { if (g.g) o[g.g] = (o[g.g] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]),
       played: playedHours(extra.ledger, games, year),
       unlocks: unlockStats(extra.unlocks, year),
@@ -350,7 +360,7 @@
   }
 
   const api = { posterStats, layoutPoster, POSTER, yearStats, persona, hours, isIdle, parseHltb, DEVICE, RECENT_YEARS,
-    playedHours, unlockStats, backlogMath, etParts };
+    playedHours, unlockStats, backlogMath, etParts, returnKind, relYear };
   root.GTWrapped = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -571,6 +571,9 @@ function achBar(g){
   </div>`;
 }
 
+// A return trip (games.json `replay`): true is the first version's plain replay.
+const RETURN_LABEL={replay:'↻ replay','100pct':'↻ 100% run','1.0':'↻ 1.0 launch'};
+function returnPill(g){ const k=g.replay===true?'replay':g.replay; return RETURN_LABEL[k]?`<span class="replay-pill">${RETURN_LABEL[k]}</span>`:''; }
 function masteryBadge(m){
   if(!m) return '';
   const map={'in-progress':['mast-progress','RA ★ in progress'],'mastered':['mast-mastered','RA ✓ Mastered'],'platinum':['mast-platinum','🏆 Platinum'],'100pct':['mast-100','✓ 100%']};
@@ -708,7 +711,7 @@ function nowC(g){
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
         ${releaseEl(g)}${startEl(g)}
         ${dormant?'<span class="dormant-pill">💤 dormant</span>':lastPlayedEl(g)}
-        ${g.casual?'<span class="casual-pill">casual play</span>':''}${g.replay?'<span class="replay-pill">↻ replay</span>':''}
+        ${g.casual?'<span class="casual-pill">casual play</span>':''}${returnPill(g)}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${hltbEl(g)||recentEl(g)?`<div class="hero-hltb">${hltbEl(g)}${recentEl(g)}</div>`:''}
@@ -729,7 +732,7 @@ function qC(g,n,showNum=true){
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
         ${releaseEl(g)}${queuedEl(g)}
-        ${g.casual?'<span class="casual-pill">casual play</span>':''}${g.replay?'<span class="replay-pill">↻ replay</span>':''}
+        ${g.casual?'<span class="casual-pill">casual play</span>':''}${returnPill(g)}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
@@ -769,7 +772,7 @@ function aC(g){
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gap!=null?`<span class="yr">${gap===0?'same yr':gap+'yr gap'}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
-        ${g.replay?'<span class="replay-pill">↻ replay</span>':''}
+        ${returnPill(g)}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
         ${dropped?'<span class="dropped-pill">dropped</span>':''}
       </div>

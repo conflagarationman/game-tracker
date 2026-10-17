@@ -233,7 +233,9 @@ const fmtDay=iso=>{ const [y,m,dd]=String(iso).split('-').map(Number); return m?
 const signed=n=>n>0?`+${n}`:String(n);
 const hourName=h=>`${(h%12)||12} ${h<12?'AM':'PM'}`;
 const NIGHT_H=h=>h>=22||h<4;
-const RP=g=>g&&g.replay?'<span class="rp">↻ replay</span>':'';
+const RETURN_LABEL={replay:'replay','100pct':'100% run','1.0':'1.0 launch'};
+const kindLabel=g=>g?RETURN_LABEL[GTWrapped.returnKind(g)]||'':'';
+const RP=g=>kindLabel(g)?`<span class="rp">↻ ${kindLabel(g)}</span>`:'';
 const monthSpan=(a,b)=>a===b?M[a]:`${M[a]}–${M[b]}`;
 
 function render(){
@@ -315,7 +317,7 @@ function render(){
         ${d.played.games[0]?factN('Most played',esc(d.played.games[0].g.t),`${fmtH(d.played.games[0].hours)}h`):''}</div>
       ${d.played.games.slice(0,6).map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}${RP(x.g)}</span><span class="sval">${fmtH(x.hours)}h</span>
         <div class="strack"><div style="width:${x.hours/d.played.games[0].hours*100}%;background:${PC[x.g.p]||'#888'}"></div></div></div>`).join('')}
-      <p class="note" style="margin-top:0.6rem">Steam play, card idling taken out, from the daily log${d.played.since?` kept since ${fmtDay(d.played.since)}`:''}. A game that came out this year counts its hours from before the log too; a replay counts what the log saw this year, since its earlier hours can’t be told apart.</p>
+      <p class="note" style="margin-top:0.6rem">Steam play, card idling taken out, from the daily log${d.played.since?` kept since ${fmtDay(d.played.since)}`:''}. A game that came out this year counts its hours from before the log too. A replay, 100% run or 1.0 launch counts only this year’s play: what the log saw, plus earlier hours beyond the ones marked as from before the run.</p>
     </section>`:''}
     ${d.unlocks?`<section class="panel" aria-labelledby="h-clock"><h2 id="h-clock">When you played</h2>
       <div class="clock" role="img" aria-label="Unlocks by hour of day, Eastern time. Peak: ${hourName(d.unlocks.peakHour)}">${d.unlocks.hours.map((n,h)=>`<div class="ccol"><div class="cbar${NIGHT_H(h)?' night':''}" style="height:${Math.max(2,n/Math.max(...d.unlocks.hours)*64)}px"></div></div>`).join('')}</div>
@@ -377,7 +379,7 @@ function render(){
         ${fact('Quickest',d.shortest&&d.shortest!==d.longest?d.shortest:null,d.shortest?`${fmtH(hours(d.shortest))}h`:'')}
         ${d.medianHours?factN('Typical length',`${fmtH(d.medianHours)}h`,'median finished game'):''}
         ${d.dropped.length?factN('Dropped',d.dropped.length,'no shame',d.dropped.map(g=>g.t).join(', ')):''}
-        ${d.replays.length?factN('Replays',d.replays.length,esc(d.replays.slice(0,2).map(g=>g.t).join(', '))+(d.replays.length>2?'…':''),d.replays.map(g=>g.t).join(', ')):''}
+        ${d.replays.length?factN('Back again',d.replays.length,esc(d.replays.slice(0,2).map(g=>`${g.t} (${kindLabel(g)})`).join(', '))+(d.replays.length>2?'…':''),d.replays.map(g=>`${g.t} (${kindLabel(g)})`).join(', ')):''}
         ${d.backlog&&d.backlog.added?factN('Backlog',`${signed(-(d.backlog.finished+d.backlog.dropped-d.backlog.added))}`,`${d.backlog.added} added, ${d.backlog.finished} finished`,d.backlog.imported?`Not counting the ${d.backlog.imported} games entered when the tracker was set up`:''):''}
       </div>
     </section>
@@ -617,14 +619,14 @@ function buildCards(d){
      <div class="st-l">${d.current?`${d.monthsElapsed} months in. Here’s the story so far.`:'Here’s how it went.'}</div><div class="st-s">Tap or swipe to keep going</div>`);
   if(d.done.length) C('radial-gradient(110% 80% at 100% 0%,#42f5a033,transparent 60%),#0e0e10',
     `<div class="st-k">You finished</div><div class="st-n" style="color:var(--done)">${d.done.length}</div><div class="st-l">games${d.busiest!=null?`, the most in ${M[d.busiest]} (${d.months[d.busiest].n})`:''}.</div>
-     ${d.replays.length?`<div class="st-s">${d.replays.length} of them ${d.replays.length===1?'was a replay':'were replays'}: ${esc(d.replays.slice(0,3).map(g=>g.t).join(', '))}${d.replays.length>3?'…':''}.</div>`:''}
+     ${d.replays.length?`<div class="st-s">${d.replays.length} of them ${d.replays.length===1?'was a return trip':'were return trips'}: ${esc(d.replays.slice(0,3).map(g=>`${g.t} (${kindLabel(g)})`).join(', '))}${d.replays.length>3?'…':''}.</div>`:''}
      ${d.streak.len>1?`<div class="st-s">A ${d.streak.len}-month streak, ${monthSpan(d.streak.from,d.streak.to)}, with something finished every month.</div>`:''}`);
   if(P&&P.total>0) C('radial-gradient(110% 80% at 0% 100%,#42c8f533,transparent 60%),#0e0e10',
     `<div class="st-k">You played</div><div class="st-n" style="color:var(--playing)">${fmtH(P.total)}h</div>
-     <div class="st-l">${P.games[0]?`Most of it in <b>${esc(P.games[0].g.t)}</b>${P.games[0].replay?' (a replay)':''}: ${fmtH(P.games[0].hours)} hours.`:''}</div>
+     <div class="st-l">${P.games[0]?`Most of it in <b>${esc(P.games[0].g.t)}</b>${P.games[0].replay?` (${RETURN_LABEL[P.games[0].replay]})`:''}: ${fmtH(P.games[0].hours)} hours.`:''}</div>
      <div class="st-s">Tracked Steam play across ${P.games.length} games, card idling taken out${P.since?`, logged since ${fmtDay(P.since)}`:''}.</div>`);
   if(d.goty) C('radial-gradient(100% 70% at 50% 0%,#ffd23a33,transparent 60%),#0e0e10',
-    `<div class="st-k">★ Game of the year</div><div class="st-art">${cover(d.goty,'goty-img')}</div><div class="st-n mid">${esc(d.goty.t)}</div>${d.goty.replay?'<div class="st-s">↻ a replay, and still the best of the year</div>':''}
+    `<div class="st-k">★ Game of the year</div><div class="st-art">${cover(d.goty,'goty-img')}</div><div class="st-n mid">${esc(d.goty.t)}</div>${kindLabel(d.goty)?`<div class="st-s">↻ ${kindLabel(d.goty)}, and the best of the year</div>`:''}
      <div class="st-s">${d.goty.r}/10 · ${PL[d.goty.p]||d.goty.p}${d.goty.cm!=null?' · finished in '+M[d.goty.cm]:''}</div>`);
   if(d.top.length>1) C('radial-gradient(120% 80% at 100% 100%,#c8f54222,transparent 60%),#0e0e10',
     `<div class="st-k">Best of the year</div><ol class="st-list">${d.top.map((g,i)=>`<li><span class="r">${i+1}</span><span class="t">${esc(g.t)}${RP(g)}</span><span class="v">${g.r}/10</span></li>`).join('')}</ol>`);
