@@ -336,6 +336,9 @@ for (const path of ["index.html", "add.html", "owl.html", "wrapped.html"]) {
   await test(`${path}: the hidden Koroks say Yahaha, count once, and work from the keyboard`, async () => {
     const { page, errors, ctx } = await open(path, 390);
     await page.waitForSelector(".korok-btn", { state: "attached" });
+    // usage.js is on every page, and a local or CI run never counts as live use
+    ok(await page.evaluate(() => typeof TrackerUsage === "object" && TrackerUsage.pageOf(location.pathname) in TrackerUsage.SECTIONS), "usage.js not loaded");
+    ok(await page.evaluate(() => location.hostname !== TrackerUsage.LIVE_HOST), "a test run would count as live use");
     ok(await page.locator(".korok-btn").count() >= 2, "expected 2+ Koroks on the page");
     ok(await page.getAttribute(".korok-btn", "aria-label"), "Korok has no aria-label");
     ok(await page.locator("#korok-foot").isHidden(), "seed counter shows before the first find");

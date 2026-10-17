@@ -519,5 +519,6 @@ Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=
   .catch(e=>{ document.getElementById('main').innerHTML=`<p class="err">Couldn’t load game data (${esc(e.message)}).</p>`; });
 </script>
 <script src="korok.js" data-repo="game-tracker" data-total="12" data-spots="wrapped:22%,wrapped-hang:81%:top"></script>
+<script src="usage.js" defer></script>
 </body>
 </html>
