@@ -11,6 +11,7 @@
 
 import fs from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { appendLedgerDay, formatLedger, steamUnlockRows, raUnlockRows, mergeUnlocks, raWindowStart, formatUnlocks } from "./ledger.mjs";
 
 // Read inside functions, not cached as module-level consts at import time: ESM import
 // statements are hoisted above other top-level code in the importing file, so a test that
@@ -236,7 +237,12 @@ export function buildAsfIdle(games, steamOwned, asf, today = new Date()) {
   return { asOf: today.toISOString(), coverageFrom: asf.coverageFrom, years, byGame };
 }
 
-export async function syncSteam(games, log, farmedAppids = new Set(), asf = null) {
+// `sink.steamUnlocks`, when passed, receives every tracked game's unlock rows (with timestamps,
+// which the counts below throw away) and `sink.appidOf` each matched game's appid, for
+// achievements-log.json.
+export async function syncSteam(games, log, farmedAppids = new Set(), asf = null, sink = {}) {
+  sink.steamUnlocks = [];
+  sink.appidOf = {};
   const steamId = process.env.STEAM_ID;
   if (!process.env.STEAM_API_KEY || !steamId) {
     log.push("Steam: missing STEAM_API_KEY/STEAM_ID, skipped");
@@ -300,6 +306,8 @@ export async function syncSteam(games, log, farmedAppids = new Set(), asf = null
       });
       const stats = achRes.playerstats;
       if (stats && stats.success && stats.achievements) {
+        sink.steamUnlocks.push(...steamUnlockRows(entry, sg.appid, stats.achievements));
+        sink.appidOf[entry.id] = sg.appid;
         const total = stats.achievements.length;
         const earned = stats.achievements.filter(a => a.achieved === 1).length;
         const pct = total ? Math.round((earned / total) * 100) : 0;
@@ -409,6 +417,50 @@ export async function syncRA(games, log, sink = {}) {
   }
   // RA title -> latest play date, for buildPlayCheck().
   return playedByTitle;
+}
+
+// ─── Unlock log (achievements-log.json) ───────────────────
+// RA's unlocks over a window: from just before the newest RA row already logged (or Jan 1 for
+// an empty log) to now. Every RA game counts, tracked or not; `id` is set when the tracker has it.
+export async function syncRaUnlocks(games, log, existingRows = [], now = new Date()) {
+  const raUser = process.env.RA_USER;
+  if (!raUser || !process.env.RA_API_KEY) return [];
+  try {
+    const earned = await raGet("API_GetAchievementsEarnedBetween.php", {
+      u: raUser, f: Math.floor(raWindowStart(existingRows, now)), t: Math.floor(now.getTime() / 1000) });
+    const titles = [...new Set((Array.isArray(earned) ? earned : []).map(a => a.GameTitle).filter(Boolean))];
+    const byTitle = new Map([...resolveRaTitles(games, titles)].map(([id, t]) => [t, id]));
+    return raUnlockRows(earned, (t) => byTitle.get(t) ?? null);
+  } catch (e) {
+    log.push(`RA unlock log failed: ${e.message} (achievements-log.json keeps its rows)`);
+    return [];
+  }
+}
+
+// Steam's global unlock percentage for this year's unlocks that don't have one yet, one call per
+// game, for the "rarest unlock" card. A game whose stats are hidden just stays without.
+export async function fillGlobalPcts(rows, appidOf, log, year = new Date().getUTCFullYear()) {
+  const from = Date.UTC(year, 0, 1) / 1000;
+  const want = new Map();
+  for (const r of rows) {
+    if (r.src !== "steam" || r.pct != null || r.ts < from || !appidOf[r.id]) continue;
+    const appid = appidOf[r.id];
+    if (!want.has(appid)) want.set(appid, []);
+    want.get(appid).push(r);
+  }
+  for (const [appid, list] of want) {
+    try {
+      const res = await steamGet("ISteamUserStats", "GetGlobalAchievementPercentagesForApp", 2, { gameid: appid });
+      const pct = new Map((res.achievementpercentages?.achievements || []).map(a => [a.name, Number(a.percent)]));
+      for (const r of list) {
+        const p = pct.get(r.key.split(":").slice(2).join(":"));
+        if (Number.isFinite(p)) r.pct = Math.round(p * 10) / 10;
+      }
+    } catch (e) {
+      log.push(`Steam global achievement % failed for appid ${appid}: ${e.message}`);
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
 }
 
 // ─── Library (for the owl's wildcards) ────────────────────
@@ -540,9 +592,20 @@ async function main() {
 
   const asf = await getAsfLedger(log);
   const farmedAppids = await getFarmingNow(asf, log);
-  const steamOwned = await syncSteam(games, log, farmedAppids, asf);
+  const steamSink = {};
+  const steamOwned = await syncSteam(games, log, farmedAppids, asf, steamSink);
   const raSink = {};
   const raPlayed = await syncRA(games, log, raSink);
+
+  // The year in review's two ledgers (see ledger.mjs). Read back if they exist, merged, written.
+  const readJson = async (f) => { try { return JSON.parse(await fs.readFile(f, "utf8")); } catch { return null; } };
+  const ledger = appendLedgerDay(await readJson("ledger.json"), games, new Date().toISOString().slice(0, 10));
+  await fs.writeFile("ledger.json", formatLedger(ledger));
+  const logged = (await readJson("achievements-log.json"))?.unlocks || [];
+  const unlocks = mergeUnlocks(logged, [...steamSink.steamUnlocks, ...await syncRaUnlocks(games, log, logged)]);
+  await fillGlobalPcts(unlocks.rows, steamSink.appidOf, log);
+  await fs.writeFile("achievements-log.json", formatUnlocks(unlocks.rows));
+  if (unlocks.added) log.push(`Unlock log: ${unlocks.added} new unlocks (${unlocks.rows.length} in all)`);
   const check = buildPlayCheck(games, { steamOwned, farmedAppids, raPlayed, asf });
   const asfIdle = buildAsfIdle(games, steamOwned, asf);
   // Only rewritten when the ledger answered, so a hub outage keeps the last good copy.
