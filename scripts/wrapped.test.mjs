@@ -266,5 +266,13 @@ await test("backlogMath counts a day the tracker was filled in as imported, not 
 });
 
 
+await test("replays count like any other game and are listed for the page to label", () => {
+  const games = [g({ id: 931, t: "Palworld", replay: true, y: 2024, actualHours: 107 }), g({ id: 932, t: "New one", y: 2026 })];
+  const s = yearStats(games, 2026, NOW, null, { ledger: { since: "2026-07-28", days: { "2026-07-28": { 931: 106 }, "2026-08-01": { 931: 107 } } } });
+  assert.equal(s.done.length, 2);
+  assert.deepEqual(plain(s.replays.map(x => x.t)), ["Palworld"]);
+  assert.deepEqual(plain(s.played.games.map(x => [x.g.t, x.hours, x.replay])), [["Palworld", 1, true]]);
+});
+
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);

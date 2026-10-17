@@ -79,7 +79,7 @@
     }
     const list = Object.entries(per).map(([k, h]) => ({ g: byId.get(Number(k)), hours: Math.round(h * 10) / 10 }))
       .filter(x => x.g && !isIdle(x.g) && x.hours > 0)
-      .map(x => ({ ...x, fromStart: fromStart.has(x.g.id) }))
+      .map(x => ({ ...x, fromStart: fromStart.has(x.g.id), replay: !!x.g.replay }))
       .sort((a, b) => b.hours - a.hours || a.g.t.localeCompare(b.g.t));
     const total = Math.round(list.reduce((s, x) => s + x.hours, 0) * 10) / 10;
     return { total, games: list, months: months.map(h => Math.round(h * 10) / 10),
@@ -222,6 +222,8 @@
       asf: asfIdle && asfIdle.years && asfIdle.years[year] ? { ...asfIdle.years[year], coverageFrom: asfIdle.coverageFrom } : null,
       asfCoverageFrom: asfIdle ? asfIdle.coverageFrom || null : null,
       dropped: games.filter(g => g.cy === year && g.s === 'dropped'),
+      // Replays count like any other finish or hour; the page just labels them.
+      replays: done.filter(g => g.replay),
       genres: Object.entries(done.reduce((o, g) => { if (g.g) o[g.g] = (o[g.g] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]),
       played: playedHours(extra.ledger, games, year),
       unlocks: unlockStats(extra.unlocks, year),

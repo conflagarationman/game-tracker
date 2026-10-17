@@ -18,6 +18,8 @@ export const KEYS = [
   "id", "t", "p", "s", "g", "y", "h", "r", "cy", "cm", "gotm", "gotmFlair", "mastery", "diff",
   "achPct", "achCount", "actualHours", "lastPlayed", "casual", "note", "start", "queued", "release",
 ];
+// Keys a record may carry but needn't: absent means the default. Only `replay` (2026-10-17).
+export const OPTIONAL_KEYS = ["replay"];
 const PLATFORMS = ["steam", "steamdeck", "pc", "ps5", "switch", "switch2", "ayn", "retro", "wiiu"];
 const STATUSES = ["playing", "ongoing", "queue", "soon", "done", "dropped"];
 const MASTERY = [null, "in-progress", "mastered", "platinum", "100pct"];
@@ -39,7 +41,7 @@ function checkRecord(r, i) {
   const errs = [];
   if (!r || typeof r !== "object" || Array.isArray(r)) return [`${where} is not an object`];
   for (const k of KEYS) if (!(k in r)) errs.push(`${where} is missing "${k}" (every record carries every key, null when unset)`);
-  for (const k of Object.keys(r)) if (!KEYS.includes(k)) errs.push(`${where} has unknown field "${k}"`);
+  for (const k of Object.keys(r)) if (!KEYS.includes(k) && !OPTIONAL_KEYS.includes(k)) errs.push(`${where} has unknown field "${k}"`);
   if (!isInt(r.id) || r.id <= 0) errs.push(`${where}: id must be a positive integer`);
   if (typeof r.t !== "string" || !r.t.trim()) errs.push(`${where}: t (title) is required`);
   if (!PLATFORMS.includes(r.p)) errs.push(`${where}: p "${r.p}" is not one of ${PLATFORMS.join(", ")}`);
@@ -53,6 +55,9 @@ function checkRecord(r, i) {
   if (!isNullOr(r.gotm, v => GOTM.test(v))) errs.push(`${where}: gotm must look like "Oct 2025"`);
   if (typeof r.gotmFlair !== "boolean") errs.push(`${where}: gotmFlair must be true or false`);
   if (typeof r.casual !== "boolean") errs.push(`${where}: casual must be true or false`);
+  // `replay` (played before, back for another run) is the one optional key: absent means false,
+  // so the 140-odd records from before it existed don't all need rewriting.
+  if (r.replay !== undefined && typeof r.replay !== "boolean") errs.push(`${where}: replay must be true or false`);
   for (const k of ["start", "queued", "release", "lastPlayed"]) {
     if (!isNullOr(r[k], v => typeof v === "string" && DATE.test(v))) errs.push(`${where}: ${k} must be YYYY-MM-DD`);
   }
@@ -107,7 +112,7 @@ export function validateGames(base, head) {
     ...added.map(r => `added: ${r.t} (${r.s})`),
     ...changed.map(r => {
       const was = baseById.get(r.id);
-      const diffs = KEYS.filter(k => JSON.stringify(r[k]) !== JSON.stringify(was[k])).map(k => `${k} ${JSON.stringify(was[k])} -> ${JSON.stringify(r[k])}`);
+      const diffs = [...KEYS, ...OPTIONAL_KEYS].filter(k => JSON.stringify(r[k]) !== JSON.stringify(was[k])).map(k => `${k} ${JSON.stringify(was[k])} -> ${JSON.stringify(r[k])}`);
       return `changed: ${r.t}: ${diffs.join(", ")}`;
     }),
     ...removed.map(r => `removed: ${r.t}`),

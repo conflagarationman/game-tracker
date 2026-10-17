@@ -32,6 +32,17 @@ await test("the everyday edit passes: finish a game, rate it 10, archive it", ()
   assert.match(summary[0], /changed: Game 3: s "queue" -> "done", r 0 -> 10, cy null -> 2026, cm null -> 9/);
 });
 
+await test("replay is optional: absent or a boolean passes, anything else is refused", () => {
+  const base = lib(3);
+  const head = clone(base);
+  head[0].replay = true;
+  const ok = validateGames(base, head);
+  assert.deepEqual(ok.errors, []);
+  assert.match(ok.summary.join(" "), /replay undefined -> true/);
+  head[1].replay = "yes";
+  assert.match(validateGames(base, head).errors.join(" "), /replay must be true or false/);
+});
+
 await test("adding a record at the end and deleting one pass", () => {
   const base = lib(5);
   const head = clone(base).filter(r => r.id !== 4);

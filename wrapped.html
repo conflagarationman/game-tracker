@@ -118,6 +118,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
   #poster-sec h2,#poster-sec .poster-acts,#poster-sec .note{display:none;}
   #poster-canvas{max-width:none;width:100vw;height:auto;border:0;border-radius:0;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
 }
+.rp{font-family:'DM Mono',monospace;font-size:0.58rem;color:#c8f542b0;border:1px solid #c8f54230;border-radius:99px;padding:1px 6px;margin-left:6px;vertical-align:middle;white-space:nowrap;}
 .err{color:#f54242;font-family:'DM Mono',monospace;font-size:0.75rem;}
 .hero-top{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;}
 .btn.play{min-height:36px;padding:0.45rem 0.9rem;}
@@ -232,6 +233,7 @@ const fmtDay=iso=>{ const [y,m,dd]=String(iso).split('-').map(Number); return m?
 const signed=n=>n>0?`+${n}`:String(n);
 const hourName=h=>`${(h%12)||12} ${h<12?'AM':'PM'}`;
 const NIGHT_H=h=>h>=22||h<4;
+const RP=g=>g&&g.replay?'<span class="rp">↻ replay</span>':'';
 const monthSpan=(a,b)=>a===b?M[a]:`${M[a]}–${M[b]}`;
 
 function render(){
@@ -282,19 +284,19 @@ function render(){
   <div class="grid">
     ${goty?`<section class="panel goty" aria-labelledby="h-goty"><h2 id="h-goty">Game of the year</h2>
       <div class="goty-art">${cover(goty,'goty-img')}</div>
-      <div class="goty-t">${esc(goty.t)}</div>
+      <div class="goty-t">${esc(goty.t)}${RP(goty)}</div>
       <div class="t5-s">${goty.r}/10 · ${PL[goty.p]||goty.p}${goty.cm!=null?' · finished '+M[goty.cm]:''}${goty.y?' · '+goty.y:''}${hours(goty)?' · '+fmtH(hours(goty))+'h':''}</div>
     </section>`:''}
     <section class="panel" aria-labelledby="h-top"><h2 id="h-top">Best of the year</h2>
       ${d.top.length?`<ol class="top5">${d.top.map((g,i)=>`<li><span class="rank">${i+1}</span>${cover(g)}
-        <div class="t5-main"><div class="t5-t" title="${esc(g.t)}">${esc(g.t)}</div><div class="t5-s">${PL[g.p]||g.p}${g.cm!=null?' · '+M[g.cm]:''}${g.y?' · '+g.y:''}</div></div>
+        <div class="t5-main"><div class="t5-t" title="${esc(g.t)}">${esc(g.t)}${RP(g)}</div><div class="t5-s">${PL[g.p]||g.p}${g.cm!=null?' · '+M[g.cm]:''}${g.y?' · '+g.y:''}</div></div>
         <span class="score">${g.r}/10</span></li>`).join('')}</ol>`:'<div class="note">Nothing rated yet this year.</div>'}
     </section>
   </div>
 
   <div class="grid">
     <section class="panel" aria-labelledby="h-hours"><h2 id="h-hours">Where the hours went</h2>
-      ${share.map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}</span><span class="sval">${Math.round(x.pct)}%${x.real?'':'<span class="dim" title="HowLongToBeat estimate, not tracked playtime">*</span>'}</span>
+      ${share.map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}${RP(x.g)}</span><span class="sval">${Math.round(x.pct)}%${x.real?'':'<span class="dim" title="HowLongToBeat estimate, not tracked playtime">*</span>'}</span>
         <div class="strack"><div style="width:${x.pct/maxS*100}%;background:${PC[x.g.p]||'#888'}"></div></div></div>`).join('')||'<div class="note">No hours recorded.</div>'}
       <p class="note" style="margin-top:0.6rem">Share of ${fmtH(d.totalH)}h across ${d.done.length} finished games. Steam hours are real play (lifetime, with ASF card idling taken out); <span class="dim">*</span> is a HowLongToBeat estimate.${d.idleGames.length?` Idle games left out: ${d.idleGames.map(g=>esc(g.t)).join(', ')}.`:''}</p>
     </section>
@@ -311,9 +313,9 @@ function render(){
     ${d.played?`<section class="panel" aria-labelledby="h-played"><h2 id="h-played">Hours played this year</h2>
       <div class="facts" style="margin-bottom:0.75rem">${factN('Tracked play',`${fmtH(d.played.total)}h`,`across ${d.played.games.length} games, finished or not`)}
         ${d.played.games[0]?factN('Most played',esc(d.played.games[0].g.t),`${fmtH(d.played.games[0].hours)}h`):''}</div>
-      ${d.played.games.slice(0,6).map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}</span><span class="sval">${fmtH(x.hours)}h</span>
+      ${d.played.games.slice(0,6).map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}${RP(x.g)}</span><span class="sval">${fmtH(x.hours)}h</span>
         <div class="strack"><div style="width:${x.hours/d.played.games[0].hours*100}%;background:${PC[x.g.p]||'#888'}"></div></div></div>`).join('')}
-      <p class="note" style="margin-top:0.6rem">Steam play, card idling taken out, from the daily log${d.played.since?` kept since ${fmtDay(d.played.since)}`:''}. A game that came out this year counts its hours from before the log too.</p>
+      <p class="note" style="margin-top:0.6rem">Steam play, card idling taken out, from the daily log${d.played.since?` kept since ${fmtDay(d.played.since)}`:''}. A game that came out this year counts its hours from before the log too; a replay counts what the log saw this year, since its earlier hours can’t be told apart.</p>
     </section>`:''}
     ${d.unlocks?`<section class="panel" aria-labelledby="h-clock"><h2 id="h-clock">When you played</h2>
       <div class="clock" role="img" aria-label="Unlocks by hour of day, Eastern time. Peak: ${hourName(d.unlocks.peakHour)}">${d.unlocks.hours.map((n,h)=>`<div class="ccol"><div class="cbar${NIGHT_H(h)?' night':''}" style="height:${Math.max(2,n/Math.max(...d.unlocks.hours)*64)}px"></div></div>`).join('')}</div>
@@ -375,6 +377,7 @@ function render(){
         ${fact('Quickest',d.shortest&&d.shortest!==d.longest?d.shortest:null,d.shortest?`${fmtH(hours(d.shortest))}h`:'')}
         ${d.medianHours?factN('Typical length',`${fmtH(d.medianHours)}h`,'median finished game'):''}
         ${d.dropped.length?factN('Dropped',d.dropped.length,'no shame',d.dropped.map(g=>g.t).join(', ')):''}
+        ${d.replays.length?factN('Replays',d.replays.length,esc(d.replays.slice(0,2).map(g=>g.t).join(', '))+(d.replays.length>2?'…':''),d.replays.map(g=>g.t).join(', ')):''}
         ${d.backlog&&d.backlog.added?factN('Backlog',`${signed(-(d.backlog.finished+d.backlog.dropped-d.backlog.added))}`,`${d.backlog.added} added, ${d.backlog.finished} finished`,d.backlog.imported?`Not counting the ${d.backlog.imported} games entered when the tracker was set up`:''):''}
       </div>
     </section>
@@ -614,16 +617,17 @@ function buildCards(d){
      <div class="st-l">${d.current?`${d.monthsElapsed} months in. Here’s the story so far.`:'Here’s how it went.'}</div><div class="st-s">Tap or swipe to keep going</div>`);
   if(d.done.length) C('radial-gradient(110% 80% at 100% 0%,#42f5a033,transparent 60%),#0e0e10',
     `<div class="st-k">You finished</div><div class="st-n" style="color:var(--done)">${d.done.length}</div><div class="st-l">games${d.busiest!=null?`, the most in ${M[d.busiest]} (${d.months[d.busiest].n})`:''}.</div>
+     ${d.replays.length?`<div class="st-s">${d.replays.length} of them ${d.replays.length===1?'was a replay':'were replays'}: ${esc(d.replays.slice(0,3).map(g=>g.t).join(', '))}${d.replays.length>3?'…':''}.</div>`:''}
      ${d.streak.len>1?`<div class="st-s">A ${d.streak.len}-month streak, ${monthSpan(d.streak.from,d.streak.to)}, with something finished every month.</div>`:''}`);
   if(P&&P.total>0) C('radial-gradient(110% 80% at 0% 100%,#42c8f533,transparent 60%),#0e0e10',
     `<div class="st-k">You played</div><div class="st-n" style="color:var(--playing)">${fmtH(P.total)}h</div>
-     <div class="st-l">${P.games[0]?`Most of it in <b>${esc(P.games[0].g.t)}</b>: ${fmtH(P.games[0].hours)} hours.`:''}</div>
+     <div class="st-l">${P.games[0]?`Most of it in <b>${esc(P.games[0].g.t)}</b>${P.games[0].replay?' (a replay)':''}: ${fmtH(P.games[0].hours)} hours.`:''}</div>
      <div class="st-s">Tracked Steam play across ${P.games.length} games, card idling taken out${P.since?`, logged since ${fmtDay(P.since)}`:''}.</div>`);
   if(d.goty) C('radial-gradient(100% 70% at 50% 0%,#ffd23a33,transparent 60%),#0e0e10',
-    `<div class="st-k">★ Game of the year</div><div class="st-art">${cover(d.goty,'goty-img')}</div><div class="st-n mid">${esc(d.goty.t)}</div>
+    `<div class="st-k">★ Game of the year</div><div class="st-art">${cover(d.goty,'goty-img')}</div><div class="st-n mid">${esc(d.goty.t)}</div>${d.goty.replay?'<div class="st-s">↻ a replay, and still the best of the year</div>':''}
      <div class="st-s">${d.goty.r}/10 · ${PL[d.goty.p]||d.goty.p}${d.goty.cm!=null?' · finished in '+M[d.goty.cm]:''}</div>`);
   if(d.top.length>1) C('radial-gradient(120% 80% at 100% 100%,#c8f54222,transparent 60%),#0e0e10',
-    `<div class="st-k">Best of the year</div><ol class="st-list">${d.top.map((g,i)=>`<li><span class="r">${i+1}</span><span class="t">${esc(g.t)}</span><span class="v">${g.r}/10</span></li>`).join('')}</ol>`);
+    `<div class="st-k">Best of the year</div><ol class="st-list">${d.top.map((g,i)=>`<li><span class="r">${i+1}</span><span class="t">${esc(g.t)}${RP(g)}</span><span class="v">${g.r}/10</span></li>`).join('')}</ol>`);
   if(U){
     const mx=Math.max(...U.hours);
     C('radial-gradient(120% 80% at 50% 100%,#a06bff40,transparent 60%),#0e0e10',

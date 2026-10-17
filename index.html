@@ -242,6 +242,7 @@ section:first-of-type .slabel{margin-top:0;}
 .dropped-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#f5424218;color:var(--dropped);border:1px solid #f5424230;white-space:nowrap;}
 .note-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#a06bff18;color:#a06bff;border:1px solid #a06bff30;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
 .dormant-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#55556018;color:var(--dim);border:1px solid #55556030;white-space:nowrap;}
+.replay-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54210;color:#c8f542b0;border:1px solid #c8f54230;white-space:nowrap;}
 .casual-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#42c8f510;color:#42c8f580;border:1px solid #42c8f520;white-space:nowrap;}
 .start-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54210;color:#c8f54270;border:1px solid #c8f54220;white-space:nowrap;}
 .queued-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#55556015;color:var(--dim);border:1px solid #55556025;white-space:nowrap;}
@@ -707,7 +708,7 @@ function nowC(g){
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
         ${releaseEl(g)}${startEl(g)}
         ${dormant?'<span class="dormant-pill">💤 dormant</span>':lastPlayedEl(g)}
-        ${g.casual?'<span class="casual-pill">casual play</span>':''}
+        ${g.casual?'<span class="casual-pill">casual play</span>':''}${g.replay?'<span class="replay-pill">↻ replay</span>':''}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${hltbEl(g)||recentEl(g)?`<div class="hero-hltb">${hltbEl(g)}${recentEl(g)}</div>`:''}
@@ -728,7 +729,7 @@ function qC(g,n,showNum=true){
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
         ${releaseEl(g)}${queuedEl(g)}
-        ${g.casual?'<span class="casual-pill">casual play</span>':''}
+        ${g.casual?'<span class="casual-pill">casual play</span>':''}${g.replay?'<span class="replay-pill">↻ replay</span>':''}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
@@ -768,6 +769,7 @@ function aC(g){
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gap!=null?`<span class="yr">${gap===0?'same yr':gap+'yr gap'}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
+        ${g.replay?'<span class="replay-pill">↻ replay</span>':''}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
         ${dropped?'<span class="dropped-pill">dropped</span>':''}
       </div>

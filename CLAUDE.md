@@ -96,6 +96,8 @@ One flat array. Every record carries every key, with `null` for unset.
                           // farm ledger has recorded for that appid (see Automation)
   "lastPlayed": null,     // bot-owned, YYYY-MM-DD
   "casual": false,        // true = deliberately excluded from achievement display
+  "replay": false,        // OPTIONAL (absent = false): played before, back for another run.
+                          // Counts like any other game everywhere; pages label it "↻ replay".
   "note": null,
   "start": null,          // YYYY-MM-DD
   "queued": null,         // YYYY-MM-DD
@@ -333,10 +335,10 @@ and exits non-zero on failure.
 node scripts/sync-apis.test.mjs        # 44
 node scripts/backfill-covers.test.mjs  # 18
 node scripts/backfill-hltb.test.mjs    # 14
-node scripts/validate-games.test.mjs   # 9
+node scripts/validate-games.test.mjs   # 10
 node scripts/fetch-gotm.test.mjs       # 26
 node scripts/pick.test.mjs             # 35
-node scripts/wrapped.test.mjs          # 28
+node scripts/wrapped.test.mjs          # 29
 node scripts/ledger.test.mjs           # 15
 node scripts/usage.test.mjs            # 29
 node scripts/freeze-wrapped.test.mjs   # 3
