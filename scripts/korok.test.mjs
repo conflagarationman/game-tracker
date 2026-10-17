@@ -41,9 +41,14 @@ t("hub: 3 of 6 is a milestone", K.milestone(3, 6, []).kind === "three");
 t("forest needs 6 seeds", !K.forestUnlocked(new Array(5).fill("x"), 12) && K.forestUnlocked(new Array(6).fill("x"), 12));
 
 // sprite sanity
-t("Hestu grid is rectangular", K.HESTU.every(r => r.length === 16));
-t("Hestu uses only palette letters", /^[.gGdbBwkomyh]+$/.test(K.HESTU.join("")));
-t("Hestu svg renders", /<svg/.test(K.hestuSvg()) && /hs-l/.test(K.hestuSvg()));
+t("Hestu grid is 26x29", K.HESTU.length === 29 && K.HESTU.every(r => r.length === 26));
+t("Hestu uses only palette letters", /^[.KCcsGgtnFfobBmWhT]+$/.test(K.HESTU.join("")));
+t("Hestu svg renders, maracas split left/right", /<svg/.test(K.hestuSvg()) && /class="hs-l"><rect/.test(K.hestuSvg()) && /class="hs-r"><rect/.test(K.hestuSvg()));
+t("Korok grid is 16x21", K.KOROK.length === 21 && K.KOROK.every(r => r.length === 16));
+t("Korok uses only palette letters", /^[.ADLXalotw]+$/.test(K.KOROK.join("")));
+t("every Korok look colours every letter", K.KOROK_LOOKS.every((_, i) => !/undefined/.test(K.korokSvg(i))));
+t("a spot always gets the same Korok", K.variantFor("game-tracker/index") === K.variantFor("game-tracker/index"));
+t("the spots use more than one look", new Set(["index", "index-hang", "index-end", "owl", "wrapped", "add"].map(s => K.variantFor("game-tracker/" + s))).size > 1);
 
 // the pages: spot count matches what data-total promises (10 here + 2 on Steph's log = 12)
 let spots = 0;
