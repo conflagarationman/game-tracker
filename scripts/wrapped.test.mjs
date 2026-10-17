@@ -175,5 +175,96 @@ await test("poster: the real games.json lays out for every year", async () => {
   }
 });
 
+// ─── Ledgers ──────────────────────────────────────────────
+const { playedHours, unlockStats, backlogMath, etParts } = ctx.GTWrapped;
+const ts = (iso) => Date.parse(iso) / 1000;
+
+await test("playedHours counts only rises above a game's previous high, by month", () => {
+  const games = [g({ id: 901, t: "Steep", s: "playing" }), g({ id: 902, t: "Old", s: "done" })];
+  const ledger = { since: "2026-07-28", days: {
+    "2026-07-28": { 901: 1, 902: 5 },
+    "2026-08-02": { 901: 3, 902: 5 },      // +2 in Aug
+    "2026-09-01": { 901: 2, 902: 5 },      // a dip (farming freeze / definition change): nothing
+    "2026-09-05": { 901: 2.5, 902: 6 },    // back under the high for Steep: nothing; Old +1 in Sep
+    "2026-10-01": { 901: 4, 902: 6 },      // Steep +1 above its high of 3
+  } };
+  const p = playedHours(ledger, games, 2026);
+  assert.deepEqual(plain(p.games.map(x => [x.g.t, x.hours])), [["Steep", 3], ["Old", 1]]);
+  assert.equal(p.total, 4);
+  assert.deepEqual(plain(p.months.slice(7, 10)), [2, 1, 1]);
+  assert.equal(p.since, "2026-07-28");
+});
+
+await test("playedHours credits a baseline only for a game started this year, and skips idle games", () => {
+  const games = [g({ id: 911, t: "Halo", start: "2026-07-28" }), g({ id: 912, t: "Older", start: "2025-05-01" }),
+    g({ id: 913, t: "Pet", g: "Idle sim", start: "2026-07-01" })];
+  const ledger = { since: "2026-07-28", days: { "2026-07-28": { 911: 5.8, 912: 40, 913: 100 }, "2026-08-16": { 911: 34.2, 912: 40, 913: 300 } } };
+  const p = playedHours(ledger, games, 2026);
+  assert.deepEqual(plain(p.games.map(x => [x.g.t, x.hours, x.fromStart])), [["Halo", 34.2, true]]);
+  assert.equal(p.untimed, 5.8);
+  assert.equal(p.months[7], 28.4);
+});
+
+await test("playedHours keeps last year's high as the baseline for the next year", () => {
+  const games = [g({ id: 921, t: "Long" })];
+  const ledger = { since: "2026-12-30", days: { "2026-12-30": { 921: 10 }, "2026-12-31": { 921: 12 }, "2027-01-02": { 921: 15 } } };
+  assert.equal(playedHours(ledger, games, 2026).total, 2);
+  assert.equal(playedHours(ledger, games, 2027).total, 3);
+  assert.equal(playedHours(ledger, games, 2027).since, null);
+  assert.equal(playedHours(null, games, 2026), null);
+});
+
+await test("etParts buckets unlocks in Eastern time, across DST", () => {
+  assert.deepEqual(plain(etParts(ts("2027-01-01T03:30:00Z"))), { date: "2026-12-31", hour: 22, dow: "Thu" });
+  assert.equal(etParts(ts("2026-07-04T04:00:00Z")).hour, 0);    // EDT
+  assert.equal(etParts(ts("2026-12-04T04:00:00Z")).hour, 23);   // EST
+});
+
+await test("unlockStats: night share, peak hour, busiest day, streak and rarest, in Eastern days", () => {
+  const u = (iso, game, pct = null, src = "steam") => ({ src, ts: ts(iso), game, name: "a", pct, key: iso + game });
+  const rows = [
+    u("2026-03-01T03:00:00Z", "A", 12.5),          // Feb 28, 10 PM ET (night)
+    u("2026-03-02T15:00:00Z", "A", 2.1),           // Mar 2, 10 AM
+    u("2026-03-02T16:00:00Z", "B", 0.4),           // Mar 2, 11 AM: rarest
+    u("2026-03-03T18:00:00Z", "B"),                // Mar 3
+    u("2026-03-05T05:30:00Z", "B", null, "ra"),    // Mar 5, 12:30 AM (night)
+    u("2025-12-31T12:00:00Z", "Old", 0.1),         // another year
+  ];
+  const s = unlockStats(rows, 2026);
+  assert.equal(s.count, 5);
+  assert.equal(s.games, 2);
+  assert.equal(s.nightPct, 40);
+  assert.deepEqual(plain(s.busiest), { date: "2026-03-02", n: 2, game: "A" });
+  assert.deepEqual(plain(s.streak), { len: 2, from: "2026-03-02", to: "2026-03-03" });
+  assert.equal(s.rarest.pct, 0.4);
+  assert.deepEqual([s.steam, s.ra], [4, 1]);
+  assert.equal(s.first.date, "2026-02-28");
+  assert.equal(unlockStats([], 2026), null);
+});
+
+await test("backlogMath compares games added with games finished or dropped", () => {
+  const games = [g({ queued: "2026-02-01", s: "queue", cy: null }), g({ queued: "2026-03-01", s: "soon", cy: null }),
+    g({ queued: "2026-04-01", s: "done", cy: 2026, start: "2026-04-02" }), g({ queued: "2025-01-01", s: "dropped", cy: 2026 })];
+  assert.deepEqual(plain(backlogMath(games, 2026)), { added: 3, imported: 0, started: 1, finished: 1, dropped: 1, net: 1, waiting: 2 });
+});
+
+await test("yearStats carries the ledger numbers, and the persona can be a night owl", () => {
+  const games = Array.from({ length: 4 }, () => g({ cy: 2026 }));
+  const unlocks = Array.from({ length: 40 }, (_, i) => ({ src: "steam", ts: ts("2026-05-01T04:00:00Z") + i * 86400, game: "X", pct: null, key: "k" + i }));
+  const s = yearStats(games, 2026, NOW, null, { unlocks, ledger: { days: {} } });
+  assert.equal(s.unlocks.nightPct, 100);
+  assert.equal(s.persona.title, "The Night Owl");
+  assert.equal(s.played.total, 0);
+  assert.equal(yearStats(games, 2026, NOW).unlocks, null);
+});
+
+
+await test("backlogMath counts a day the tracker was filled in as imported, not added", () => {
+  const games = [...Array.from({ length: 15 }, () => g({ queued: "2026-06-16", s: "soon", cy: null })), g({ queued: "2026-08-01", s: "queue", cy: null })];
+  const b = backlogMath(games, 2026);
+  assert.deepEqual([b.added, b.imported, b.waiting], [1, 15, 1]);
+});
+
+
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);

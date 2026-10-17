@@ -74,11 +74,18 @@ jobs:
         continue-on-error: true
         run: node scripts/owl-pick.mjs
 
+      # On the first sync of a new year (8 AM ET Jan 1), saves last year's review inputs as
+      # wrapped-<year>.json so later syncs can't change a finished year. A no-op every other day.
+      - name: Freeze last year's Wrapped
+        continue-on-error: true
+        run: node scripts/freeze-wrapped.mjs
+
       - name: Commit results if anything changed
         run: |
           git config user.name "game-tracker-bot"
           git config user.email "actions@users.noreply.github.com"
           git add games.json last-synced.json gotm.json play-check.json asf-idle.json owl-pick.json library.json library-meta.json library-hltb.json ledger.json achievements-log.json
+          git add wrapped-2*.json 2>/dev/null || true
           git diff --staged --quiet || git commit -m "Sync Steam & RetroAchievements data"
           # actions/checkout sets the local branch to track its own origin ref, so a bare
           # `pull --rebase` reconciles against whatever branch actually got checked out — on
