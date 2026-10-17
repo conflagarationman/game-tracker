@@ -65,6 +65,12 @@ jobs:
       - name: Year in review numbers
         run: node scripts/wrapped.test.mjs
 
+      - name: Playtime ledger and unlock log
+        run: node scripts/ledger.test.mjs
+
+      - name: Usage counts
+        run: node scripts/usage.test.mjs
+
       - name: Admin Worker
         run: node index.test.mjs
         working-directory: worker

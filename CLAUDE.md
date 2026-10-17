@@ -34,6 +34,8 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `retro-canon.json` | you | Hand-curated retro must-plays (`t`, `c` console, `y`, `g`, `h`, `why`) for the owl's "never logged" wildcard. Anything tracked or with RA progress is skipped automatically, so it never needs pruning. |
 | `owl-pick.json` | bot only (`sync-games.yml`, daily, via `scripts/owl-pick.mjs`) | The owl's pick for tonight (any device, an evening, no mood), for the Home Hub's peeking owl. Runs the real `pick.js` so the hub (Python, token in its URL) neither re-implements the ranking nor loads remote script. `pick` is null when there's nothing to suggest. **`weekend`** is the Friday hoot's pick (`{ key, t, p, reasons, week }`, or null): any device, a long session, no mood, wildcards included, anything in `owl-skips.json` left out, drawn with a seed from the ISO week. Friday to Sunday the previous run's pick is kept while it still stands, so the hub's nudge and the page agree all weekend. `key` is what `owl.html?pick=<key>` opens (URL-encode it: `id:12`, `steam:730`, `ra:…`, `canon:…`). |
 | `owl-skips.json` | **Worker only** (`/owl/skip`, `/owl/restore`) | What the owl has set aside, from "Not this one": `{ key: { t, count, until, dropped, last } }`, keyed `id:<n>` (tracked), `steam:<appid>`, `ra:<normTitle>` (RA runs and club picks) or `canon:<normTitle>`. Turn-downs snooze 7, 30, then 90 days; the fourth asks before a drop, and a drop is only `dropped: true`. Restore deletes the entry (count back to zero), and so does accepting the game with "No". **Never touches `games.json`**, and nothing writes it but the Worker, so keep human edits out. |
+| `ledger.json` | bot only (`sync-games.yml`, daily); backfilled once by `scripts/backfill-ledger.mjs` | Every game's `actualHours`, one row per UTC day, one line per day: `{ version, since, rawUntil, days: { "YYYY-MM-DD": { id: hours } } }`. The source for hours played in a year. **Backfilled from git on 2026-10-17** (57 days from 2026-07-28); days up to `rawUntil` (2026-10-11) were Steam's raw playtime, so the backfill took the hub farm ledger's cumulative idling out of them, and the whole file reads as hours minus card idling. Snapshots can dip (a game frozen while ASF farmed it), so read play as rises above the game's previous high, never as plain differences. A game's first number is a baseline, not play: null-then-populated is a sync change. The repo's git history is no longer the only playtime record, but still don't squash it casually. |
+| `achievements-log.json` | bot only (`sync-games.yml`, daily) | One row per unlock, one per line: `{ src: steam|ra, id (tracker id or null), key, ts (unix UTC), name, game, pct, hc }`. Steam: every tracked Steam game's unlocks with their real times (Steam keeps them, so the first run filled every year); `pct` is Steam's global unlock %, fetched for the current year's rows only. RA: `API_GetAchievementsEarnedBetween` from an hour before the newest RA row (Jan 1 for an empty log), **every** RA game, tracked or not; RA's zoneless dates are read as UTC. Merged, never rebuilt: rows are only added or filled in. Bucket hours and days in America/New_York, never UTC. |
 | `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` (and `owl-skips.json`) from a browser. `worker/index.mjs` keeps its own copy of the 7/30/90 snooze table; its test compares it with `pick.js`'s. |
@@ -317,7 +319,9 @@ node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 9
 node scripts/fetch-gotm.test.mjs       # 26
 node scripts/pick.test.mjs             # 35
-node scripts/wrapped.test.mjs          # 14
+node scripts/wrapped.test.mjs          # 20
+node scripts/ledger.test.mjs           # 15
+node scripts/usage.test.mjs            # 29
 node scripts/owl-pick.test.mjs         # 12
 node scripts/korok.test.mjs            # 32
 node scripts/library-meta.test.mjs     # 4
@@ -325,9 +329,9 @@ node scripts/library-hltb.test.mjs     # 8
 cd worker && node index.test.mjs       # 35
 ```
 
-`tests.yml` runs all twelve on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all fourteen on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-twelve commands above.
+fourteen commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
