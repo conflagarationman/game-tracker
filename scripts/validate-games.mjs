@@ -18,8 +18,11 @@ export const KEYS = [
   "id", "t", "p", "s", "g", "y", "h", "r", "cy", "cm", "gotm", "gotmFlair", "mastery", "diff",
   "achPct", "achCount", "actualHours", "lastPlayed", "casual", "note", "start", "queued", "release",
 ];
-// Keys a record may carry but needn't: absent means the default. Only `replay` (2026-10-17).
-export const OPTIONAL_KEYS = ["replay"];
+// Keys a record may carry but needn't: absent means the default (2026-10-17).
+export const OPTIONAL_KEYS = ["replay", "priorH"];
+// What kind of return trip a game is: a replay, a run back to 100% it, or its 1.0 launch after
+// early access. `true` is the first version's plain "replay" and still means that.
+export const RETURN_KINDS = ["replay", "100pct", "1.0"];
 const PLATFORMS = ["steam", "steamdeck", "pc", "ps5", "switch", "switch2", "ayn", "retro", "wiiu"];
 const STATUSES = ["playing", "ongoing", "queue", "soon", "done", "dropped"];
 const MASTERY = [null, "in-progress", "mastered", "platinum", "100pct"];
@@ -55,9 +58,10 @@ function checkRecord(r, i) {
   if (!isNullOr(r.gotm, v => GOTM.test(v))) errs.push(`${where}: gotm must look like "Oct 2025"`);
   if (typeof r.gotmFlair !== "boolean") errs.push(`${where}: gotmFlair must be true or false`);
   if (typeof r.casual !== "boolean") errs.push(`${where}: casual must be true or false`);
-  // `replay` (played before, back for another run) is the one optional key: absent means false,
-  // so the 140-odd records from before it existed don't all need rewriting.
-  if (r.replay !== undefined && typeof r.replay !== "boolean") errs.push(`${where}: replay must be true or false`);
+  // `replay` and `priorH` are optional: absent means not a return trip / nothing earlier, so the
+  // 140-odd records from before them don't all need rewriting.
+  if (r.replay !== undefined && ![false, true, null, ...RETURN_KINDS].includes(r.replay)) errs.push(`${where}: replay must be one of ${RETURN_KINDS.join(", ")} (or false)`);
+  if (r.priorH !== undefined && !isNullOr(r.priorH, v => typeof v === "number" && v >= 0)) errs.push(`${where}: priorH must be hours (a number, 0 or more) or null`);
   for (const k of ["start", "queued", "release", "lastPlayed"]) {
     if (!isNullOr(r[k], v => typeof v === "string" && DATE.test(v))) errs.push(`${where}: ${k} must be YYYY-MM-DD`);
   }

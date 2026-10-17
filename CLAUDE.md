@@ -96,8 +96,12 @@ One flat array. Every record carries every key, with `null` for unset.
                           // farm ledger has recorded for that appid (see Automation)
   "lastPlayed": null,     // bot-owned, YYYY-MM-DD
   "casual": false,        // true = deliberately excluded from achievement display
-  "replay": false,        // OPTIONAL (absent = false): played before, back for another run.
-                          // Counts like any other game everywhere; pages label it "↻ replay".
+  "replay": false,        // OPTIONAL (absent = false): a return trip, one of "replay" (played before),
+                          // "100pct" (back to finish it), "1.0" (its 1.0 launch after early access);
+                          // true = "replay". Counts like any other game; pages label it. A "1.0" game
+                          // counts as released the year it was finished (old/new, played at launch).
+  "priorH": null,         // OPTIONAL: hours from before this run (Palworld: 75 of early access). Wrapped
+                          // credits the rest of a game's pre-log hours to the year it's started in.
   "note": null,
   "start": null,          // YYYY-MM-DD
   "queued": null,         // YYYY-MM-DD
@@ -338,7 +342,7 @@ node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 10
 node scripts/fetch-gotm.test.mjs       # 26
 node scripts/pick.test.mjs             # 35
-node scripts/wrapped.test.mjs          # 29
+node scripts/wrapped.test.mjs          # 30
 node scripts/ledger.test.mjs           # 15
 node scripts/usage.test.mjs            # 29
 node scripts/freeze-wrapped.test.mjs   # 3

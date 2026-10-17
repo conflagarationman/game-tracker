@@ -192,9 +192,20 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
     <input type="checkbox" id="casual">
     <label for="casual" style="margin:0;text-transform:none;font-size:0.85rem;color:var(--text);font-family:'Syne',sans-serif;">Casual play (no achievement tracking)</label>
   </div>
-  <div class="check">
-    <input type="checkbox" id="replay">
-    <label for="replay" style="margin:0;text-transform:none;font-size:0.85rem;color:var(--text);font-family:'Syne',sans-serif;">Replay (played it before)</label>
+  <div class="row">
+    <div>
+      <label for="replay">Back again?</label>
+      <select id="replay">
+        <option value="">No, first time</option>
+        <option value="replay">Replay (played it before)</option>
+        <option value="100pct">100% run (back to finish it)</option>
+        <option value="1.0">1.0 launch (played it in early access)</option>
+      </select>
+    </div>
+    <div>
+      <label for="priorH">Hours from before (optional)</label>
+      <input type="number" id="priorH" min="0" step="0.1" placeholder="e.g. 75">
+    </div>
   </div>
 
   <div class="fieldset" id="completion-block" style="display:none;">
@@ -353,7 +364,8 @@ function fillForm(g) {
   $('queued').value = g.queued || '';
   $('release').value = g.release || '';
   $('casual').checked = !!g.casual;
-  $('replay').checked = !!g.replay;
+  $('replay').value = g.replay === true ? 'replay' : (g.replay || '');
+  $('priorH').value = g.priorH != null ? String(g.priorH) : '';
   $('completed').value = toMonthInput(g.cy, g.cm);
   $('r').value = g.r ? String(g.r) : '';
   $('mastery').value = g.mastery || '';
@@ -377,7 +389,8 @@ function clearForm() {
   $('queued').value = '';
   $('release').value = '';
   $('casual').checked = false;
-  $('replay').checked = false;
+  $('replay').value = '';
+  $('priorH').value = '';
   $('completed').value = '';
   $('r').value = '';
   $('mastery').value = '';
@@ -403,7 +416,8 @@ function readForm() {
     queued: $('queued').value || null,
     release: $('release').value || null,
     casual: $('casual').checked,
-    replay: $('replay').checked,
+    replay: $('replay').value || false,
+    priorH: $('priorH').value !== '' ? Number($('priorH').value) : null,
     cy, cm,
     // r defaults to 0 rather than null: that's what DEFAULT_GAME uses and what
     // index.html's `g.r > 0` rated-filter expects.

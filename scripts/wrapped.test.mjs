@@ -271,7 +271,24 @@ await test("replays count like any other game and are listed for the page to lab
   const s = yearStats(games, 2026, NOW, null, { ledger: { since: "2026-07-28", days: { "2026-07-28": { 931: 106 }, "2026-08-01": { 931: 107 } } } });
   assert.equal(s.done.length, 2);
   assert.deepEqual(plain(s.replays.map(x => x.t)), ["Palworld"]);
-  assert.deepEqual(plain(s.played.games.map(x => [x.g.t, x.hours, x.replay])), [["Palworld", 1, true]]);
+  assert.deepEqual(plain(s.played.games.map(x => [x.g.t, x.hours, x.replay])), [["Palworld", 1, "replay"]]);
+});
+
+await test("a 1.0 launch counts as that year's release, and priorH leaves the rest of its old hours to this year", () => {
+  const games = [g({ id: 941, t: "Palworld", replay: "1.0", priorH: 75, y: 2024, cy: 2026, cm: 7, r: 8, actualHours: 107.3 }),
+    g({ id: 942, t: "Brotato", replay: "100pct", y: 2023, cy: 2026, cm: 7, actualHours: 111.8 }),
+    g({ id: 943, t: "Old classic", y: 1998, cy: 2026 })];
+  const ledger = { since: "2026-07-28", days: { "2026-07-28": { 941: 106.4, 942: 111.8 }, "2026-08-02": { 941: 107.3, 942: 111.8 } } };
+  const s = yearStats(games, 2026, NOW, null, { ledger });
+  assert.deepEqual(plain(s.launchYear.map(x => x.t)), ["Palworld"]);
+  assert.equal(s.eras.new.n, 1);
+  assert.equal(s.oldest.t, "Old classic");
+  const pal = s.played.games.find(x => x.g.t === "Palworld");
+  assert.deepEqual([pal.hours, pal.fromStart, pal.replay], [32.3, true, "1.0"]);     // 106.4 - 75 before the log, + 0.9 logged
+  assert.equal(s.played.untimed, 31.4);
+  assert.equal(s.played.games.find(x => x.g.t === "Brotato"), undefined);            // 100% run, no priorH, nothing logged
+  assert.deepEqual(plain(s.replays.map(x => [x.t, ctx.GTWrapped.returnKind(x)])), [["Palworld", "1.0"], ["Brotato", "100pct"]]);
+  assert.equal(ctx.GTWrapped.returnKind({ replay: "bogus" }), null);
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);

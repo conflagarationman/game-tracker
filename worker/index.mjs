@@ -145,7 +145,8 @@ export function validateGameFields(input) {
   if (input.r != null && !(typeof input.r === "number" && input.r >= 0 && input.r <= 10)) {
     return "rating (r) must be a number 0-10";
   }
-  if (input.replay != null && typeof input.replay !== "boolean") return "replay must be true or false";
+  if (input.replay != null && ![false, true, "replay", "100pct", "1.0"].includes(input.replay)) return "replay must be one of replay, 100pct, 1.0 (or false)";
+  if (input.priorH != null && !(typeof input.priorH === "number" && input.priorH >= 0)) return "priorH must be a number of hours, 0 or more";
   if (input.mastery != null && !VALID_MASTERY.has(input.mastery)) {
     return `mastery must be one of: ${[...VALID_MASTERY].join(", ")}`;
   }
