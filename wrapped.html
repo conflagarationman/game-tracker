@@ -313,7 +313,7 @@ function render(){
         ${d.played.games[0]?factN('Most played',esc(d.played.games[0].g.t),`${fmtH(d.played.games[0].hours)}h`):''}</div>
       ${d.played.games.slice(0,6).map(x=>`<div class="srow"><span class="sname" title="${esc(x.g.t)}">${esc(x.g.t)}</span><span class="sval">${fmtH(x.hours)}h</span>
         <div class="strack"><div style="width:${x.hours/d.played.games[0].hours*100}%;background:${PC[x.g.p]||'#888'}"></div></div></div>`).join('')}
-      <p class="note" style="margin-top:0.6rem">Steam play, card idling taken out, from the daily log${d.played.since?` kept since ${fmtDay(d.played.since)}`:''}. A game started this year counts its hours from before the log too.</p>
+      <p class="note" style="margin-top:0.6rem">Steam play, card idling taken out, from the daily log${d.played.since?` kept since ${fmtDay(d.played.since)}`:''}. A game that came out this year counts its hours from before the log too.</p>
     </section>`:''}
     ${d.unlocks?`<section class="panel" aria-labelledby="h-clock"><h2 id="h-clock">When you played</h2>
       <div class="clock" role="img" aria-label="Unlocks by hour of day, Eastern time. Peak: ${hourName(d.unlocks.peakHour)}">${d.unlocks.hours.map((n,h)=>`<div class="ccol"><div class="cbar${NIGHT_H(h)?' night':''}" style="height:${Math.max(2,n/Math.max(...d.unlocks.hours)*64)}px"></div></div>`).join('')}</div>

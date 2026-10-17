@@ -185,8 +185,9 @@ persona is whichever trait clears its threshold by the most, with the number beh
 
 **From the ledgers** (`playedHours`, `unlockStats`, `backlogMath`): hours played in the year come from
 `ledger.json`, every Steam game finished or not, as rises above each game's previous high (never plain
-differences, which dips would corrupt); a game's first number is a baseline, except for a game whose
-`start` is in the year, whose baseline counts too (all its hours are assumed to be that year's; the month
+differences, which dips would corrupt); a game's first number is a baseline, except for a game released
+that year (`y`), whose baseline counts too (every hour of it is that year's; a `start` in the year isn't enough,
+since a restart carries old hours, e.g. Palworld and Brotato in 2026; the month
 chart leaves it out since when isn't known). Unlock stats bucket every timestamp in America/New_York:
 peak hour, share between 10 PM and 4 AM, busiest day, longest run of days with an unlock, and the
 rarest Steam unlock by global %. Backlog math is games queued that year vs finished or dropped; a day

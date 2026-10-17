@@ -53,8 +53,10 @@
   // Hours actually played in a year, every game, finished or not. A snapshot can dip (a game's
   // hours froze while ASF farmed it, or the sync's definition moved), so play is only a rise
   // above the game's previous high. A game's first number is a baseline, not play, except for a
-  // game started this year: then its baseline was played this year too, after `start` (when in
-  // the year isn't known, so it isn't in the month chart). Idle-genre games are left out.
+  // game that came out this year (`y`): then every hour of it was played this year (when in the
+  // year isn't known, so it isn't in the month chart). A `start` in the year is not enough: Palworld
+  // and Brotato were restarted in 2026 with hours from earlier years (Jonny, 2026-10-17), so an
+  // older game counts only what the log saw. Idle-genre games are left out.
   function playedHours(ledger, games, year) {
     if (!ledger || !ledger.days) return null;
     const byId = new Map(games.map(g => [g.id, g]));
@@ -73,7 +75,7 @@
     const fromStart = new Set();
     for (const [k, f] of Object.entries(first)) {
       const g = byId.get(Number(k));
-      if (g && f.h > 0 && f.d >= from && g.start && g.start.slice(0, 4) === String(year) && g.start <= f.d) { add(g.id, f.h, null); fromStart.add(g.id); }
+      if (g && f.h > 0 && f.d >= from && g.y === year) { add(g.id, f.h, null); fromStart.add(g.id); }
     }
     const list = Object.entries(per).map(([k, h]) => ({ g: byId.get(Number(k)), hours: Math.round(h * 10) / 10 }))
       .filter(x => x.g && !isIdle(x.g) && x.hours > 0)

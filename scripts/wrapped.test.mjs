@@ -195,9 +195,9 @@ await test("playedHours counts only rises above a game's previous high, by month
   assert.equal(p.since, "2026-07-28");
 });
 
-await test("playedHours credits a baseline only for a game started this year, and skips idle games", () => {
-  const games = [g({ id: 911, t: "Halo", start: "2026-07-28" }), g({ id: 912, t: "Older", start: "2025-05-01" }),
-    g({ id: 913, t: "Pet", g: "Idle sim", start: "2026-07-01" })];
+await test("playedHours credits a baseline only for a game released this year, and skips idle games", () => {
+  const games = [g({ id: 911, t: "Halo", y: 2026, start: "2026-07-28" }), g({ id: 912, t: "Palworld replay", y: 2024, start: "2026-07-11" }),
+    g({ id: 913, t: "Pet", g: "Idle sim", y: 2026, start: "2026-07-01" })];
   const ledger = { since: "2026-07-28", days: { "2026-07-28": { 911: 5.8, 912: 40, 913: 100 }, "2026-08-16": { 911: 34.2, 912: 40, 913: 300 } } };
   const p = playedHours(ledger, games, 2026);
   assert.deepEqual(plain(p.games.map(x => [x.g.t, x.hours, x.fromStart])), [["Halo", 34.2, true]]);
