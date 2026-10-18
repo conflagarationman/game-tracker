@@ -1258,5 +1258,8 @@
   {"src":"steam","id":529,"key":"steam:4231820:3","ts":1792115557,"name":"Snakes speared in the ruins","game":"Castlevania: Belmont's Curse","pct":52.8},
   {"src":"steam","id":529,"key":"steam:4231820:16","ts":1792201366,"name":"Jack of All Trades","game":"Castlevania: Belmont's Curse","pct":38.9},
   {"src":"ra","id":510,"key":"ra:593227","ts":1792261889,"name":"The Perfect Reel","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
-  {"src":"ra","id":510,"key":"ra:593228","ts":1792261922,"name":"Hook, Line, and Treasure","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
+  {"src":"ra","id":510,"key":"ra:593228","ts":1792261922,"name":"Hook, Line, and Treasure","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:596733","ts":1792270991,"name":"The Opening Verses","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:593409","ts":1792272229,"name":"Wisdom Badge","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:589135","ts":1792272838,"name":"Adapt and Overcome","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
 ]}
