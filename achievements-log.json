@@ -1261,5 +1261,7 @@
   {"src":"ra","id":510,"key":"ra:593228","ts":1792261922,"name":"Hook, Line, and Treasure","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
   {"src":"ra","id":510,"key":"ra:596733","ts":1792270991,"name":"The Opening Verses","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
   {"src":"ra","id":510,"key":"ra:593409","ts":1792272229,"name":"Wisdom Badge","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
-  {"src":"ra","id":510,"key":"ra:589135","ts":1792272838,"name":"Adapt and Overcome","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
+  {"src":"ra","id":510,"key":"ra:589135","ts":1792272838,"name":"Adapt and Overcome","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:588336","ts":1792356771,"name":"Surgical Strike","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:593858","ts":1792373579,"name":"Rising Contender","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
 ]}
