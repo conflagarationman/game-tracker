@@ -11,16 +11,16 @@
       "mins": 393
     },
     "528": {
-      "mins": 128
+      "mins": 20
     },
     "529": {
-      "mins": 242
+      "mins": 251
     },
     "530": {
-      "mins": 543
+      "mins": 396
     },
     "531": {
-      "mins": 142
+      "mins": 46
     }
   },
   "offList": [
@@ -28,7 +28,7 @@
       "id": 530,
       "t": "Zombie Night Terror",
       "s": "soon",
-      "mins": 543
+      "mins": 396
     },
     {
       "id": 526,
