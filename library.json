@@ -923,7 +923,7 @@
   {"appid":552500,"name":"Warhammer: Vermintide 2","hours":0,"lastPlayed":null},
   {"appid":552590,"name":"The Sexy Brutale","hours":0.1,"lastPlayed":"2026-09-03"},
   {"appid":553420,"name":"TUNIC","hours":15.3,"lastPlayed":"2023-03-13"},
-  {"appid":553850,"name":"HELLDIVERS™ 2","hours":57.6,"lastPlayed":"2026-10-14"},
+  {"appid":553850,"name":"HELLDIVERS™ 2","hours":57.6,"lastPlayed":"2026-10-21"},
   {"appid":555150,"name":"The First Tree","hours":3.3,"lastPlayed":"2026-07-17"},
   {"appid":555880,"name":"Sairento VR","hours":0,"lastPlayed":"2026-08-24"},
   {"appid":559210,"name":"Rakuen","hours":0,"lastPlayed":"2026-08-23"},
@@ -1608,7 +1608,7 @@
 "ra": [
   {"gameId":21360,"title":"~Hack~ Pokémon Emerald Rogue","console":"Game Boy Advance","earned":8,"total":83},
   {"gameId":30137,"title":"~Hack~ Pokémon Emerald Rogue V2","console":"Game Boy Advance","earned":15,"total":260},
-  {"gameId":34108,"title":"~Hack~ Pokémon Lazarus","console":"Game Boy Advance","earned":11,"total":63},
+  {"gameId":34108,"title":"~Hack~ Pokémon Lazarus","console":"Game Boy Advance","earned":12,"total":63},
   {"gameId":33063,"title":"~Hack~ Pokémon Odyssey","console":"Game Boy Advance","earned":26,"total":90},
   {"gameId":17530,"title":"~Hack~ Pokémon Unbound","console":"Game Boy Advance","earned":15,"total":129},
   {"gameId":27584,"title":"~Homebrew~ Goodboy Galaxy","console":"Game Boy Advance","earned":4,"total":125},

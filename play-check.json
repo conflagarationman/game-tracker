@@ -5,31 +5,19 @@
       "lastPlayed": "2026-10-09"
     },
     "510": {
-      "lastPlayed": "2026-10-19"
+      "lastPlayed": "2026-10-21"
     },
     "526": {
       "mins": 393
     },
-    "528": {
-      "mins": 20
-    },
     "529": {
       "mins": 251
     },
-    "530": {
-      "mins": 396
-    },
     "531": {
-      "mins": 46
+      "mins": 50
     }
   },
   "offList": [
-    {
-      "id": 530,
-      "t": "Zombie Night Terror",
-      "s": "soon",
-      "mins": 396
-    },
     {
       "id": 526,
       "t": "Animal Well",
@@ -40,7 +28,7 @@
       "id": 510,
       "t": "Pokemon Lazarus",
       "s": "queue",
-      "lastPlayed": "2026-10-19"
+      "lastPlayed": "2026-10-21"
     }
   ],
   "untracked": [
