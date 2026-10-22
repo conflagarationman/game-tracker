@@ -1264,5 +1264,10 @@
   {"src":"ra","id":510,"key":"ra:589135","ts":1792272838,"name":"Adapt and Overcome","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
   {"src":"ra","id":510,"key":"ra:588336","ts":1792356771,"name":"Surgical Strike","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
   {"src":"ra","id":510,"key":"ra:593858","ts":1792373579,"name":"Rising Contender","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
-  {"src":"ra","id":510,"key":"ra:588335","ts":1792604904,"name":"Secrets Beneath the Soil","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
+  {"src":"ra","id":510,"key":"ra:588335","ts":1792604904,"name":"Secrets Beneath the Soil","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:591916","ts":1792606607,"name":"Myth of the Core","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:595179","ts":1792607126,"name":"Seasoned Scavenger","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"steam","id":529,"key":"steam:4231820:25","ts":1792630058,"name":"Lamplighter","game":"Castlevania: Belmont's Curse","pct":49.5},
+  {"src":"steam","id":529,"key":"steam:4231820:6","ts":1792631027,"name":"Blood for Blood","game":"Castlevania: Belmont's Curse","pct":38.2},
+  {"src":"steam","id":529,"key":"steam:4231820:5","ts":1792634850,"name":"Talos Aversion","game":"Castlevania: Belmont's Curse","pct":39.5}
 ]}
