@@ -1270,5 +1270,6 @@
   {"src":"steam","id":529,"key":"steam:4231820:25","ts":1792630058,"name":"Lamplighter","game":"Castlevania: Belmont's Curse","pct":49.5},
   {"src":"steam","id":529,"key":"steam:4231820:6","ts":1792631027,"name":"Blood for Blood","game":"Castlevania: Belmont's Curse","pct":38.2},
   {"src":"steam","id":529,"key":"steam:4231820:5","ts":1792634850,"name":"Talos Aversion","game":"Castlevania: Belmont's Curse","pct":39.5},
-  {"src":"ra","id":510,"key":"ra:591917","ts":1792724206,"name":"Myth of the Deep","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
+  {"src":"ra","id":510,"key":"ra:591917","ts":1792724206,"name":"Myth of the Deep","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:591918","ts":1792806226,"name":"Myth of the Stratosphere","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
 ]}

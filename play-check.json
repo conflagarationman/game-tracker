@@ -1,11 +1,8 @@
 {
   "windowDays": 14,
   "recent": {
-    "400": {
-      "lastPlayed": "2026-10-09"
-    },
     "510": {
-      "lastPlayed": "2026-10-23"
+      "lastPlayed": "2026-10-24"
     },
     "526": {
       "mins": 393
@@ -28,7 +25,7 @@
       "id": 510,
       "t": "Pokemon Lazarus",
       "s": "queue",
-      "lastPlayed": "2026-10-23"
+      "lastPlayed": "2026-10-24"
     }
   ],
   "untracked": [
