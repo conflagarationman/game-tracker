@@ -2,10 +2,10 @@
   "windowDays": 14,
   "recent": {
     "510": {
-      "lastPlayed": "2026-10-25"
+      "lastPlayed": "2026-10-26"
     },
     "526": {
-      "mins": 393
+      "mins": 260
     },
     "529": {
       "mins": 506
@@ -19,13 +19,7 @@
       "id": 526,
       "t": "Animal Well",
       "s": "queue",
-      "mins": 393
-    },
-    {
-      "id": 510,
-      "t": "Pokemon Lazarus",
-      "s": "queue",
-      "lastPlayed": "2026-10-25"
+      "mins": 260
     }
   ],
   "untracked": [
