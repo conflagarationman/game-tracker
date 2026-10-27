@@ -412,6 +412,40 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
   .wide-only{display:none;}
   .narrow-only{display:inline;}
 }
+
+/* Heart Containers: the finished-games meter under the title. Pixel-art hearts drawn as SVG
+   rects (shape-rendering crispEdges); colours are page variables so a theme can retarget them. */
+.hearts{display:flex;align-items:center;gap:2px;flex-wrap:wrap;margin:0 0 0.9rem;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:99px;background:var(--surface);width:fit-content;max-width:100%;cursor:pointer;font:inherit;color:inherit;}
+.hearts:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.hearts svg{width:16px;height:15px;display:block;shape-rendering:crispEdges;}
+.hearts-tip{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.04em;margin:-0.5rem 0 0.9rem 0.25rem;display:none;}
+.hearts-tip.show{display:block;}
+.heart-full{fill:#f5424e;}.heart-empty{fill:var(--border2);}.heart-shine{fill:#ffd0d4;}
+.hp-banner{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:1200;display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:1rem 1.6rem;border-radius:14px;background:var(--surface);border:2px solid #f5424e;box-shadow:0 12px 40px rgba(0,0,0,0.5);pointer-events:none;text-align:center;max-width:calc(100vw - 2rem);}
+.hp-banner svg{width:56px;height:52px;shape-rendering:crispEdges;}
+.hp-banner.big svg{width:96px;height:90px;}
+.hp-banner b{font-size:1.05rem;color:var(--text);}
+.hp-banner small{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);}
+@media (prefers-reduced-motion:no-preference){
+  .hp-banner{animation:hp-in 0.35s cubic-bezier(.2,1.4,.4,1) both, hp-out 0.4s 3.2s ease-in forwards;}
+  .hp-banner svg{animation:hp-bob 0.7s ease-in-out 3;}
+  .hp-banner.big svg{animation:hp-bob 0.55s ease-in-out 6;}
+  @keyframes hp-in{from{opacity:0;transform:translate(-50%,16px) scale(.8);}to{opacity:1;transform:translate(-50%,0) scale(1);}}
+  @keyframes hp-out{to{opacity:0;transform:translate(-50%,-10px);}}
+  @keyframes hp-bob{50%{transform:translateY(-8px) scale(1.08);}}
+}
+
+/* Dampe's graveyard: headstones in a wrapping row, gentle and a little silly. */
+.gy-dampe{font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem;}
+.gy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:0.75rem;}
+.gy-stone{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:60px 60px 8px 8px;padding:1.4rem 0.9rem 0.8rem;text-align:center;display:flex;flex-direction:column;gap:0.35rem;align-items:center;}
+.gy-stone::before{content:'✝';position:absolute;top:0.45rem;left:50%;transform:translateX(-50%);color:var(--dim);font-size:0.7rem;}
+.gy-title{font-weight:700;font-size:0.85rem;line-height:1.25;overflow-wrap:anywhere;}
+.gy-hrs{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;}
+.gy-epi{font-size:0.72rem;color:var(--muted);font-style:italic;line-height:1.4;}
+.gy-dig{margin-top:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;}
+.gy-dig:hover:not(:disabled){background:#c8f54218;}
+.gy-dig:disabled{opacity:0.5;cursor:default;}
 </style>
 </head>
 <body>
@@ -423,6 +457,8 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 </div>
 <div class="updated" id="updated-stamp">loading…</div>
 <div class="banner" id="load-error" role="alert"></div>
+<button type="button" class="hearts" id="hearts" style="display:none;" aria-expanded="false" onclick="toggleHeartTip()"></button>
+<div class="hearts-tip" id="hearts-tip" role="status"></div>
 <div class="stats-row" id="stats"></div>
 <section class="tonight" id="tonight-sec" style="display:none;" aria-labelledby="tonight-heading">
   <div class="tn-head"><h2 id="tonight-heading">What should I play?</h2><a class="tn-owl" href="owl.html" title="Kaepora Gaebora: one pick at a time, by mood">🦉 Ask the owl</a></div>
@@ -465,11 +501,18 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
   <div id="yl-panel" style="display:none;margin-top:0.75rem;"></div>
 </section>
 
+<section aria-label="Dampé's graveyard">
+  <div class="cr" id="gy-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="gy-panel" onclick="tog('gy')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('gy');}"><span id="gy-arr" aria-hidden="true">▶</span><span id="gy-lbl">Dampé's graveyard (0)</span></div>
+  <div id="gy-panel" style="display:none;margin-top:0.75rem;"></div>
+</section>
+
 <dialog class="sheet" id="sheet" aria-labelledby="sheet-kicker"></dialog>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="worker-config.js"></script>
 <script src="pick.js"></script>
+<script src="hearts.js"></script>
+<script src="graveyard.js"></script>
 <script>
 // Data lives in games.json/covers.json, kept current by the daily GitHub Action
 // (scripts/sync-apis.mjs) instead of being hand-edited into a `const G=[...]` here.
@@ -485,8 +528,9 @@ const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:
 const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DIFF_LABELS={1:'Easy',2:'Normal',3:'Hard',4:'Expert',5:'Brutal'};
 let NOW = new Date();
+let LOADED = false; // set once games.json has arrived; hearts only celebrate real data
 let PLAY = null; // play-check.json; null when absent, and every consumer tolerates that
-let open={ar:false,yl:false,so:false};
+let open={ar:false,yl:false,so:false,gy:false};
 // Whether the Worker is configured. Cards only become links to their edit form when it is,
 // for the same reason the "+ Add game" link is hidden otherwise: add.html can't do anything
 // but show its setup notice, so the link would be a dead end.
@@ -854,6 +898,7 @@ function tog(k){
 }
 
 function renderPanels(){
+  renderGraveyard();
   const arch=G.filter(g=>g.s==='done'||g.s==='dropped').sort((a,b)=>(b.cy||0)-(a.cy||0)||((b.cm??-1)-(a.cm??-1)));
   document.getElementById('ar-lbl').textContent=`Archive (${arch.length})`;
   if(open.ar){
@@ -993,6 +1038,8 @@ function renderGotm(){
 
 // ─── Main render ───────────────────────────────────────
 function render(){
+  renderHearts();
+  checkHearts();
   const playing=G.filter(g=>g.s==='playing');
   const queue=G.filter(g=>g.s==='queue');
   const soon=G.filter(g=>g.s==='soon');
@@ -1063,6 +1110,86 @@ async function saveEdit(g, patch){
     alert(`Couldn't save "${g.t}": ${err.message}`);
     return false;
   }
+}
+
+// ─── Heart Containers ──────────────────────────────────
+// Original pixel heart: 9x8 cells, one rect per row run. `frac` fills from the bottom up
+// (0..1) so a partial heart shows how far the next container is.
+const HEART_ROWS = ['.XX...XX.','XXXXXXXXX','XXXXXXXXX','XXXXXXXXX','.XXXXXXX.','..XXXXX..','...XXX...','....X....'];
+function heartSvg(frac){
+  const rects = (cls, test) => HEART_ROWS.map((row,y) => {
+    const out=[]; let x=0;
+    while(x<9){ if(row[x]==='X' && test(y)){ let e=x; while(e<9 && row[e]==='X') e++; out.push(`<rect class="${cls}" x="${x}" y="${y}" width="${e-x}" height="1"/>`); x=e; } else x++; }
+    return out.join('');
+  }).join('');
+  const filledFrom = 8 - Math.round(frac*8); // rows at or below this are full
+  const shine = frac>=1 ? '<rect class="heart-shine" x="1" y="1" width="2" height="1"/><rect class="heart-shine" x="1" y="2" width="1" height="1"/>' : '';
+  return `<svg viewBox="0 0 9 8" aria-hidden="true">${frac<1?rects('heart-empty',()=>true):''}${rects('heart-full',y=>y>=filledFrom)}${shine}</svg>`;
+}
+let HEART_TIP_TIMER = null;
+function toggleHeartTip(){
+  const tip=document.getElementById('hearts-tip'), btn=document.getElementById('hearts');
+  const show=!tip.classList.contains('show');
+  tip.classList.toggle('show',show); btn.setAttribute('aria-expanded',show?'true':'false');
+}
+function renderHearts(){
+  if(typeof GTHearts==='undefined') return;
+  const m=GTHearts.heartMath(GTHearts.countDone(G));
+  const el=document.getElementById('hearts'), tip=document.getElementById('hearts-tip');
+  const hearts=[];
+  for(let i=0;i<m.containers;i++) hearts.push(heartSvg(1));
+  if(m.pieces) hearts.push(heartSvg(m.pieces/GTHearts.PER));
+  el.style.display=hearts.length?'':'none';
+  el.innerHTML=hearts.join('');
+  el.title=m.label; el.setAttribute('aria-label',`${m.label}. ${m.total} finished games.`);
+  tip.textContent=`${m.label} · ${m.total} finished`;
+}
+function celebrateHearts(kind){
+  if(!kind || kind==='none') return;
+  const m=GTHearts.heartMath(GTHearts.countDone(G));
+  const big = kind==='container';
+  const old=document.getElementById('hp-banner'); if(old) old.remove();
+  const b=document.createElement('div');
+  b.id='hp-banner'; b.className='hp-banner'+(big?' big':''); b.setAttribute('role','status');
+  b.innerHTML=heartSvg(1)+(big
+    ? `<b>Heart Container!</b><small>${esc(m.label)}</small>`
+    : `<b>You got a Heart Piece!</b><small>${m.pieces}/${GTHearts.PER} to the next container</small>`);
+  document.body.appendChild(b);
+  setTimeout(()=>b.remove(), 3800);
+}
+// Once per change in the finished count, per browser. localStorage trouble is harmless (the
+// check treats it as a first visit); a first-ever visit seeds the count without celebrating.
+function checkHearts(){
+  if(typeof GTHearts==='undefined' || !LOADED) return;
+  let storage=null; try{ storage=localStorage; }catch(e){}
+  celebrateHearts(GTHearts.check(storage||{getItem(){throw 0;},setItem(){throw 0;}}, G));
+}
+
+// ─── Dampé's graveyard ─────────────────────────────────
+function renderGraveyard(){
+  if(typeof GTGraveyard==='undefined') return;
+  const dead=GTGraveyard.dropped(G);
+  document.getElementById('gy-lbl').textContent=`Dampé's graveyard (${dead.length})`;
+  const panel=document.getElementById('gy-panel');
+  if(!dead.length){ panel.innerHTML=`<div class="gy-dampe">🪦 ${esc(GTGraveyard.emptyLine(G.length))}</div>`; return; }
+  const stones=dead.map(g=>{
+    const h=GTGraveyard.hoursPlayed(g);
+    const hrs=h?`${esc(h.text)}${h.est?' est.':''} played`:'hours unknown';
+    return `<div class="gy-stone">
+      <div class="gy-title">${esc(g.t)}</div>
+      <div class="gy-hrs">${hrs}</div>
+      <div class="gy-epi">“${esc(GTGraveyard.epitaph(g,G))}”</div>
+      ${CAN_EDIT?`<button type="button" class="gy-dig" data-id="${g.id}" onclick="digUp(${g.id},this)">Dig it up</button>`:''}
+    </div>`;
+  }).join('');
+  panel.innerHTML=`<div class="gy-dampe">Dampé: “Hehehe… the dead are resting. Dig one up if you must.”</div><div class="gy-grid">${stones}</div>`;
+}
+async function digUp(id,btn){
+  const g=byId(id); if(!g) return;
+  if(!confirm(GTGraveyard.digUpConfirm(g))) return;
+  if(btn) btn.disabled=true;
+  const ok=await saveEdit(g, GTGraveyard.digUpPatch(g, todayStr()));
+  if(!ok && btn) btn.disabled=false;
 }
 
 function byId(id){ return G.find(x => x.id === Number(id)); }
@@ -1635,9 +1762,9 @@ if (WORKER.url && WORKER.key){
 // reopen once data arrives.
 try {
   const stored=JSON.parse(localStorage.getItem('gt_panels')||'null');
-  if(stored) for(const k of ['ar','yl','so']) if(typeof stored[k]==='boolean') open[k]=stored[k];
+  if(stored) for(const k of ['ar','yl','so','gy']) if(typeof stored[k]==='boolean') open[k]=stored[k];
 } catch(e){}
-['ar','yl','so'].forEach(paintPanel);
+['ar','yl','so','gy'].forEach(paintPanel);
 
 // Placeholder cards while the two fetches resolve. Without these the entire page — stats,
 // every section — is blank on arrival, which reads as "no games" rather than "still loading".
@@ -1670,6 +1797,7 @@ Promise.all([
   COVERS=covers;
   GOTM=refreshGotmWindows(gotm);
   NOW=new Date();
+  LOADED=true;
   render();
 }).catch(err=>{
   console.error('Failed to load game data', err);

@@ -74,6 +74,12 @@ jobs:
       - name: Usage counts
         run: node scripts/usage.test.mjs
 
+      - name: Heart Containers
+        run: node scripts/hearts.test.mjs
+
+      - name: Dampé's graveyard
+        run: node scripts/graveyard.test.mjs
+
       - name: Admin Worker
         run: node index.test.mjs
         working-directory: worker
