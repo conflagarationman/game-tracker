@@ -132,6 +132,24 @@ function raDateStr(s) {
   return m ? m[1] : null;
 }
 
+// GET a read-only ASF route on the hub. With HUB_ASF_TOKEN set it goes in an Authorization
+// header (nothing secret in the URL, so it stays out of Caddy's access log). While that secret
+// is unset, fall back to the old master-token query string. TODO: drop the fallback once
+// HUB_ASF_TOKEN is set in the repo secrets.
+async function hubAsfFetch(path) {
+  const asfToken = process.env.HUB_ASF_TOKEN;
+  const base = `https://familyholocron.duckdns.org${path}`;
+  if (asfToken) return fetch(base, { headers: { Authorization: `Bearer ${asfToken}` } });
+  return fetch(`${base}?token=${process.env.HUB_STATUS_TOKEN}`);
+}
+
+// Soft failures: pushed to the run log as before, and also to `warnings`, which main() writes
+// into last-synced.json so the hub's health check can see them. Short strings, no secrets.
+function softFail(log, warnings, msg, warning) {
+  log.push(msg);
+  warnings.push(warning);
+}
+
 // ASF idles owned games in the background to farm trading cards, which bumps Steam's own
 // playtime_forever/rtime_last_played exactly like real play would — so a tracked game that
 // still has unfarmed cards can falsely show as "played today" with inflated hours purely
@@ -142,19 +160,20 @@ function raDateStr(s) {
 // Despite the name, "recently" has no time limit: it is every appid in the hub's last 3000 log
 // lines, which on ASF's quiet log reaches back about two months. So it is now only the fallback
 // for when the farm ledger is unavailable; see getFarmingNow().
-export async function getRecentlyFarmedAppids(log) {
-  const hubToken = process.env.HUB_STATUS_TOKEN;
-  if (!hubToken) {
-    log.push("ASF farmed-appids check: missing HUB_STATUS_TOKEN, skipped (playtime may include idle time)");
+export async function getRecentlyFarmedAppids(log, warnings = []) {
+  if (!process.env.HUB_ASF_TOKEN && !process.env.HUB_STATUS_TOKEN) {
+    softFail(log, warnings, "ASF farmed-appids check: missing HUB_STATUS_TOKEN, skipped (playtime may include idle time)",
+      "ASF recently-farmed skipped: no hub token set");
     return new Set();
   }
   try {
-    const res = await fetch(`https://familyholocron.duckdns.org/asf/recently-farmed?token=${hubToken}`);
+    const res = await hubAsfFetch("/asf/recently-farmed");
     if (!res.ok) throw new Error(`-> ${res.status}`);
     const data = await res.json();
     return new Set(data.recently_farmed_appids || []);
   } catch (e) {
-    log.push(`ASF farmed-appids check failed: ${e.message} (playtime may include idle time)`);
+    softFail(log, warnings, `ASF farmed-appids check failed: ${e.message} (playtime may include idle time)`,
+      `ASF recently-farmed fetch failed: ${e.message}`);
     return new Set();
   }
 }
@@ -184,22 +203,23 @@ export function summarizeLedger(ledger, today = new Date()) {
 // Using the hub's recently-farmed list instead (as the sync did until 2026-10) froze actualHours
 // and lastPlayed for every game farmed in the last ~2 months, 50+ of them, including games being
 // played for real (Steep stayed at 9.2h while being played). Recently-farmed is the fallback only.
-export async function getFarmingNow(asf, log) {
-  return asf ? asf.openAppids : getRecentlyFarmedAppids(log);
+export async function getFarmingNow(asf, log, warnings = []) {
+  return asf ? asf.openAppids : getRecentlyFarmedAppids(log, warnings);
 }
 
-export async function getAsfLedger(log) {
-  const hubToken = process.env.HUB_STATUS_TOKEN;
-  if (!hubToken) {
-    log.push("ASF farm ledger: missing HUB_STATUS_TOKEN, skipped (hours include past idling)");
+export async function getAsfLedger(log, warnings = []) {
+  if (!process.env.HUB_ASF_TOKEN && !process.env.HUB_STATUS_TOKEN) {
+    softFail(log, warnings, "ASF farm ledger: missing HUB_STATUS_TOKEN, skipped (hours include past idling)",
+      "ASF farm ledger skipped: no hub token set; hours include idling");
     return null;
   }
   try {
-    const res = await fetch(`https://familyholocron.duckdns.org/asf/farm-ledger?token=${hubToken}`);
+    const res = await hubAsfFetch("/asf/farm-ledger");
     if (!res.ok) throw new Error(`-> ${res.status}`);
     return summarizeLedger(await res.json());
   } catch (e) {
-    log.push(`ASF farm ledger failed: ${e.message} (hours include past idling)`);
+    softFail(log, warnings, `ASF farm ledger failed: ${e.message} (hours include past idling)`,
+      `ASF farm ledger fetch failed: ${e.message}; hours include idling`);
     return null;
   }
 }
@@ -589,9 +609,10 @@ export function playCheckSummary(check, games) {
 async function main() {
   const games = JSON.parse(await fs.readFile("games.json", "utf8"));
   const log = [];
+  const warnings = [];
 
-  const asf = await getAsfLedger(log);
-  const farmedAppids = await getFarmingNow(asf, log);
+  const asf = await getAsfLedger(log, warnings);
+  const farmedAppids = await getFarmingNow(asf, log, warnings);
   const steamSink = {};
   const steamOwned = await syncSteam(games, log, farmedAppids, asf, steamSink);
   const raSink = {};
@@ -618,7 +639,7 @@ async function main() {
   if (process.env.GITHUB_STEP_SUMMARY) {
     await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, playCheckSummary(check, games));
   }
-  await fs.writeFile("last-synced.json", JSON.stringify({ syncedAt: new Date().toISOString() }, null, 2) + "\n");
+  await fs.writeFile("last-synced.json", JSON.stringify({ syncedAt: new Date().toISOString(), warnings }, null, 2) + "\n");
 
   console.log(log.length ? log.join("\n") : "No changes.");
 }

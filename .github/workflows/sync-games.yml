@@ -41,6 +41,7 @@ jobs:
           RA_USER: ${{ secrets.RA_USER }}
           RA_API_KEY: ${{ secrets.RA_API_KEY }}
           HUB_STATUS_TOKEN: ${{ secrets.HUB_STATUS_TOKEN }}
+          HUB_ASF_TOKEN: ${{ secrets.HUB_ASF_TOKEN }}
         run: node scripts/sync-apis.mjs
 
       # Reads the club's post from Arctic Shift (a Reddit archive), which needs no key. The
