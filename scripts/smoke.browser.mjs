@@ -143,7 +143,11 @@ await test("fill-in finished games: picking a year and rating sends cy/cm/r", as
   const btn = page.locator('#ar-actions .mini-btn');
   ok(await btn.count() === 1, "no Fill in button (are there still finished games missing data?)");
   await btn.click();
-  const y = page.locator("#fin-y .chip").nth(1);
+  // A game released this year offers just one year chip (e.g. Digseum, 2026), so only pick the
+  // second, non-default chip when there is one.
+  const chips = page.locator("#fin-y .chip");
+  await chips.first().waitFor();
+  const y = chips.nth((await chips.count()) > 1 ? 1 : 0);
   const year = Number(await y.textContent());
   await y.click();
   await page.selectOption("#fin-m", "3");

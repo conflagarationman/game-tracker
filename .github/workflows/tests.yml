@@ -94,7 +94,9 @@ jobs:
   # only thing here that needs an install step (Playwright + Chromium) and network for it.
   # The Worker is stubbed inside the test, so this can never write to games.json.
   browser:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04 (Oct 2026), which Playwright has no Chromium build for yet.
+    # Move back to ubuntu-latest once Playwright supports it.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 
