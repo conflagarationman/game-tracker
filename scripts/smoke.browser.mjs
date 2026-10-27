@@ -408,6 +408,80 @@ for (const width of [390, 1280]) {
   });
 }
 
+// Heart Containers: a first visit seeds silently, a higher count plays the moment once, and a
+// reduced-motion visitor still gets the text.
+for (const width of [390, 1280]) {
+  await test(`hearts at ${width}px: header meter, silent first visit, one celebration per new finish`, async () => {
+    const { page, errors, ctx } = await open("index.html", width);
+    await page.waitForSelector("#hearts svg");
+    ok(await page.locator("#hearts svg").count() > 1, "no hearts drawn");
+    ok(/Heart Container/.test(await page.getAttribute("#hearts", "title")), "no tooltip title");
+    ok(await page.locator("#hp-banner").count() === 0, "celebrated on a first-ever visit");
+    ok(await noSideScroll(page), "sideways scroll");
+    await page.click("#hearts");
+    ok(await page.locator("#hearts-tip.show").count() === 1, "tap did not show the tip");
+    const done = await page.evaluate(() => GTHearts.countDone(G));
+    await page.evaluate(n => localStorage.setItem("gt_hearts_seen", String(n - 1)), done);
+    await page.reload();
+    await page.waitForSelector("#hp-banner");
+    await page.reload();
+    await page.waitForSelector("#hearts svg");
+    ok(await page.locator("#hp-banner").count() === 0, "celebrated twice for one finish");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
+await test("hearts: a finish that completes a container is the big banner; reduced motion still shows it", async () => {
+  const { page, errors, ctx } = await open("index.html", 390, { reducedMotion: "reduce" });
+  await page.waitForSelector("#hearts svg");
+  const done = await page.evaluate(() => GTHearts.countDone(G));
+  // Last seen = one short of the current container's first piece, so this visit crosses it.
+  await page.evaluate(n => localStorage.setItem("gt_hearts_seen", String(Math.floor(n / 4) * 4 - 1)), done);
+  await page.reload();
+  await page.waitForSelector("#hp-banner");
+  ok(await page.locator("#hp-banner.big").count() === 1, "completing a container should be the big banner");
+  ok(/Heart/.test(await page.locator("#hp-banner").innerText()), "banner has no text");
+  ok(errors.length === 0, errors.join(" | "));
+  await ctx.close();
+});
+
+// Dampé's graveyard: dropped games get stones; digging one up asks first and sends the usual edit.
+await test("graveyard: stones for dropped games, dig-up confirms then writes s:soon through /games/edit", async () => {
+  const { page, writes, ctx } = await open("index.html", 1280);
+  await page.waitForSelector("#stats .stat-n");
+  const dropped = await page.evaluate(() => G.filter(g => g.s === "dropped").length);
+  ok(dropped > 0, "fixture has no dropped games");
+  ok(await page.locator("#gy-panel").isHidden(), "graveyard should start closed");
+  await page.click("#gy-toggle");
+  ok(await page.locator(".gy-stone").count() === dropped, "one stone per dropped game");
+  ok((await page.locator(".gy-epi").first().innerText()).length > 4, "no epitaph");
+  page.removeAllListeners("dialog"); // the harness's default handler dismisses everything
+  let asked = "";
+  page.once("dialog", d => { asked = d.message(); d.dismiss(); });
+  await page.locator(".gy-dig").first().click();
+  ok(/^Dig up .+\? It goes back to Someday\.$/.test(asked), "confirm text: " + asked);
+  await page.waitForTimeout(100);
+  ok(writes.length === 0, "wrote after the confirm was declined");
+  page.once("dialog", d => d.accept());
+  await page.locator(".gy-dig").first().click();
+  await page.waitForTimeout(150);
+  ok(writes.length === 1 && writes[0].path.endsWith("/games/edit") && writes[0].body.s === "soon" && writes[0].body.queued,
+    "dig-up sent " + JSON.stringify(writes));
+  ok(await page.locator(".gy-stone").count() === dropped - 1, "stone should be gone after digging up");
+  await ctx.close();
+});
+
+await test("graveyard: empty state when nothing is dropped, and no sideways scroll on a phone", async () => {
+  const { page, ctx } = await open("index.html", 390);
+  await page.waitForSelector("#stats .stat-n");
+  await page.evaluate(() => { G.forEach(g => { if (g.s === "dropped") g.s = "soon"; }); render(); tog("gy"); });
+  ok(/Dampé|dead|Quiet|quiet|Nothing/.test(await page.locator("#gy-panel").innerText()), "no Dampé line");
+  ok(await page.locator(".gy-stone").count() === 0, "stones in an empty graveyard");
+  ok(await noSideScroll(page), "sideways scroll");
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${pass}/${pass + fail} passing`);

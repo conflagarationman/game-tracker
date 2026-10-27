@@ -27,6 +27,8 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
 | `korok.js` | you | Hidden Koroks + **Hestu**. One tag per page with `data-spots="id:left[:top],…"`; finds live under ONE localStorage key, `korok:all`, as `repo/id`, shared with Steph's TV log (same github.io origin; old `korok:<repo>` keys are folded in, never deleted). **12 spots in all: 10 here (index 3, owl 3, wrapped 2, add 2) + 2 on Steph's log** — every tag says `data-total="12"`; add a spot and bump it everywhere. Hestu (a pixel tree-friend with maracas) dances at 3, 6 and all seeds; 6 unlocks a "Korok Forest" theme toggle in the seed counter at the foot of the page (the counter only appears after the first find). The first block is DOM-free and tested by `scripts/korok.test.mjs`; **the file is copied verbatim into steph-tv-tracker**, and the hub has its own twin in `status_server.py`. |
+| `hearts.js` | you | **Heart Containers**: every `s:"done"` game is a Heart Piece, four make a container (only `done` counts). DOM-free; `index.html` draws the pixel hearts under the title and plays a "Heart Piece!" moment when the finished count rises past what this browser last saw (`gt_hearts_seen` in localStorage; a first visit seeds silently). Tested by `scripts/hearts.test.mjs`. |
+| `graveyard.js` | you | **Dampé's graveyard**: a collapsible section at the foot of `index.html` with a headstone per `dropped` game (hours, a deterministic epitaph by id). "Dig it up" sends `{s:"soon", queued}` through the existing `/games/edit` (`saveEdit`) after a confirm; no new endpoint. Tested by `scripts/graveyard.test.mjs`. |
 | `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start (or, for a wildcard, add it as Now Playing via `/games/add`), `?pick=<key>` opens straight on that game ("You came about the weekend, hoo?") with the usual three answers, looked up in the whole pool so a Friday link survives the data moving on. Not this one = snooze it for the owl (see `owl-skips.json`; the fourth turn-down shows a red DROP warning whose safe answer comes first, and drops are listed under "Struck from the list" in the footer with a Restore). Uses `GTPick.owlLineup()`: tracked + Someday games, with a wildcard every third pick and in the lead when nothing tracked fits the mood. Music is The 8-Bit Big Band's cover of Kaepora's theme through YouTube's player, in a credited "music box" at the bottom of the page: YouTube's terms need the player visible (200px+), and the recording isn't ours to host. On by default from the first tap or key press; nothing loads from YouTube before it. **Text sounds** are made in the page with Web Audio (no files): a quiet square blip every couple of typed letters (≥40ms apart) and an original falling-minor-third "hoo-hoo" at the start of each line (≥1.5s apart). They start on the first tap too, and have their own 🔈 toggle (`gt_owl_sfx`), separate from the ♪. |
 | `library.json` | bot only (`sync-games.yml`, daily) | Every owned Steam game (hours minus the ASF ledger's recorded idling) and every RetroAchievements game with progress, one per line. For the owl's wildcards. **Published in full on purpose** (Jonny's call). Only rewritten when Steam answers. |
 | `library-meta.json` | bot only (`scripts/library-meta.mjs`, scheduled runs only) | Steam genres (`g`), Metacritic (`m`) and Deck rating (`d`: 3 verified, 2 playable, 1 unsupported, 0 unknown) per appid. Filled ~120 games a day, most-played first; known appids are never re-fetched. |
@@ -348,14 +350,16 @@ node scripts/usage.test.mjs            # 29
 node scripts/freeze-wrapped.test.mjs   # 3
 node scripts/owl-pick.test.mjs         # 12
 node scripts/korok.test.mjs            # 37
+node scripts/hearts.test.mjs           # 13
+node scripts/graveyard.test.mjs        # 12
 node scripts/library-meta.test.mjs     # 4
 node scripts/library-hltb.test.mjs     # 8
 cd worker && node index.test.mjs       # 35
 ```
 
-`tests.yml` runs all fifteen on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all seventeen on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-fifteen commands above.
+seventeen commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
