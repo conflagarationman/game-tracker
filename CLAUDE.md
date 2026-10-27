@@ -172,6 +172,12 @@ games you chose to keep) live in `localStorage` only.
   `owl.html`; with no mood the ranking is unchanged. Moods match the free-text genre by keyword,
   so a new genre may need adding to `CHILL_G` / `HARD_G` / `DEEP_G`. Every mode names a game
   1-5 achievements from 100% (`achLeft`, never for `casual` games).
+- **A save outlives a reload before Pages publishes it.** The commit lands in seconds but
+  Pages serves the new `games.json` about a minute later, which made a reload look like a
+  failed save. Each successful `saveEdit` is kept in localStorage (`gt_saved_edits`, with the
+  values it replaced) and laid over `games.json` on load for up to 10 minutes, until the file
+  shows it; a field changed elsewhere in between wins. The Worker also skips an edit that
+  changes nothing, so a retried save no longer makes an empty commit.
 - **Play check rows act**: Playing, Finished (date + rating sheet), or ✕, which hides a row
   until that game's `lastPlayed` changes. "Add as playing" deep-links to
   `add.html?t=…&s=playing&p=…`.
@@ -359,7 +365,7 @@ node scripts/rupees.test.mjs           # 18
 node scripts/theme.test.mjs            # 18
 node scripts/library-meta.test.mjs     # 4
 node scripts/library-hltb.test.mjs     # 8
-cd worker && node index.test.mjs       # 46
+cd worker && node index.test.mjs       # 47
 ```
 
 `tests.yml` runs all nineteen on every pull request and on pushes to `main`. They need no
