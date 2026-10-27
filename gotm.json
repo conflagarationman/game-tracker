@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-10-27T04:15:25.249Z",
+  "fetchedAt": "2026-10-27T18:31:48.907Z",
   "sourceUrl": "https://www.reddit.com/r/SBCGaming/comments/1wulcea/oct_26_gotm_parasite_eve_ps1/",
   "generatedFor": "2026-10",
   "current": {
@@ -263,5 +263,5 @@
       "isCurrent": true
     }
   ],
-  "error": "arctic shift search author=hbi2k -> 500 (after 4 attempts): {\"data\":null,\"error\":\"Internal server error\"}; arctic shift search \"Game of the Month\" -> 500 (after 4 attempts): {\"data\":null,\"error\":\"Internal server error\"}; arctic shift search \"GotM\" -> 500 (after 4 attempts): {\"data\":null,\"error\":\"Internal server error\"}"
+  "error": null
 }
