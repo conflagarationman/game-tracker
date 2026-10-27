@@ -226,6 +226,18 @@ await test("POST /games/edit 404s on an id that doesn't exist, without writing",
   assert.equal(gh.writes, 0);
 });
 
+await test("an edit that changes nothing writes no commit and dispatches nothing", async () => {
+  // A retried "Save as done" while Pages was still publishing the first one committed an
+  // identical file as a second, empty "Edit game #526".
+  const gh = fakeGitHub({ games: [baseGame({ id: 1, s: "done", r: 8, cy: 2026, cm: 9 })] });
+  const res = await post("/games/edit", { id: 1, s: "done", r: 8, cy: 2026, cm: 9 });
+  assert.equal(res.status, 200);
+  const games = await res.json();
+  assert.equal(games.find(g => g.id === 1).s, "done");
+  assert.equal(gh.writes, 0, "an identical edit must not commit");
+  assert.equal(gh.dispatches.length, 0, "nor burn two Actions runs");
+});
+
 await test("POST /games/delete removes the matching game and leaves the rest", async () => {
   fakeGitHub({ games: [baseGame({ id: 1 }), baseGame({ id: 2, t: "Keep Me" })] });
   const res = await post("/games/delete", { id: 1 });
