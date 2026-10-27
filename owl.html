@@ -108,6 +108,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   border:1px solid var(--border2);border-radius:99px;padding:.6rem 1.1rem;cursor:pointer;animation:rise .3s ease both;}
 .choice:hover,.choice:focus-visible{border-color:var(--accent);outline:none;}
 .choice.again{border-color:#c8f54270;color:var(--accent);}
+.choice.suggested{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
 .choice:disabled{opacity:.5;cursor:default;}
 .choice small{display:block;font-family:'DM Mono',monospace;font-weight:400;font-size:.65rem;color:var(--muted);margin-top:.15rem;}
 @keyframes rise{from{opacity:0;transform:translateY(6px);}}
@@ -262,6 +263,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 
 <script src="worker-config.js"></script>
 <script src="pick.js"></script>
+<script src="rupees.js"></script>
 <script>
 // ─── Kaepora Gaebora ───────────────────────────────────
 // The owl from Ocarina of Time, who gives long-winded advice and then asks whether you'd like
@@ -421,7 +423,12 @@ async function ask(){
     await say('Hoo hoo. And what does your heart want tonight?');
     if (conv !== CONV) return;
     owlPose('look-down');
-    choices(Object.keys(MOODS).map(k => [MOOD_ASK[k], () => { ANS.mood = k; decide(); }]));
+    // A worn mask from the tracker's shop suggests a mood: only a default, every answer still works.
+    let worn = null; try { worn = localStorage.getItem('gt_mask'); } catch(e){}
+    const dm = typeof GTRupees !== 'undefined' ? GTRupees.owlDefaultMood(worn, MOODS) : null;
+    choices(Object.keys(MOODS).map(k => [MOOD_ASK[k], () => { ANS.mood = k; decide(); },
+      k === dm ? 'suggested' : '', k === dm ? `your ${GTRupees.MASKS[worn].name} says so` : '']));
+    if (dm) { const b = $('choices').querySelector('.suggested'); if (b) b.focus({ preventScroll: true }); }
   }
 }
 

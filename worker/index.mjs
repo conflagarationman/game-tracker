@@ -31,6 +31,17 @@
 //                      zeroes its count. Restoring a key that isn't there is a no-op, not an
 //                      error. A drop is only ever a flag, so this always undoes it.
 //
+// POST /rupees/buy    body: {id, item, meta?} -> records a shop purchase in rupees.json (never
+//                      games.json). The price is the Worker's own (the page's cost is ignored).
+//                      Items: maracas {theme}, bomb {gameId}, fairy, mask {mask}. Refuses a theme
+//                      or mask already owned, a second fairy, and an 11th bomb in a quarter.
+//                      Repeating an id is a no-op. Whether you can afford it is the page's check
+//                      (the balance comes from achievements-log.json): household fun, no vault.
+// POST /rupees/refund body: {id} -> marks that purchase refunded (counted as unspent) within 24h of
+//                      buying it; a bomb that went off or a fairy already used can't be refunded.
+// POST /rupees/use    body: {gameId} -> the held fairy is used up: that game is covered for 7 days
+//                      (`fairyUntil[gameId]`). 409s with no fairy; covered already is a no-op.
+//
 // Every write reads the current file fresh, applies the change, and writes back with a sha
 // check, retrying on conflict — safe against racing the daily sync-games.yml/
 // backfill-covers.yml bots, which commit to this same file on this same branch.
@@ -288,6 +299,77 @@ export async function restoreGame(env, { key }) {
   }, `Owl: restore ${key}`, { missing: {} });
 }
 
+// ─── Rupee shop ────────────────────────────────────────
+// Purchases live in rupees.json: { purchases: [{ id, item, cost, ts, meta?, refunded?, used? }],
+// fairyUntil: { <gameId>: "YYYY-MM-DD" } }. Prices, quarters and the fairy rule are copies of
+// rupees.js's (the Worker can't load a browser script); the test compares them.
+const RUPEES_FILE = "rupees.json";
+export const PRICES = { maracas: 500, bomb: 50, fairy: 300, mask: 200, majora: 400 };
+export const BOMBS_PER_QUARTER = 10;
+export const FAIRY_DAYS = 7;
+export const REFUND_MS = 24 * 3600 * 1000;
+const THEMES = new Set(["autumn", "lostwoods", "bloodmoon"]);
+const MASKS = new Set(["majora", "bunny", "keaton", "moss", "lantern"]);
+const PURCHASE_ID = /^[a-z0-9-]{6,40}$/;
+const EMPTY_RUPEES = { purchases: [], fairyUntil: {} };
+const quarterOf = (d) => `${d.getUTCFullYear()}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
+const livePurchases = (r) => (r.purchases || []).filter((p) => !p.refunded);
+
+function priceFor(item, meta) {
+  if (item === "mask" && meta && meta.mask === "majora") return PRICES.majora;
+  return PRICES[item];
+}
+
+export async function buyItem(env, { id, item, meta }, now = new Date()) {
+  if (typeof id !== "string" || !PURCHASE_ID.test(id)) throw httpError("id must be 6-40 chars of a-z, 0-9 and -", 400);
+  if (!["maracas", "bomb", "fairy", "mask"].includes(item)) throw httpError("item must be maracas, bomb, fairy or mask", 400);
+  const m = meta && typeof meta === "object" ? meta : {};
+  if (item === "maracas" && !THEMES.has(m.theme)) throw httpError("theme must be autumn, lostwoods or bloodmoon", 400);
+  if (item === "mask" && !MASKS.has(m.mask)) throw httpError("unknown mask", 400);
+  if (item === "bomb" && !(Number.isInteger(m.gameId) && m.gameId > 0)) throw httpError("gameId must be a game id", 400);
+  const clean = item === "maracas" ? { theme: m.theme } : item === "mask" ? { mask: m.mask } : item === "bomb" ? { gameId: m.gameId } : undefined;
+  return mutateFile(env, RUPEES_FILE, (r) => {
+    if ((r.purchases || []).some((p) => p.id === id)) return null;
+    const live = livePurchases(r);
+    if (item === "maracas" && live.some((p) => p.item === "maracas" && p.meta && p.meta.theme === m.theme)) throw httpError("you already own that theme", 409);
+    if (item === "mask" && live.some((p) => p.item === "mask" && p.meta && p.meta.mask === m.mask)) throw httpError("you already own that mask", 409);
+    if (item === "fairy" && live.some((p) => p.item === "fairy" && !p.used)) throw httpError("you can only hold one fairy", 409);
+    if (item === "bomb" && live.filter((p) => p.item === "bomb" && quarterOf(new Date(p.ts)) === quarterOf(now)).length >= BOMBS_PER_QUARTER)
+      throw httpError(`no bombs left this quarter (${BOMBS_PER_QUARTER} max)`, 409);
+    const purchase = { id, item, cost: priceFor(item, m), ts: now.toISOString(), ...(clean ? { meta: clean } : {}) };
+    return { ...r, purchases: [...(r.purchases || []), purchase] };
+  }, `Rupees: buy ${item}`, { missing: EMPTY_RUPEES });
+}
+
+export async function refundItem(env, { id }, now = new Date()) {
+  if (typeof id !== "string" || !PURCHASE_ID.test(id)) throw httpError("id must be a purchase id", 400);
+  return mutateFile(env, RUPEES_FILE, (r) => {
+    const p = (r.purchases || []).find((x) => x.id === id);
+    if (!p) throw httpError("no such purchase", 404);
+    if (p.refunded) return null;
+    if (p.item === "bomb") throw httpError("a bomb that has gone off can't be refunded (dig the game up instead)", 409);
+    if (p.used) throw httpError("that fairy has already been used", 409);
+    if (now.getTime() - new Date(p.ts).getTime() > REFUND_MS) throw httpError("refunds are for the first 24 hours", 409);
+    return { ...r, purchases: r.purchases.map((x) => (x.id === id ? { ...x, refunded: true } : x)) };
+  }, `Rupees: refund ${id}`, { missing: EMPTY_RUPEES });
+}
+
+export async function useFairy(env, { gameId }, now = new Date()) {
+  if (!(Number.isInteger(gameId) && gameId > 0)) throw httpError("gameId must be a game id", 400);
+  const day = ymdUTC(now);
+  return mutateFile(env, RUPEES_FILE, (r) => {
+    const until = (r.fairyUntil || {})[gameId];
+    if (until && until >= day) return null;
+    const fairy = (r.purchases || []).find((p) => p.item === "fairy" && !p.refunded && !p.used);
+    if (!fairy) throw httpError("no fairy in a bottle to use", 409);
+    return {
+      ...r,
+      purchases: r.purchases.map((x) => (x === fairy ? { ...x, used: day, usedOn: gameId } : x)),
+      fairyUntil: { ...(r.fairyUntil || {}), [gameId]: ymdUTC(new Date(now.getTime() + FAIRY_DAYS * 86400000)) },
+    };
+  }, `Rupees: fairy for game ${gameId}`, { missing: EMPTY_RUPEES });
+}
+
 // Fires the daily Steam/RA sync and the SteamGridDB cover backfill immediately after a new
 // game is added, instead of making it wait for their normal daily/weekly schedules. Reuses
 // gh() as-is — the Actions dispatch endpoint needs the exact same repo base URL and auth
@@ -389,6 +471,10 @@ export default {
       // page and the weekend pick, so there is no sync to refresh.
       if (url.pathname.endsWith("/owl/skip")) return json(await skipGame(env, body), 200, origin);
       if (url.pathname.endsWith("/owl/restore")) return json(await restoreGame(env, body), 200, origin);
+      // The shop writes rupees.json only; no workflow reads it.
+      if (url.pathname.endsWith("/rupees/buy")) return json(await buyItem(env, body), 200, origin);
+      if (url.pathname.endsWith("/rupees/refund")) return json(await refundItem(env, body), 200, origin);
+      if (url.pathname.endsWith("/rupees/use")) return json(await useFairy(env, body), 200, origin);
       return json({ error: "not found" }, 404, origin);
     } catch (e) {
       // Never 200 on a failed write: the page must show the error, not assume it saved.

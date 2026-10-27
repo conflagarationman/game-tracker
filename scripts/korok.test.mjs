@@ -59,5 +59,15 @@ for (const p of ["index", "owl", "wrapped", "add"]) {
 }
 t("game-tracker holds 10 spots (Steph's log holds the other 2)", spots === 10);
 
+// Forest skins and the Blood Moon gate (known full moons: 2000-01-21, 2024-01-25, 2025-10-07).
+const noon = (iso) => new Date(iso + "T12:00:00");
+t("skins: three, with the names the shop sells", JSON.stringify(Object.keys(K.SKINS).sort()) === JSON.stringify(["autumn", "bloodmoon", "lostwoods"]));
+t("moon: full on real full-moon dates", ["2000-01-21", "2024-01-25", "2025-10-07"].every(d => K.isFullMoon(noon(d))));
+t("moon: not full on new, quarter or random days", ["2024-01-11", "2024-01-18", "2024-02-02", "2026-10-19"].every(d => !K.isFullMoon(noon(d))));
+t("moon: a full-moon stretch is only two or three days a month", Array.from({ length: 60 }, (_, i) => K.isFullMoon(new Date(2026, 0, 1 + i, 12))).filter(Boolean).length <= 6);
+t("moon age stays in one lunar cycle", [0, 400, 9000, -500].every(n => { const a = K.moonAge(new Date(Date.UTC(2020, 0, 1) + n * 86400000)); return a >= 0 && a < 29.54; }));
+t("skinActive: Blood Moon only on full-moon dates, the others any day", K.skinActive("bloodmoon", noon("2024-01-25")) && !K.skinActive("bloodmoon", noon("2024-01-11")) && K.skinActive("autumn", noon("2024-01-11")) && !K.skinActive("neon", noon("2024-01-25")));
+t("the forest theme, counts and keys are untouched", K.forestUnlocked(["a", "b", "c", "d", "e", "f"], 12) && !K.forestUnlocked(["a"], 12) && JSON.stringify(K.MILESTONES) === "[3,6]");
+
 console.log(pass + "/" + (pass + fail) + " passing");
 process.exit(fail ? 1 : 0);
