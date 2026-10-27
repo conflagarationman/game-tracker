@@ -1,7 +1,7 @@
 // Exercises the Worker against a stubbed GitHub contents API, so the read-modify-write path
 // and its conflict retry are covered without needing a token or a network — same pattern as
 // steph-tv-tracker's worker/index.test.mjs.
-import worker, { validateNewGame, validateGameFields, SNOOZE_DAYS } from "./index.mjs";
+import worker, { validateNewGame, validateGameFields, SNOOZE_DAYS, PRICES, BOMBS_PER_QUARTER, FAIRY_DAYS, REFUND_MS, buyItem, refundItem, useFairy } from "./index.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
@@ -462,6 +462,126 @@ await test("the owl endpoints sit behind the same key and origin checks", async 
   const repo = fakeRepo({ "owl-skips.json": "{}" });
   assert.equal((await post("/owl/skip", { key: "id:1", t: "A" }, { "X-Sync-Key": "wrong" })).status, 401);
   assert.equal((await post("/owl/restore", { key: "id:1" }, { Origin: "https://evil.example" })).status, 403);
+  assert.equal(repo.writes.length, 0);
+});
+
+// ─── Rupee shop ───
+const rupeesOf = (repo) => JSON.parse(repo.files["rupees.json"]);
+const buy = (id, item, meta) => post("/rupees/buy", { id, item, meta });
+
+await test("the Worker's prices and rules match rupees.js's", async () => {
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(await readFile(new URL("../rupees.js", import.meta.url), "utf8"), ctx);
+  const R = ctx.GTRupees;
+  assert.deepEqual({ ...PRICES }, { ...R.PRICES });
+  assert.equal(BOMBS_PER_QUARTER, R.BOMBS_PER_QUARTER);
+  assert.equal(FAIRY_DAYS, R.FAIRY_DAYS);
+  assert.equal(REFUND_MS, R.REFUND_MS);
+});
+
+await test("buy creates rupees.json, prices it itself, never touches games.json", async () => {
+  const repo = fakeRepo({ "games.json": "[]" });
+  const res = await post("/rupees/buy", { id: "buy-0001", item: "mask", meta: { mask: "majora" }, cost: 1 });
+  assert.equal(res.status, 200);
+  const r = rupeesOf(repo);
+  assert.equal(r.purchases.length, 1);
+  assert.equal(r.purchases[0].cost, 400, "the page's cost is ignored; Majora's is the dear one");
+  assert.deepEqual(r.purchases[0].meta, { mask: "majora" });
+  assert.equal(repo.files["games.json"], "[]");
+  assert.ok(repo.writes.every(w => w.file === "rupees.json"));
+});
+
+await test("buying the same id twice is one purchase and one commit", async () => {
+  const repo = fakeRepo({});
+  await buy("dup-00001", "fairy");
+  const res = await buy("dup-00001", "fairy");
+  assert.equal(res.status, 200);
+  assert.equal(rupeesOf(repo).purchases.length, 1);
+  assert.equal(repo.writes.length, 1);
+});
+
+await test("a theme or mask can't be bought twice, and a second fairy is refused", async () => {
+  const repo = fakeRepo({});
+  assert.equal((await buy("t-000001", "maracas", { theme: "autumn" })).status, 200);
+  assert.equal((await buy("t-000002", "maracas", { theme: "autumn" })).status, 409);
+  assert.equal((await buy("t-000003", "maracas", { theme: "bloodmoon" })).status, 200);
+  assert.equal((await buy("m-000001", "mask", { mask: "bunny" })).status, 200);
+  assert.equal((await buy("m-000002", "mask", { mask: "bunny" })).status, 409);
+  assert.equal((await buy("f-000001", "fairy")).status, 200);
+  assert.equal((await buy("f-000002", "fairy")).status, 409);
+  assert.equal(rupeesOf(repo).purchases.length, 4);
+});
+
+await test("buy rejects unknown items, themes, masks and bad ids", async () => {
+  fakeRepo({});
+  for (const body of [{ id: "x-000001", item: "sword" }, { id: "x-000001", item: "maracas", meta: { theme: "neon" } },
+    { id: "x-000001", item: "mask", meta: { mask: "nope" } }, { id: "x-000001", item: "bomb", meta: {} },
+    { id: "BAD", item: "fairy" }, { item: "fairy" }])
+    assert.equal((await post("/rupees/buy", body)).status, 400, JSON.stringify(body));
+});
+
+await test("bombs stop at ten a quarter and come back next quarter", async () => {
+  const repo = fakeRepo({});
+  const q1 = new Date("2026-11-15T12:00:00Z"), q2 = new Date("2027-01-05T12:00:00Z");
+  for (let i = 1; i <= 10; i++) await buyItem(env, { id: `bomb-${String(i).padStart(4, "0")}`, item: "bomb", meta: { gameId: i } }, q1);
+  await assert.rejects(buyItem(env, { id: "bomb-9999", item: "bomb", meta: { gameId: 99 } }, q1), /no bombs left/);
+  await buyItem(env, { id: "bomb-next-q", item: "bomb", meta: { gameId: 99 } }, q2);
+  assert.equal(rupeesOf(repo).purchases.length, 11);
+});
+
+await test("refund works inside 24h, is idempotent, and frees a theme to be bought again", async () => {
+  const repo = fakeRepo({});
+  const t0 = new Date("2026-10-26T12:00:00Z");
+  await buyItem(env, { id: "ref-00001", item: "maracas", meta: { theme: "autumn" } }, t0);
+  await refundItem(env, { id: "ref-00001" }, new Date(t0.getTime() + 3600e3));
+  assert.equal(rupeesOf(repo).purchases[0].refunded, true);
+  const writes = repo.writes.length;
+  await refundItem(env, { id: "ref-00001" }, new Date(t0.getTime() + 7200e3));
+  assert.equal(repo.writes.length, writes, "second refund is a no-op");
+  assert.equal((await buy("ref-00002", "maracas", { theme: "autumn" })).status, 200);
+});
+
+await test("refund is refused after a day, for a bomb that went off, and for a used fairy", async () => {
+  const repo = fakeRepo({});
+  const t0 = new Date("2026-10-26T12:00:00Z");
+  await buyItem(env, { id: "old-00001", item: "mask", meta: { mask: "keaton" } }, t0);
+  await assert.rejects(refundItem(env, { id: "old-00001" }, new Date(t0.getTime() + REFUND_MS + 1000)), /first 24 hours/);
+  await buyItem(env, { id: "bomb-0001", item: "bomb", meta: { gameId: 5 } }, t0);
+  await assert.rejects(refundItem(env, { id: "bomb-0001" }, t0), /gone off/);
+  await buyItem(env, { id: "fair-0001", item: "fairy" }, t0);
+  await useFairy(env, { gameId: 7 }, t0);
+  await assert.rejects(refundItem(env, { id: "fair-0001" }, t0), /already been used/);
+  assert.equal((await post("/rupees/refund", { id: "nothing-99" })).status, 404);
+});
+
+await test("use: the fairy covers a game for 7 days, is spent, and a covered game is a no-op", async () => {
+  const repo = fakeRepo({});
+  const t0 = new Date("2026-10-26T12:00:00Z");
+  await buyItem(env, { id: "fair-0001", item: "fairy" }, t0);
+  await useFairy(env, { gameId: 7 }, t0);
+  const r = rupeesOf(repo);
+  assert.equal(r.fairyUntil["7"], "2026-11-02");
+  assert.equal(r.purchases[0].used, "2026-10-26");
+  const writes = repo.writes.length;
+  await useFairy(env, { gameId: 7 }, new Date(t0.getTime() + 86400e3));
+  assert.equal(repo.writes.length, writes);
+  await assert.rejects(useFairy(env, { gameId: 8 }, t0), /no fairy/);
+  assert.equal((await post("/rupees/use", { gameId: "x" })).status, 400);
+});
+
+await test("a used fairy frees the slot for another", async () => {
+  fakeRepo({});
+  const t0 = new Date("2026-10-26T12:00:00Z");
+  await buyItem(env, { id: "fair-0001", item: "fairy" }, t0);
+  await useFairy(env, { gameId: 7 }, t0);
+  await buyItem(env, { id: "fair-0002", item: "fairy" }, t0);
+});
+
+await test("the shop endpoints sit behind the same key and origin checks", async () => {
+  const repo = fakeRepo({});
+  assert.equal((await post("/rupees/buy", { id: "k-000001", item: "fairy" }, { "X-Sync-Key": "wrong" })).status, 401);
+  assert.equal((await post("/rupees/use", { gameId: 1 }, { Origin: "https://evil.example" })).status, 403);
   assert.equal(repo.writes.length, 0);
 });
 

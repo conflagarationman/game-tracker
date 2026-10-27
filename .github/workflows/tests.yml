@@ -80,6 +80,9 @@ jobs:
       - name: Dampé's graveyard
         run: node scripts/graveyard.test.mjs
 
+      - name: Rupee wallet and shop
+        run: node scripts/rupees.test.mjs
+
       - name: Admin Worker
         run: node index.test.mjs
         working-directory: worker
