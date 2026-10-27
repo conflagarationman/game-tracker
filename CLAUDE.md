@@ -20,7 +20,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `games.json` | you, via `add.html` → Worker, or a session's PR (auto-merged); **and** the sync bot | The whole library. Human-owned fields and bot-owned fields share each record — see below. |
 | `covers.json` | bot only (`backfill-covers.yml`, daily + on `games.json` push) | Cover art URLs, **keyed by lowercase title**. |
 | `gotm.json` | bot only (`fetch-gotm.mjs`, daily) | Mirror of the r/SBCGaming club's pick list. Overwritten wholesale — never put human state here. |
-| `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page. |
+| `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page, and carries `warnings` (short strings, empty when clean) for hub-side soft failures like a failed ASF ledger fetch; the hub's `health_check.py` reads it daily. |
 | `play-check.json` | bot only (`sync-games.yml`, daily) | Recent real play vs. status — see "Play check" below. Keyed by `id`. |
 | `asf-idle.json` | bot only (`sync-games.yml`, daily) | ASF card farming per year, and per tracked game how much idling was taken out of its hours. Kept as-is when the hub doesn't answer. |
 | `worker-config.js` | you | Points the pages at the deployed Worker. |
