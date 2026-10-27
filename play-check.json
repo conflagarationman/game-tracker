@@ -2,10 +2,10 @@
   "windowDays": 14,
   "recent": {
     "510": {
-      "lastPlayed": "2026-10-26"
+      "lastPlayed": "2026-10-27"
     },
     "526": {
-      "mins": 212
+      "mins": 133
     },
     "529": {
       "mins": 506
@@ -18,8 +18,8 @@
     {
       "id": 526,
       "t": "Animal Well",
-      "s": "queue",
-      "mins": 212
+      "s": "done",
+      "mins": 133
     }
   ],
   "untracked": [
