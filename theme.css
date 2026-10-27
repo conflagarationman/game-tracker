@@ -1,0 +1,70 @@
+/* Ocarina green and gold: the one palette every page reads from. Dark is the default; the
+   "Hyrule map" parchment follows prefers-color-scheme: light, or <html data-theme="light"> to
+   force it (data-theme="dark" forces dark). Pages use these tokens and never a literal colour,
+   except the platform colours in index.html and the owl's own art. scripts/theme.test.mjs
+   checks the contrast of every pair below, in both modes. */
+:root{
+  --bg:#14261a;--surface:#1c3323;--surface2:#234029;
+  --border:#2f4a34;--border2:#3f6246;
+  --text:#eaf2e3;--muted:#a9c2a6;--dim:#86a383;
+  --accent:#e8c547;--on-accent:#14261a;
+  --playing:#c9f0b4;--playing-bg:#2c5a2a;
+  --done:#f3dc84;--done-bg:#4a3e12;
+  --dropped:#f2a49c;--dropped-bg:#4a1f1c;
+  --heart:#e2574c;--rupee:#7fd36b;
+  --info:#8fd0e8;--ok:#7fd36b;--warn:#f0b45a;--fairy:#e9a3d6;--bad:var(--dropped);
+  --plat-pct:100%; /* platform colours are bright; on parchment they're mixed toward black */
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){
+    --bg:#f3ead3;--surface:#faf4e4;--surface2:#efe3c4;
+    --border:#d9c79c;--border2:#c4ad78;
+    --text:#3b2a1a;--muted:#7a6143;--dim:#7b6444;
+    --accent:#6b3f1d;--on-accent:#faf4e4;
+    --playing:#22572f;--playing-bg:#d9ecd8;
+    --done:#6b4a06;--done-bg:#f3e1a8;
+    --dropped:#7a2318;--dropped-bg:#f2d3cc;
+    --heart:#b3352e;--rupee:#2f7d4a;
+    --info:#1f5f7a;--ok:#2a6f40;--warn:#8a5a06;--fairy:#a8407f;
+    --plat-pct:50%;
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f3ead3;--surface:#faf4e4;--surface2:#efe3c4;
+  --border:#d9c79c;--border2:#c4ad78;
+  --text:#3b2a1a;--muted:#7a6143;--dim:#7b6444;
+  --accent:#6b3f1d;--on-accent:#faf4e4;
+  --playing:#22572f;--playing-bg:#d9ecd8;
+  --done:#6b4a06;--done-bg:#f3e1a8;
+  --dropped:#7a2318;--dropped-bg:#f2d3cc;
+  --heart:#b3352e;--rupee:#2f7d4a;
+  --info:#1f5f7a;--ok:#2a6f40;--warn:#8a5a06;--fairy:#a8407f;
+  --plat-pct:50%;
+  color-scheme:light;
+}
+/* Always-dark surfaces whatever the page is: Wrapped's story slides, the owl's text box and music box. */
+.story,.box,.musicbox{
+  color:var(--text);
+  --bg:#14261a;--surface:#1c3323;--surface2:#234029;--border:#2f4a34;--border2:#3f6246;
+  --text:#eaf2e3;--muted:#a9c2a6;--dim:#86a383;--accent:#e8c547;--on-accent:#14261a;
+  --playing:#c9f0b4;--done:#f3dc84;--info:#8fd0e8;--ok:#7fd36b;--warn:#f0b45a;
+}
+
+/* Headings in Cinzel; labels stay DM Mono and body stays Syne (their own class rules win). */
+body h1,body h2{font-family:'Cinzel',Georgia,serif;font-weight:700;letter-spacing:0.04em;}
+/* A small Triforce after the page title, in the accent colour. Original three-triangle mark. */
+body h1::after{content:"";display:inline-block;width:0.5em;height:0.45em;margin-left:0.4em;vertical-align:0.05em;background:var(--accent);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 18'%3E%3Cpath d='M10 0l4 7H6zM5 9l4 7H1zM15 9l4 7h-8z'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 18'%3E%3Cpath d='M10 0l4 7H6zM5 9l4 7H1zM15 9l4 7h-8z'/%3E%3C/svg%3E") center/contain no-repeat;}
+/* Section dividers fade from gold into the border colour. */
+.cr{border-image:linear-gradient(90deg,color-mix(in srgb,var(--accent) 60%,var(--border)),var(--border) 50%) 1;}
+
+/* Korok Forest (korok.js adds the class and its own palette) and its Hestu skins are always dark
+   and leafy, so the status colours switch to their dark set there even in parchment mode. */
+:root.korok-forest{
+  --playing:#c9f0b4;--playing-bg:#2c5a2a;--done:#f3dc84;--done-bg:#4a3e12;--dropped:#f2a49c;--dropped-bg:#4a1f1c;
+  --heart:#e2574c;--rupee:#7fd36b;--info:#8fd0e8;--ok:#7fd36b;--warn:#f0b45a;--fairy:#e9a3d6;--on-accent:#14261a;--plat-pct:100%;
+  color-scheme:dark;
+}

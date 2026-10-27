@@ -5,13 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Add/Edit Game</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%8E%AE</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
 <style>
-:root {
-  --bg:#0e0e10;--surface:#17171a;--surface2:#1f1f24;
-  --border:#2a2a30;--border2:#3a3a42;--text:#f0f0f0;
-  --muted:#888890;--dim:#555560;--accent:#c8f542;--bad:#f54242;
-}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:2rem 1rem;padding-bottom:max(2rem,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;}
 h1{font-size:1.6rem;font-weight:800;letter-spacing:-0.03em;color:var(--accent);margin-bottom:0.3rem;}
@@ -31,15 +27,15 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 .check label{margin:0;}
 button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;
   border-radius:8px;padding:0.75rem 1rem;cursor:pointer;border:1px solid transparent;}
-.btn-primary{background:var(--accent);color:#0e0e10;font-weight:700;width:100%;margin-top:1.5rem;}
+.btn-primary{background:var(--accent);color:var(--on-accent);font-weight:700;width:100%;margin-top:1.5rem;}
 .btn-primary:disabled{opacity:0.5;cursor:default;}
 .btn-secondary{background:var(--surface);color:var(--text);border-color:var(--border);}
 .btn-danger{background:transparent;color:var(--bad);border-color:var(--bad);}
 .actions{display:flex;gap:0.6rem;margin-top:0.75rem;}
 .actions button{flex:1;}
 .msg{font-family:'DM Mono',monospace;font-size:0.75rem;padding:0.75rem;border-radius:8px;margin-top:1rem;display:none;}
-.msg.ok{background:#42f5a018;color:#42f5a0;border:1px solid #42f5a030;display:block;}
-.msg.err{background:#f5424218;color:var(--bad);border:1px solid #f5424230;display:block;}
+.msg.ok{background:color-mix(in srgb, var(--ok) 9%, transparent);color:var(--ok);border:1px solid color-mix(in srgb, var(--ok) 19%, transparent);display:block;}
+.msg.err{background:color-mix(in srgb, var(--dropped) 9%, transparent);color:var(--bad);border:1px solid color-mix(in srgb, var(--dropped) 19%, transparent);display:block;}
 .msg a{color:inherit;}
 .setup{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);background:var(--surface);
   border:1px solid var(--border);border-radius:8px;padding:1rem;line-height:1.6;}
@@ -51,7 +47,7 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
    GOTM stay in the main form above, because games.json already uses both on backlog
    entries (5 queue/soon games carry a diff, 5 carry a gotm), so hiding them behind a
    done-only block would make existing data uneditable. */
-.fieldset{border:1px solid var(--border);border-radius:8px;padding:0.9rem;margin-top:1.25rem;background:#ffffff04;}
+.fieldset{border:1px solid var(--border);border-radius:8px;padding:0.9rem;margin-top:1.25rem;background:color-mix(in srgb, var(--text) 2%, transparent);}
 .fieldset > label:first-of-type{margin-top:0;}
 .fieldset-lbl{font-family:'DM Mono',monospace;font-size:0.6rem;text-transform:uppercase;
   letter-spacing:0.12em;color:var(--accent);margin-bottom:0.2rem;}
@@ -516,7 +512,7 @@ $('submit-btn').addEventListener('click', async () => {
       let msg = `Saved "${input.t}". <a href="index.html">View tracker &rarr;</a>`;
       const failed = ((data && data.triggers) || []).filter(t => !t.ok);
       if (failed.length) {
-        msg += `<br><span style="color:#f5a042">⚠ Saved, but couldn't auto-trigger: ${failed.map(t => t.workflow).join(', ')}. They'll still run on their normal schedule.</span>`;
+        msg += `<br><span style="color:var(--warn)">⚠ Saved, but couldn't auto-trigger: ${failed.map(t => t.workflow).join(', ')}. They'll still run on their normal schedule.</span>`;
       }
       showMsg(msg, true);
     } else {
@@ -524,7 +520,7 @@ $('submit-btn').addEventListener('click', async () => {
       let msg = `Added "${input.t}". <a href="index.html">View tracker &rarr;</a>`;
       const failed = (data.triggers || []).filter(t => !t.ok);
       if (failed.length) {
-        msg += `<br><span style="color:#f5a042">⚠ Added, but couldn't auto-trigger: ${failed.map(t => t.workflow).join(', ')}. They'll still run on their normal schedule.</span>`;
+        msg += `<br><span style="color:var(--warn)">⚠ Added, but couldn't auto-trigger: ${failed.map(t => t.workflow).join(', ')}. They'll still run on their normal schedule.</span>`;
       }
       showMsg(msg, true);
       clearForm();
@@ -799,7 +795,7 @@ if (!WORKER.url || !WORKER.key) {
     .catch(e => showMsg('Failed to load games.json: ' + e.message, false));
 }
 </script>
-<script src="korok.js" data-repo="game-tracker" data-total="12" data-spots="add:88%,add-hang:30%:top"></script>
+<script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="add:88%,add-hang:30%:top"></script>
 <script src="usage.js" defer></script>
 </body>
 </html>

@@ -378,7 +378,7 @@ for (const path of ["index.html", "owl.html"]) {
     await page.waitForSelector("#korok-forest-btn:not([hidden])");
     await page.click("#korok-forest-btn");
     ok(await page.evaluate(() => document.documentElement.classList.contains("korok-forest")), "forest theme not applied");
-    ok(await page.evaluate(() => getComputedStyle(document.body).backgroundColor) === "rgb(11, 26, 16)", "forest background not green");
+    ok(await page.evaluate(() => getComputedStyle(document.body).backgroundColor) === "rgb(14, 47, 18)", "forest background not the leaf green (and distinct from the base #14261a)");
     await page.reload();
     ok(await page.evaluate(() => document.documentElement.classList.contains("korok-forest")), "forest theme should persist");
     ok(errors.length === 0, errors.join(" | "));

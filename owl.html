@@ -5,13 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kaepora Gaebora</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%A6%89</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
 <style>
-/* Same palette as index.html, plus OoT's text-box colours: key words in red, places in blue,
+/* Palette from theme.css, plus OoT's text-box colours: key words in red, places in blue,
    and the Yes/No choices in green with a pointing cursor. */
 :root{
-  --bg:#0e0e10;--surface:#17171a;--surface2:#1f1f24;--border:#2a2a30;--border2:#3a3a42;
-  --text:#f0f0f0;--muted:#888890;--dim:#555560;--accent:#c8f542;
   --box:#0a1230eb;--box-edge:#6878b8;--hy-red:#ff5a5a;--hy-blue:#6ab4ff;--hy-green:#5cf07a;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -30,7 +29,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .music{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--border2);background:transparent;color:var(--muted);
   font-size:1rem;cursor:pointer;}
 .music:hover,.music:focus-visible{color:var(--text);border-color:var(--muted);outline:none;}
-.music[aria-pressed="true"]{color:#0e0e10;background:var(--accent);border-color:var(--accent);}
+.music[aria-pressed="true"]{color:var(--on-accent);background:var(--accent);border-color:var(--accent);}
 /* The music box: YouTube's player must stay visible while it plays, so it gets a small,
    tidy frame at the bottom of the page instead of a bare video in the middle of it. */
 .musicbox{align-self:center;width:min(100%,320px);margin-top:.5rem;padding:.55rem .6rem .65rem;border-radius:14px;
@@ -107,7 +106,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .choice{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;color:var(--text);background:var(--surface);
   border:1px solid var(--border2);border-radius:99px;padding:.6rem 1.1rem;cursor:pointer;animation:rise .3s ease both;}
 .choice:hover,.choice:focus-visible{border-color:var(--accent);outline:none;}
-.choice.again{border-color:#c8f54270;color:var(--accent);}
+.choice.again{border-color:color-mix(in srgb, var(--accent) 44%, transparent);color:var(--accent);}
 .choice.suggested{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
 .choice:disabled{opacity:.5;cursor:default;}
 .choice small{display:block;font-family:'DM Mono',monospace;font-weight:400;font-size:.65rem;color:var(--muted);margin-top:.15rem;}
@@ -123,7 +122,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .pick-title{font-weight:800;font-size:1.05rem;line-height:1.2;overflow-wrap:anywhere;}
 .plat{font-family:'DM Mono',monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .5rem;border-radius:99px;align-self:flex-start;}
 .badges{display:flex;gap:.35rem;flex-wrap:wrap;}
-.plat.kind{background:#c8f54218;color:var(--accent);}
+.plat.kind{background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);}
 .why{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);line-height:1.5;}
 .foot{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.25rem 1rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim);}
 .redo{background:none;border:none;color:var(--muted);font:inherit;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;text-decoration:underline;padding:.4rem;}
@@ -136,7 +135,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .struck li{display:flex;align-items:center;justify-content:space-between;gap:.75rem;font-size:.9rem;}
 .struck .st-t{min-width:0;overflow-wrap:anywhere;}
 .struck .st-t small{display:block;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--dim);}
-.struck .restore{flex:none;font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;color:var(--accent);background:none;border:1px solid #c8f54270;border-radius:99px;padding:.35rem .8rem;cursor:pointer;}
+.struck .restore{flex:none;font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;color:var(--accent);background:none;border:1px solid color-mix(in srgb, var(--accent) 44%, transparent);border-radius:99px;padding:.35rem .8rem;cursor:pointer;}
 .struck .restore:hover,.struck .restore:focus-visible{border-color:var(--accent);outline:none;}
 .struck .restore:disabled{opacity:.5;cursor:default;}
 .struck .st-say{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);}
@@ -922,7 +921,7 @@ Promise.all([
   choices([['Try again', () => location.reload()]]);
 });
 </script>
-<script src="korok.js" data-repo="game-tracker" data-total="12" data-spots="owl:50%,owl-hang:12%:top,owl-low:78%"></script>
+<script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="owl:50%,owl-hang:12%:top,owl-low:78%"></script>
 <script src="usage.js" defer></script>
 </body>
 </html>
