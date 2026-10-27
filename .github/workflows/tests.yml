@@ -83,6 +83,9 @@ jobs:
       - name: Rupee wallet and shop
         run: node scripts/rupees.test.mjs
 
+      - name: Theme contrast
+        run: node scripts/theme.test.mjs
+
       - name: Admin Worker
         run: node index.test.mjs
         working-directory: worker

@@ -27,6 +27,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
 | `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
 | `korok.js` | you | Hidden Koroks + **Hestu**. One tag per page with `data-spots="id:left[:top],…"`; finds live under ONE localStorage key, `korok:all`, as `repo/id`, shared with Steph's TV log (same github.io origin; old `korok:<repo>` keys are folded in, never deleted). **12 spots in all: 10 here (index 3, owl 3, wrapped 2, add 2) + 2 on Steph's log** — every tag says `data-total="12"`; add a spot and bump it everywhere. Hestu (a pixel tree-friend with maracas) dances at 3, 6 and all seeds; 6 unlocks a "Korok Forest" theme toggle in the seed counter at the foot of the page (the counter only appears after the first find). The first block is DOM-free and tested by `scripts/korok.test.mjs`; **the file is copied verbatim into steph-tv-tracker** (it now also carries the forest skins and moon-phase gate for the rupee shop; both copies, and the hub's twin, need re-syncing), and the hub has its own twin in `status_server.py`. |
+| `theme.css` | you | **Ocarina green and gold** palette for every page: the `:root` tokens (`--bg --surface --surface2 --border --border2 --text --muted --dim --accent --on-accent`, status pairs `--playing/-bg --done/-bg --dropped/-bg`, plus `--heart --rupee --info --ok --warn --fairy`). Dark is the default; the "Hyrule map" parchment follows `prefers-color-scheme: light` or `<html data-theme="light">` (`data-theme="dark"` forces dark). Pages carry **no literal colours of their own** except platform colours (`index.html`'s `PC`/`.p-*`, mixed toward black on parchment via `--plat-pct`), art (owl, fairy, masks) and the share-image canvas. Headings are Cinzel, labels DM Mono, body Syne. The Korok Forest sets its own brighter leaf palette through each page's `data-forest` attribute (korok.js is untouched) and `:root.korok-forest` pins the status colours to their dark set. Wrapped's story slides are always dark (`.story`). Contrast of every pair, in both modes and the forest, is checked by `scripts/theme.test.mjs`. |
 | `hearts.js` | you | **Heart Containers**: every `s:"done"` game is a Heart Piece, four make a container (only `done` counts). DOM-free; `index.html` draws the pixel hearts under the title and plays a "Heart Piece!" moment when the finished count rises past what this browser last saw (`gt_hearts_seen` in localStorage; a first visit seeds silently). Tested by `scripts/hearts.test.mjs`. |
 | `graveyard.js` | you | **Dampé's graveyard**: a collapsible section at the foot of `index.html` with a headstone per `dropped` game (hours, a deterministic epitaph by id). "Dig it up" sends `{s:"soon", queued}` through the existing `/games/edit` (`saveEdit`) after a confirm; no new endpoint. Tested by `scripts/graveyard.test.mjs`. |
 | `rupees.js` | you | **Rupee wallet, shop, Great Fairy**. Earned = the sum over `achievements-log.json` unlocks by rarity (Steam `pct`: green ≥50 = 1, blue 20-50 = 5, red 5-20 = 20, silver 1-5 = 100, gold <1 = 300; no `pct` and every RA unlock = green). Spent = `rupees.json` purchases not refunded. Values, wallet tiers (Child/Adult/Giant/Tycoon by lifetime earned), prices, mask art and the Great Fairy seen-set logic are all constants/functions in this one DOM-free file, tested by `scripts/rupees.test.mjs`. Shop (wallet pill in `index.html`'s header): **Hestu's maracas** (forest skins Autumn / Lost Woods fog / Blood Moon, worn through `korok:all:skin`; Blood Moon only on full-moon days), **bomb a game off the queue** (queue-only, 10 per calendar quarter, drops via `saveEdit` so it lands in Dampé's graveyard), **fairy in a bottle** (hold one; auto-used on the first `playing` game that trips `isDormant`'s 30-day rule: 7 days of cover in `rupees.json` `fairyUntil`, `lastPlayed` is never touched), **masks** (worn one is `gt_mask` in localStorage; `owl.html` pre-selects its mood). Great Fairy: the first time a game's `mastery` is mastered/platinum/100pct, a skippable fountain scene (`gt_gf_seen`, seeded silently on a first visit); mastered cards always carry a gold frame. |
@@ -355,14 +356,15 @@ node scripts/korok.test.mjs            # 44
 node scripts/hearts.test.mjs           # 13
 node scripts/graveyard.test.mjs        # 12
 node scripts/rupees.test.mjs           # 18
+node scripts/theme.test.mjs            # 18
 node scripts/library-meta.test.mjs     # 4
 node scripts/library-hltb.test.mjs     # 8
 cd worker && node index.test.mjs       # 46
 ```
 
-`tests.yml` runs all eighteen on every pull request and on pushes to `main`. They need no
+`tests.yml` runs all nineteen on every pull request and on pushes to `main`. They need no
 install step, no secrets and no network, so that job is just checkout, Node 20, and the
-eighteen commands above.
+nineteen commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails

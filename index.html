@@ -5,22 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Game Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%8E%AE</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
 <style>
-:root {
-  --bg:#0e0e10;--surface:#17171a;--surface2:#1f1f24;
-  --border:#2a2a30;--border2:#3a3a42;--text:#f0f0f0;
-  --muted:#888890;--dim:#555560;--accent:#c8f542;
-  --playing:#42c8f5;--done:#42f5a0;--dropped:#f54242;
-}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:2rem 1rem;padding-bottom:max(2rem,env(safe-area-inset-bottom));}
 .header{display:flex;align-items:baseline;gap:1rem;margin-bottom:0.5rem;position:sticky;top:0;z-index:10;background:var(--bg);padding:0.75rem 0;}
 h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .edit-toggle{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;}
-.edit-toggle.active{background:var(--accent);color:#0e0e10;border-color:var(--accent);font-weight:700;}
-.add-link{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--accent);background:#c8f54218;color:var(--accent);text-decoration:none;font-weight:700;white-space:nowrap;}
-.add-link:hover{background:#c8f54230;}
+.edit-toggle.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700;}
+.add-link{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);text-decoration:none;font-weight:700;white-space:nowrap;}
+.add-link:hover{background:color-mix(in srgb, var(--accent) 19%, transparent);}
 
 /* At 390px "GAME LOG" was wrapping to two lines and "EDIT MODE: OFF" was wrapping too, which
    pushed the sticky header to ~100px tall. Shrinking the title and locking the toggle/add
@@ -51,7 +46,7 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .dragging{box-shadow:0 12px 32px rgba(0,0,0,0.5);}
 #now.drop-hover,#queue.drop-hover,#soon.drop-hover,#ongoing.drop-hover,
 #now.move-target,#queue.move-target,#soon.move-target,#ongoing.move-target{
-  outline:2px dashed var(--accent);outline-offset:6px;border-radius:8px;background:#c8f54212;
+  outline:2px dashed var(--accent);outline-offset:6px;border-radius:8px;background:color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .move-picked{outline:2px solid var(--accent);outline-offset:2px;opacity:0.6;border-radius:10px;}
 
@@ -70,15 +65,15 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .updated{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);margin-bottom:1.5rem;}
 /* Amber once the sync is older than a scheduled run: the stamp used to show a plain date, so
    a sync that had been broken for weeks looked no different from one that ran this morning. */
-.updated.stale{color:#f5a042;}
+.updated.stale{color:var(--warn);}
 
 /* Page-level load failure, so an error can't be mistaken for an empty tracker. */
-.banner{display:none;align-items:center;gap:0.75rem;flex-wrap:wrap;background:#f5424218;
-  border:1px solid #f5424230;color:#f54242;border-radius:8px;padding:0.75rem 0.9rem;
+.banner{display:none;align-items:center;gap:0.75rem;flex-wrap:wrap;background:color-mix(in srgb, var(--dropped) 9%, transparent);
+  border:1px solid color-mix(in srgb, var(--dropped) 19%, transparent);color:var(--dropped);border-radius:8px;padding:0.75rem 0.9rem;
   font-family:'DM Mono',monospace;font-size:0.72rem;margin-bottom:1.5rem;}
 .banner-btn{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;
   letter-spacing:0.08em;padding:0.35rem 0.7rem;border-radius:6px;cursor:pointer;
-  background:transparent;color:#f54242;border:1px solid #f5424260;}
+  background:transparent;color:var(--dropped);border:1px solid color-mix(in srgb, var(--dropped) 38%, transparent);}
 
 /* GOTM club strip. Club picks stay claimable for 12 months and then expire, so the ordering
    that matters is time remaining, not recency — this is a deadline list, not a feed. */
@@ -93,12 +88,12 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .gotm-row{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;
   padding:0.4rem 0.5rem;border-radius:7px;background:var(--surface2);
   border-left:3px solid var(--dim);}
-.gotm-row.urgent{border-left-color:#f54242;background:#f5424212;}
-.gotm-row.soonish{border-left-color:#f5a042;background:#f5a04210;}
+.gotm-row.urgent{border-left-color:var(--dropped);background:color-mix(in srgb, var(--dropped) 7%, transparent);}
+.gotm-row.soonish{border-left-color:var(--warn);background:color-mix(in srgb, var(--warn) 6%, transparent);}
 .gotm-row.current{border-left-color:var(--accent);}
 .gotm-left{font-family:'DM Mono',monospace;font-size:0.62rem;font-weight:700;min-width:4.4em;flex-shrink:0;}
-.gotm-row.urgent .gotm-left{color:#f54242;}
-.gotm-row.soonish .gotm-left{color:#f5a042;}
+.gotm-row.urgent .gotm-left{color:var(--dropped);}
+.gotm-row.soonish .gotm-left{color:var(--warn);}
 .gotm-row:not(.urgent):not(.soonish) .gotm-left{color:var(--muted);}
 .gotm-name{flex:1;font-size:0.8rem;font-weight:600;min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;}
@@ -107,22 +102,22 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 /* Bumped from 0.58rem/--muted, which measured 9.3px at 3.52:1 against the chip's own
    translucent backdrop — under WCAG AA's 4.5:1 and small enough to squint at. */
 .gotm-state{font-family:'DM Mono',monospace;font-size:0.68rem;padding:3px 8px;border-radius:99px;
-  white-space:nowrap;background:#ffffff08;color:#b4b4c0;border:1px solid #ffffff12;}
+  white-space:nowrap;background:color-mix(in srgb, var(--text) 3%, transparent);color:var(--muted);border:1px solid color-mix(in srgb, var(--text) 7%, transparent);}
 
 /* The "add to tracker" chip is the only actionable thing in the strip, so it reads as a
    button rather than another status label. Its anchor previously had no colour rule at all
    and inherited the UA stylesheet's #0000EE — saturated blue on a near-black row, which is
    what made it hard to read. */
-.gotm-state.act{background:#c8f54218;color:var(--accent);border-color:#c8f54230;}
+.gotm-state.act{background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);border-color:color-mix(in srgb, var(--accent) 19%, transparent);}
 /* .link is set by the renderer when this chip wraps an anchor. A marker class rather than
    :not(:has(a)) so the padding hand-off can't silently break on a browser without :has(). */
 .gotm-state.act.link{padding:0;}
 .gotm-state.act.link a{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;
   color:var(--accent);font-weight:700;text-decoration:none;border-radius:99px;}
-.gotm-state.act.link a:hover{background:#c8f54222;text-decoration:underline;}
+.gotm-state.act.link a:hover{background:color-mix(in srgb, var(--accent) 13%, transparent);text-decoration:underline;}
 .gotm-state.act.link a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .gotm-foot{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--dim);margin-top:0.55rem;line-height:1.5;}
-.gotm-warn{color:#f5a042;}
+.gotm-warn{color:var(--warn);}
 
 /* Loading placeholders. The shimmer is gated on prefers-reduced-motion; the boxes themselves
    still convey "content is coming" without it. */
@@ -217,35 +212,35 @@ section:first-of-type .slabel{margin-top:0;}
 }
 
 /* HLTB + playtime */
-.hltb{font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:700;color:#42c8f5;white-space:nowrap;flex-shrink:0;letter-spacing:-0.02em;}
+.hltb{font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:700;color:var(--info);white-space:nowrap;flex-shrink:0;letter-spacing:-0.02em;}
 .hltb-sm{font-size:0.55rem;font-weight:400;opacity:0.65;}
-.actual-time{font-family:'DM Mono',monospace;font-size:0.65rem;color:#a06bff;white-space:nowrap;flex-shrink:0;}
+.actual-time{font-family:'DM Mono',monospace;font-size:0.65rem;color:color-mix(in srgb,#a06bff var(--plat-pct),black);white-space:nowrap;flex-shrink:0;}
 
 /* Platform badges */
 .plat{font-family:'DM Mono',monospace;font-size:0.6rem;padding:3px 7px;border-radius:99px;white-space:nowrap;flex-shrink:0;letter-spacing:0.04em;}
-.p-steam    {background:#00e5ff22;color:#00e5ff;border:1px solid #00e5ff44;}
-.p-steamdeck{background:#a06bff22;color:#a06bff;border:1px solid #a06bff44;}
-.p-ps5      {background:#ff6b4a22;color:#ff6b4a;border:1px solid #ff6b4a44;}
-.p-switch   {background:#ff4a6b22;color:#ff4a6b;border:1px solid #ff4a6b44;}
-.p-switch2  {background:#4aff8c22;color:#4aff8c;border:1px solid #4aff8c44;}
-.p-ayn      {background:#ff4af022;color:#ff4af0;border:1px solid #ff4af044;}
-.p-retro    {background:#ffb84a22;color:#ffb84a;border:1px solid #ffb84a44;}
-.p-wiiu     {background:#009ac722;color:#009ac7;border:1px solid #009ac744;}
+.p-steam    {background:#00e5ff22;color:color-mix(in srgb,#00e5ff var(--plat-pct),black);border:1px solid #00e5ff44;}
+.p-steamdeck{background:#a06bff22;color:color-mix(in srgb,#a06bff var(--plat-pct),black);border:1px solid #a06bff44;}
+.p-ps5      {background:#ff6b4a22;color:color-mix(in srgb,#ff6b4a var(--plat-pct),black);border:1px solid #ff6b4a44;}
+.p-switch   {background:#ff4a6b22;color:color-mix(in srgb,#ff4a6b var(--plat-pct),black);border:1px solid #ff4a6b44;}
+.p-switch2  {background:#4aff8c22;color:color-mix(in srgb,#4aff8c var(--plat-pct),black);border:1px solid #4aff8c44;}
+.p-ayn      {background:#ff4af022;color:color-mix(in srgb,#ff4af0 var(--plat-pct),black);border:1px solid #ff4af044;}
+.p-retro    {background:#ffb84a22;color:color-mix(in srgb,#ffb84a var(--plat-pct),black);border:1px solid #ffb84a44;}
+.p-wiiu     {background:#009ac722;color:color-mix(in srgb,#009ac7 var(--plat-pct),black);border:1px solid #009ac744;}
 /* Slate, kept clear of every other platform hue so a PC entry never reads as Steam. */
-.p-pc       {background:#9aa7b822;color:#9aa7b8;border:1px solid #9aa7b844;}
+.p-pc       {background:#9aa7b822;color:color-mix(in srgb,#9aa7b8 var(--plat-pct),black);border:1px solid #9aa7b844;}
 
 /* Meta pills */
 .yr{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);}
-.genre-tag{font-size:0.6rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:4px;background:#ffffff08;color:var(--muted);white-space:nowrap;}
+.genre-tag{font-size:0.6rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:4px;background:color-mix(in srgb, var(--text) 3%, transparent);color:var(--muted);white-space:nowrap;}
 .rating{font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:600;color:var(--accent);}
-.gotm{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54218;color:var(--accent);border:1px solid #c8f54230;white-space:nowrap;}
-.dropped-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#f5424218;color:var(--dropped);border:1px solid #f5424230;white-space:nowrap;}
-.note-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#a06bff18;color:#a06bff;border:1px solid #a06bff30;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
-.dormant-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#55556018;color:var(--dim);border:1px solid #55556030;white-space:nowrap;}
-.replay-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54210;color:#c8f542b0;border:1px solid #c8f54230;white-space:nowrap;}
-.casual-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#42c8f510;color:#42c8f580;border:1px solid #42c8f520;white-space:nowrap;}
-.start-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#c8f54210;color:#c8f54270;border:1px solid #c8f54220;white-space:nowrap;}
-.queued-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#55556015;color:var(--dim);border:1px solid #55556025;white-space:nowrap;}
+.gotm{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
+.dropped-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:var(--dropped-bg);color:var(--dropped);border:1px solid color-mix(in srgb, var(--dropped) 35%, transparent);white-space:nowrap;}
+.note-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#a06bff18;color:color-mix(in srgb,#a06bff var(--plat-pct),black);border:1px solid #a06bff30;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.dormant-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 9%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 19%, transparent);white-space:nowrap;}
+.replay-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 69%, transparent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
+.casual-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--info) 6%, transparent);color:color-mix(in srgb, var(--info) 50%, transparent);border:1px solid color-mix(in srgb, var(--info) 13%, transparent);white-space:nowrap;}
+.start-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 44%, transparent);border:1px solid color-mix(in srgb, var(--accent) 13%, transparent);white-space:nowrap;}
+.queued-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 8%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 15%, transparent);white-space:nowrap;}
 /* Play check (play-check.json, written by the daily sync): games with real recent play that
    aren't marked playing. Quiet by design: it renders nothing when there's nothing to say. */
 .play-check{margin-top:0.75rem;padding:8px 12px;border:1px dashed var(--border);border-radius:6px;font-size:0.72rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;}
@@ -253,24 +248,24 @@ section:first-of-type .slabel{margin-top:0;}
 .play-check a{color:var(--playing);text-decoration:none;}
 .play-check a:hover{text-decoration:underline;}
 .recent-time{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);white-space:nowrap;}
-.lp-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#ffffff08;color:var(--muted);border:1px solid #ffffff10;white-space:nowrap;}
+.lp-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--text) 3%, transparent);color:var(--muted);border:1px solid color-mix(in srgb, var(--text) 6%, transparent);white-space:nowrap;}
 /* Unreleased games: a countdown instead of a release date buried in a free-text note. */
-.release-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#f5a04218;color:#f5a042;border:1px solid #f5a04230;white-space:nowrap;}
+.release-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--warn) 9%, transparent);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);white-space:nowrap;}
 
 /* Mastery */
 .mast{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;white-space:nowrap;}
-.mast-progress{background:#f5c84218;color:#f5c842;border:1px solid #f5c84230;}
-.mast-mastered{background:#ffb84a22;color:#ffb84a;border:1px solid #ffb84a44;}
-.mast-platinum{background:#c8b4ff22;color:#c8b4ff;border:1px solid #c8b4ff44;}
-.mast-100{background:#42f5a022;color:var(--done);border:1px solid #42f5a044;}
+.mast-progress{background:color-mix(in srgb, var(--warn) 9%, transparent);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);}
+.mast-mastered{background:#ffb84a22;color:color-mix(in srgb,#ffb84a var(--plat-pct),black);border:1px solid #ffb84a44;}
+.mast-platinum{background:#c8b4ff22;color:color-mix(in srgb,#c8b4ff var(--plat-pct),black);border:1px solid #c8b4ff44;}
+.mast-100{background:var(--done-bg);color:var(--done);border:1px solid color-mix(in srgb, var(--done) 35%, transparent);}
 
 /* Difficulty */
 .diff{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;white-space:nowrap;}
-.diff-1{background:#42f5a018;color:#42f5a0;border:1px solid #42f5a030;}
-.diff-2{background:#42c8f518;color:#42c8f5;border:1px solid #42c8f530;}
-.diff-3{background:#f5e04218;color:#f5e042;border:1px solid #f5e04230;}
-.diff-4{background:#f5a04218;color:#f5a042;border:1px solid #f5a04230;}
-.diff-5{background:#f5424218;color:#f54242;border:1px solid #f5424230;}
+.diff-1{background:color-mix(in srgb, var(--ok) 9%, transparent);color:var(--ok);border:1px solid color-mix(in srgb, var(--ok) 19%, transparent);}
+.diff-2{background:color-mix(in srgb, var(--info) 9%, transparent);color:var(--info);border:1px solid color-mix(in srgb, var(--info) 19%, transparent);}
+.diff-3{background:color-mix(in srgb, var(--done) 9%, transparent);color:var(--done);border:1px solid color-mix(in srgb, var(--done) 19%, transparent);}
+.diff-4{background:color-mix(in srgb, var(--warn) 9%, transparent);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);}
+.diff-5{background:color-mix(in srgb, var(--dropped) 9%, transparent);color:var(--dropped);border:1px solid color-mix(in srgb, var(--dropped) 19%, transparent);}
 
 /* Achievement bar */
 .ach-bar-wrap{display:flex;align-items:center;gap:8px;}
@@ -325,7 +320,7 @@ section:first-of-type .slabel{margin-top:0;}
 .chip{font-family:'DM Mono',monospace;font-size:0.68rem;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--border2);
   background:transparent;color:var(--muted);cursor:pointer;touch-action:manipulation;}
 .chip:hover{color:var(--text);border-color:var(--muted);}
-.chip[aria-pressed="true"]{background:#42c8f522;color:var(--playing);border-color:#42c8f560;font-weight:700;}
+.chip[aria-pressed="true"]{background:var(--playing-bg);color:var(--playing);border-color:color-mix(in srgb, var(--playing) 45%, transparent);font-weight:700;}
 .chip:focus-visible,.mini-btn:focus-visible,.tn-go:focus-visible,.pc-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .tn-list{display:flex;flex-direction:column;gap:6px;margin-top:0.35rem;}
 .tn-row{display:flex;align-items:center;gap:0.65rem;background:var(--surface2);border-radius:8px;padding:6px 8px;min-width:0;}
@@ -336,22 +331,22 @@ section:first-of-type .slabel{margin-top:0;}
 a.tn-title:hover{text-decoration:underline;}
 .tn-why{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tn-go{font-family:'DM Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.4rem 0.65rem;min-height:32px;border-radius:99px;
-  border:1px solid #42c8f560;background:#42c8f514;color:var(--playing);cursor:pointer;white-space:nowrap;flex-shrink:0;}
-.tn-go:hover{background:#42c8f530;}
+  border:1px solid color-mix(in srgb, var(--info) 38%, transparent);background:color-mix(in srgb, var(--info) 8%, transparent);color:var(--playing);cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.tn-go:hover{background:color-mix(in srgb, var(--info) 19%, transparent);}
 
 /* Play check actions: the note used to only describe the mismatch; now each row fixes it. */
 .pc-item{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;margin-right:0.5rem;}
 .pc-btn{font-family:'DM Mono',monospace;font-size:0.6rem;padding:3px 8px;min-height:26px;border-radius:99px;border:1px solid var(--border2);
   background:transparent;color:var(--muted);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;}
 .pc-btn:hover{color:var(--text);border-color:var(--muted);}
-.pc-btn.go{color:var(--playing);border-color:#42c8f560;}
+.pc-btn.go{color:var(--playing);border-color:color-mix(in srgb, var(--info) 38%, transparent);}
 .pc-btn.x{border-color:transparent;padding:3px 6px;}
 
 /* Small action buttons that sit at the top of a collapsible panel. */
 .panel-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.75rem;}
 .mini-btn{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;
-  border-radius:99px;border:1px solid #c8f54250;background:#c8f54212;color:var(--accent);cursor:pointer;}
-.mini-btn:hover{background:#c8f54226;}
+  border-radius:99px;border:1px solid color-mix(in srgb, var(--accent) 31%, transparent);background:color-mix(in srgb, var(--accent) 7%, transparent);color:var(--accent);cursor:pointer;}
+.mini-btn:hover{background:color-mix(in srgb, var(--accent) 15%, transparent);}
 
 /* ─── Triage / finish dialogs ──────────────────────────── */
 dialog.sheet{background:var(--surface);color:var(--text);border:1px solid var(--border2);border-radius:14px;padding:0;
@@ -373,9 +368,9 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
   background:var(--surface2);color:var(--text);cursor:pointer;}
 .sh-btn:hover{border-color:var(--muted);}
 .sh-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-.sh-btn.primary{background:var(--accent);color:#0e0e10;border-color:var(--accent);}
-.sh-btn.up{border-color:#42c8f560;color:var(--playing);}
-.sh-btn.bad{border-color:#f5424250;color:#f57272;}
+.sh-btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);}
+.sh-btn.up{border-color:color-mix(in srgb, var(--info) 38%, transparent);color:var(--playing);}
+.sh-btn.bad{border-color:color-mix(in srgb, var(--dropped) 31%, transparent);color:var(--dropped);}
 .sh-btn kbd{font-family:'DM Mono',monospace;font-size:0.6rem;opacity:0.55;margin-left:4px;}
 .sh-btn:disabled{opacity:0.5;cursor:default;}
 .sh-done{text-align:center;padding:1.5rem 0.5rem;font-size:0.9rem;color:var(--muted);}
@@ -420,8 +415,8 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 .hearts svg{width:16px;height:15px;display:block;shape-rendering:crispEdges;}
 .hearts-tip{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.04em;margin:-0.5rem 0 0.9rem 0.25rem;display:none;}
 .hearts-tip.show{display:block;}
-.heart-full{fill:#f5424e;}.heart-empty{fill:var(--border2);}.heart-shine{fill:#ffd0d4;}
-.hp-banner{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:1200;display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:1rem 1.6rem;border-radius:14px;background:var(--surface);border:2px solid #f5424e;box-shadow:0 12px 40px rgba(0,0,0,0.5);pointer-events:none;text-align:center;max-width:calc(100vw - 2rem);}
+.heart-full{fill:var(--heart);}.heart-empty{fill:var(--border2);}.heart-shine{fill:color-mix(in srgb,var(--heart) 30%,white);}
+.hp-banner{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:1200;display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:1rem 1.6rem;border-radius:14px;background:var(--surface);border:2px solid var(--heart);box-shadow:0 12px 40px rgba(0,0,0,0.5);pointer-events:none;text-align:center;max-width:calc(100vw - 2rem);}
 .hp-banner svg{width:56px;height:52px;shape-rendering:crispEdges;}
 .hp-banner.big svg{width:96px;height:90px;}
 .hp-banner b{font-size:1.05rem;color:var(--text);}
@@ -444,7 +439,7 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 .gy-hrs{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;}
 .gy-epi{font-size:0.72rem;color:var(--muted);font-style:italic;line-height:1.4;}
 .gy-dig{margin-top:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;}
-.gy-dig:hover:not(:disabled){background:#c8f54218;}
+.gy-dig:hover:not(:disabled){background:color-mix(in srgb, var(--accent) 9%, transparent);}
 .gy-dig:disabled{opacity:0.5;cursor:default;}
 
 /* Rupee wallet, shop, Great Fairy. Gold = the mastery frame; everything else uses page variables. */
@@ -466,7 +461,7 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
 .shop-row svg{width:36px;height:30px;flex:none;shape-rendering:crispEdges;}
 .shop-btn{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap;}
 .shop-btn:disabled{opacity:0.45;cursor:default;border-color:var(--border2);color:var(--muted);}
-.shop-btn.on{background:var(--accent);color:#0e0e10;font-weight:700;}
+.shop-btn.on{background:var(--accent);color:var(--on-accent);font-weight:700;}
 .shop-close{margin-left:auto;}
 .bomb-list{max-height:180px;overflow:auto;}
 .boom{position:fixed;inset:0;z-index:1300;display:flex;align-items:center;justify-content:center;pointer-events:none;}
@@ -477,7 +472,7 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
   @keyframes boom{0%{transform:scale(.2);opacity:0}30%{opacity:1}100%{transform:scale(2.4);opacity:0}}
   @keyframes boom-ring{0%{transform:scale(.2);opacity:1}100%{transform:scale(9);opacity:0}}
 }
-.fairy-pop{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:1250;background:var(--surface);border:2px solid #f2a0d8;border-radius:14px;padding:0.8rem 1.1rem;display:flex;gap:0.7rem;align-items:center;max-width:calc(100vw - 2rem);box-shadow:0 0 30px #f2a0d855;pointer-events:none;font-size:0.82rem;}
+.fairy-pop{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:1250;background:var(--surface);border:2px solid var(--fairy);border-radius:14px;padding:0.8rem 1.1rem;display:flex;gap:0.7rem;align-items:center;max-width:calc(100vw - 2rem);box-shadow:0 0 30px color-mix(in srgb, var(--fairy) 33%, transparent);pointer-events:none;font-size:0.82rem;}
 .fairy-pop svg{width:44px;height:44px;flex:none;}
 @media (prefers-reduced-motion:no-preference){
   .fairy-pop{animation:fp-in 0.5s ease-out both,fp-out 0.5s 4s ease-in forwards;}
@@ -486,13 +481,13 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
   @keyframes fp-out{to{opacity:0;transform:translate(-50%,-30px)}}
   @keyframes fp-float{to{transform:translateY(-8px)}}
 }
-.fairy-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#f2a0d818;color:#f2a0d8;border:1px solid #f2a0d830;white-space:nowrap;}
-.gf-gold{outline:2px solid #f5c842;outline-offset:-2px;box-shadow:0 0 14px #f5c84240;}
+.fairy-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--fairy) 9%, transparent);color:var(--fairy);border:1px solid color-mix(in srgb, var(--fairy) 19%, transparent);white-space:nowrap;}
+.gf-gold{outline:2px solid var(--accent);outline-offset:-2px;box-shadow:0 0 14px color-mix(in srgb, var(--accent) 25%, transparent);}
 .gf{position:fixed;inset:0;z-index:1400;background:radial-gradient(70% 60% at 50% 40%,#5a2a7a,#1d0b33 70%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1.5rem;text-align:center;cursor:pointer;overflow:hidden;}
 .gf svg.gf-art{width:min(260px,60vw);height:auto;}
 .gf p{font-size:1.05rem;line-height:1.5;max-width:30rem;min-height:3.2em;}
 .gf p b{color:#ffd96b;}
-.gf button{font-family:'DM Mono',monospace;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.55rem 1.1rem;border-radius:99px;border:1px solid #ffffff80;background:#ffffff14;color:#fff;cursor:pointer;}
+.gf button{font-family:'DM Mono',monospace;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.55rem 1.1rem;border-radius:99px;border:1px solid color-mix(in srgb, var(--text) 50%, transparent);background:color-mix(in srgb, var(--text) 8%, transparent);color:#fff;cursor:pointer;}
 .gf button:focus-visible{outline:2px solid #ffd96b;outline-offset:2px;}
 .gf-spark{position:absolute;width:6px;height:6px;background:#ffe9a8;border-radius:1px;opacity:0.8;}
 @media (prefers-reduced-motion:no-preference){
@@ -674,7 +669,7 @@ function achBar(g){
   if(g.casual||g.achPct===null) return '';
   const pct=g.achPct;
   const count=g.achCount?`${g.achCount[0]}/${g.achCount[1]}`:'';
-  let color = pct>=100?'#42f5a0':pct>=75?'#c8f542':pct>=50?'#f5e042':'#f5a042';
+  let color = pct>=100?'var(--ok)':pct>=75?'var(--accent)':pct>=50?'var(--done)':'var(--warn)';
   return `<div class="ach-bar-wrap">
     <span class="ach-lbl">achievements</span>
     <div class="ach-bar-track"><div class="ach-bar-fill" style="width:${pct}%;background:${color};"></div></div>
@@ -910,20 +905,20 @@ function ystats(list){
   let h=`<div class="ystats">
     <div class="ys"><div class="ys-n" style="color:var(--done)">${done.length}</div><div class="ys-l">Done</div></div>
     <div class="ys"><div class="ys-n" style="color:var(--accent)">${avg?avg+'/10':'—'}</div><div class="ys-l">Avg</div></div>
-    ${totalHrs>0?`<div class="ys"><div class="ys-n" style="color:#42c8f5">${Math.round(totalHrs)}h</div><div class="ys-l">Hours</div></div>`:''}
-    ${mastCount>0?`<div class="ys"><div class="ys-n" style="color:#ffb84a">${mastCount}</div><div class="ys-l">Mastered</div></div>`:''}
+    ${totalHrs>0?`<div class="ys"><div class="ys-n" style="color:var(--info)">${Math.round(totalHrs)}h</div><div class="ys-l">Hours</div></div>`:''}
+    ${mastCount>0?`<div class="ys"><div class="ys-n" style="color:var(--warn)">${mastCount}</div><div class="ys-l">Mastered</div></div>`:''}
     ${avgAge!=null?`<div class="ys"><div class="ys-n">${avgAge}yr</div><div class="ys-l">Avg gap</div></div>`:''}
-    ${avgDwell!=null?`<div class="ys"><div class="ys-n" style="color:#c8f542">${avgDwell}d</div><div class="ys-l">Avg dwell</div></div>`:''}
+    ${avgDwell!=null?`<div class="ys"><div class="ys-n" style="color:var(--accent)">${avgDwell}d</div><div class="ys-l">Avg dwell</div></div>`:''}
   </div>`;
   const pc={};done.forEach(g=>{pc[g.p]=(pc[g.p]||0)+1;});
   const mp=Math.max(...Object.values(pc),1);
   if(Object.keys(pc).length){h+=`<div class="bsec"><div class="blbl">Platform</div>${Object.entries(pc).sort((a,b)=>b[1]-a[1]).map(([p,c])=>`<div class="brow"><span class="bname">${PL[p]||p}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mp*100)}%;background:${PC[p]||'#888'};"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
   const gc={};done.forEach(g=>{if(g.g)gc[g.g]=(gc[g.g]||0)+1;});
   const mg2=Math.max(...Object.values(gc),1);
-  if(Object.keys(gc).length){h+=`<div class="bsec"><div class="blbl">Genre</div>${Object.entries(gc).sort((a,b)=>b[1]-a[1]).map(([gn,c])=>`<div class="brow"><span class="bname" title="${esc(gn)}">${esc(gn)}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mg2*100)}%;background:#c8f542;opacity:0.6;"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
+  if(Object.keys(gc).length){h+=`<div class="bsec"><div class="blbl">Genre</div>${Object.entries(gc).sort((a,b)=>b[1]-a[1]).map(([gn,c])=>`<div class="brow"><span class="bname" title="${esc(gn)}">${esc(gn)}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mg2*100)}%;background:var(--accent);opacity:0.6;"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
   const bm={};done.forEach(g=>{if(g.cm!=null)bm[g.cm]=(bm[g.cm]||0)+1;});
   const mm=Math.max(...Object.values(bm),1);
-  if(Object.keys(bm).length){h+=`<div class="bsec"><div class="blbl">Month</div>${Object.entries(bm).sort((a,b)=>a[0]-b[0]).map(([mo,c])=>`<div class="brow"><span class="bname">${M[mo]}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mm*100)}%;background:#42c8f5;opacity:0.6;"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
+  if(Object.keys(bm).length){h+=`<div class="bsec"><div class="blbl">Month</div>${Object.entries(bm).sort((a,b)=>a[0]-b[0]).map(([mo,c])=>`<div class="brow"><span class="bname">${M[mo]}</span><div class="btrack"><div class="bfill" style="width:${Math.round(c/mm*100)}%;background:var(--info);opacity:0.6;"></div></div><span class="bval">${c}</span></div>`).join('')}</div>`;}
   const br=rated.length?rated.reduce((a,b)=>a.r>=b.r?a:b):null;
   const old=wg.length?wg.reduce((a,b)=>a.y<=b.y?a:b):null;
   const big=wg.length?wg.reduce((a,b)=>(a.cy-a.y)>=(b.cy-b.y)?a:b):null;
@@ -1124,12 +1119,12 @@ function render(){
   const avg=rated.length?(rated.reduce((s,g)=>s+g.r,0)/rated.length).toFixed(1):'—';
   const mastTotal=G.filter(g=>g.mastery&&g.mastery!=='in-progress').length;
   document.getElementById('stats').innerHTML=`
-    <div class="stat"><div class="stat-n" style="color:#42c8f5">${playing.length}</div><div class="stat-l">Playing</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--playing)">${playing.length}</div><div class="stat-l">Playing</div></div>
     <div class="stat"><div class="stat-n" style="color:#888">${queue.length+soon.length}</div><div class="stat-l">Backlog</div></div>
     ${paceStat(backlogHrs, playing, queue)}
-    <div class="stat"><div class="stat-n" style="color:#42f5a0">${done.length}</div><div class="stat-l">Done</div></div>
-    <div class="stat"><div class="stat-n" style="color:#ffb84a">${mastTotal}</div><div class="stat-l">Mastered</div></div>
-    <div class="stat"><div class="stat-n" style="color:#c8f542">${avg}</div><div class="stat-l">Avg${rated.length?` · ${rated.length} rated`:' rating'}</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--done)">${done.length}</div><div class="stat-l">Done</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--warn)">${mastTotal}</div><div class="stat-l">Mastered</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--accent)">${avg}</div><div class="stat-l">Avg${rated.length?` · ${rated.length} rated`:' rating'}</div></div>
   `;
   document.getElementById('now').innerHTML=playing.length?playing.map(nowC).join(''):'<div class="empty">Nothing playing.</div>';
   document.getElementById('queue').innerHTML=queue.length?queue.map((g,i)=>qC(g,i+1,true)).join(''):'<div class="empty">Nothing up next.</div>';
@@ -1148,10 +1143,10 @@ function render(){
 function paceStat(backlogHrs, playing, queue){
   const pace = paceHoursPerMonth();
   if (!pace || typeof GTPick === 'undefined')
-    return `<div class="stat"><div class="stat-n" style="color:#42c8f5;font-size:1.1rem">${Math.round(backlogHrs)}h</div><div class="stat-l">Backlog hrs</div></div>`;
+    return `<div class="stat"><div class="stat-n" style="color:var(--info);font-size:1.1rem">${Math.round(backlogHrs)}h</div><div class="stat-l">Backlog hrs</div></div>`;
   const upHrs = [...playing, ...queue].reduce((s,g) => s + (GTPick.remaining(g) || 0), 0);
   const tip = `Time to clear Up Next and Now Playing at your pace: about ${Math.round(upHrs)}h left. You finished ~${Math.round(pace.perMonth)}h a month over the last 12 months (${pace.games} games). Whole backlog: ${Math.round(backlogHrs)}h, about ${fmtMonths(backlogHrs/pace.perMonth)} at that pace.`;
-  return `<div class="stat" title="${esc(tip)}" tabindex="0" aria-label="${esc(tip)}"><div class="stat-n" style="color:#42c8f5">${fmtMonthsHtml(upHrs/pace.perMonth)}</div><div class="stat-l">Up next ETA</div></div>`;
+  return `<div class="stat" title="${esc(tip)}" tabindex="0" aria-label="${esc(tip)}"><div class="stat-n" style="color:var(--info)">${fmtMonthsHtml(upHrs/pace.perMonth)}</div><div class="stat-l">Up next ETA</div></div>`;
 }
 
 // ─── Writes ────────────────────────────────────────────
@@ -1264,8 +1259,7 @@ async function digUp(id,btn){
 const RUP_ENDPOINT = (p) => WORKER.url + p;
 const newPid = () => (self.crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`).toLowerCase().slice(0,36);
 function rupBalance(){ return GTRupees.balance(ACH, RUP); }
-function gemSvg(color){ return `<svg viewBox="0 0 7 10" aria-hidden="true"><path fill="${color}" d="M3 0h1v1h1v1h1v5H5v1H4v1H3V8H2V7H1V2h1V1h1z"/><path fill="#fff8" d="M2 2h1v3H2z"/></svg>`; }
-const WALLET_GEM = ['#5fd35f','#4aa3ff','#f5424e','#c8cdd6','#f5c842'];
+function gemSvg(color){ return `<svg viewBox="0 0 7 10" aria-hidden="true"><path style="fill:${color}" d="M3 0h1v1h1v1h1v5H5v1H4v1H3V8H2V7H1V2h1V1h1z"/><path fill="#fff8" d="M2 2h1v3H2z"/></svg>`; }
 function renderWallet(){
   if(typeof GTRupees==='undefined') return;
   const el=document.getElementById('wallet');
@@ -1273,7 +1267,7 @@ function renderWallet(){
   const life=GTRupees.earned(ACH), t=GTRupees.walletTier(life), bal=rupBalance();
   const tip=`${t.name}'s Wallet · ${life} earned, ${GTRupees.spent(RUP)} spent`+(t.next?` · ${t.next.need} to the ${t.next.name}'s Wallet`:'');
   el.style.display='';
-  el.innerHTML=`${gemSvg(WALLET_GEM[Math.min(t.index+1,4)])}<span>${bal}</span><small>${t.name}</small>`;
+  el.innerHTML=`${gemSvg('var(--rupee)')}<span>${bal}</span><small>${t.name}</small>`;
   el.title=tip; el.setAttribute('aria-label',`Rupee wallet: ${bal} rupees. ${tip}. Opens the shop.`);
   const m=wornMask(), w=document.getElementById('worn-mask');
   w.innerHTML=m?`<span title="${esc(GTRupees.MASKS[m].name)}: ${esc(GTRupees.MASKS[m].hint)}">${maskSvg(m,'worn-mask')}</span>`:'';
@@ -2108,7 +2102,7 @@ fresh('last-synced.json').then(r=>r.ok?r.json():null).then(d=>{
     : `🔄 Steam & RA data synced ${s.rel} (${s.abs})`;
 }).catch(()=>{ document.getElementById('updated-stamp').textContent=''; });
 </script>
-<script src="korok.js" data-repo="game-tracker" data-total="12" data-spots="index:8%,index-hang:57%:top,index-low:93%"></script>
+<script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="index:8%,index-hang:57%:top,index-low:93%"></script>
 <script src="usage.js" defer></script>
 </body>
 </html>
