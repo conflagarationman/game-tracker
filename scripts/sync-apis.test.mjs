@@ -546,5 +546,64 @@ await test("library: Steam hours lose recorded card idling; RA keeps one row per
   assert.equal(text.split("\n").filter(l => l.includes('"appid"')).length, 2);
 });
 
+await test("hub ASF routes send HUB_ASF_TOKEN as a Bearer header, with no token in the URL", async () => {
+  process.env.HUB_ASF_TOKEN = "fake-asf-token";
+  try {
+    const seen = [];
+    globalThis.fetch = async (url, opts = {}) => {
+      seen.push({ url: String(url), auth: opts.headers?.Authorization });
+      return new Response(JSON.stringify({ recently_farmed_appids: [1], apps: {} }), { status: 200 });
+    };
+    await getRecentlyFarmedAppids([]);
+    await getAsfLedger([]);
+    assert.equal(seen.length, 2);
+    for (const r of seen) {
+      assert.equal(r.auth, "Bearer fake-asf-token");
+      assert.ok(!r.url.includes("token"), "token must not be in the URL");
+      assert.ok(!r.url.includes("fake-hub-token"));
+    }
+  } finally { delete process.env.HUB_ASF_TOKEN; }
+});
+
+await test("hub ASF routes fall back to the query token while HUB_ASF_TOKEN is unset", async () => {
+  delete process.env.HUB_ASF_TOKEN;
+  let url, opts;
+  globalThis.fetch = async (u, o) => { url = String(u); opts = o; return new Response(JSON.stringify({ apps: {} }), { status: 200 }); };
+  await getAsfLedger([]);
+  assert.ok(url.endsWith("/asf/farm-ledger?token=fake-hub-token"));
+  assert.equal(opts?.headers, undefined);
+});
+
+await test("hub failures land in the warnings array without leaking tokens", async () => {
+  process.env.HUB_ASF_TOKEN = "fake-asf-token";
+  try {
+    globalThis.fetch = async () => new Response("nope", { status: 502 });
+    const log = [], warnings = [];
+    assert.equal(await getAsfLedger(log, warnings), null);
+    assert.equal((await getRecentlyFarmedAppids(log, warnings)).size, 0);
+    assert.equal(warnings.length, 2);
+    assert.ok(warnings[0].includes("farm ledger") && warnings[0].includes("502"));
+    assert.ok(warnings[1].includes("recently-farmed"));
+    assert.ok(!warnings.join(" ").includes("fake-"));
+  } finally { delete process.env.HUB_ASF_TOKEN; }
+});
+
+await test("a clean hub response adds no warnings", async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ apps: {} }), { status: 200 });
+  const warnings = [];
+  assert.ok(await getAsfLedger([], warnings));
+  assert.deepEqual(warnings, []);
+});
+
+await test("missing hub tokens are a warning, not silence", async () => {
+  const saved = process.env.HUB_STATUS_TOKEN;
+  delete process.env.HUB_STATUS_TOKEN;
+  try {
+    const warnings = [];
+    assert.equal(await getAsfLedger([], warnings), null);
+    assert.equal(warnings.length, 1);
+  } finally { process.env.HUB_STATUS_TOKEN = saved; }
+});
+
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);
