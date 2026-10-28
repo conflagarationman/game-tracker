@@ -1279,5 +1279,8 @@
   {"src":"ra","id":510,"key":"ra:591922","ts":1792975243,"name":"Myth of the North Wind","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
   {"src":"ra","id":510,"key":"ra:591920","ts":1792975380,"name":"Myth of the Thunder","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
   {"src":"ra","id":510,"key":"ra:591921","ts":1792975536,"name":"Myth of the Volcano","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
-  {"src":"ra","id":510,"key":"ra:596735","ts":1792983578,"name":"The Expanding Pantheon","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
+  {"src":"ra","id":510,"key":"ra:596735","ts":1792983578,"name":"The Expanding Pantheon","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:587630","ts":1793157296,"name":"Heavy Is the Crown","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:597744","ts":1793160753,"name":"The Old Man and the Sea","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false},
+  {"src":"ra","id":510,"key":"ra:597745","ts":1793160884,"name":"The Architect of Ilios","game":"~Hack~ Pokémon Lazarus","pct":null,"hc":false}
 ]}

@@ -1543,7 +1543,7 @@
   {"appid":2362420,"name":"Mass Effect 2 (2010) Edition","hours":0,"lastPlayed":null},
   {"appid":2368470,"name":"An Arcade Full of Cats","hours":2.7,"lastPlayed":"2024-06-28"},
   {"appid":2373630,"name":"Moonring","hours":0.1,"lastPlayed":"2025-11-23"},
-  {"appid":2379780,"name":"Balatro","hours":88.3,"lastPlayed":"2026-07-17"},
+  {"appid":2379780,"name":"Balatro","hours":88.4,"lastPlayed":"2026-10-28"},
   {"appid":2452430,"name":"Deep Rock Galactic: Survivor Playtest","hours":0.6,"lastPlayed":"2023-06-23"},
   {"appid":2532550,"name":"LIZARDS MUST DIE","hours":0.2,"lastPlayed":"2026-07-22"},
   {"appid":2533960,"name":"SUMMERHOUSE","hours":1.2,"lastPlayed":"2026-04-23"},
@@ -1608,7 +1608,7 @@
 "ra": [
   {"gameId":21360,"title":"~Hack~ Pokémon Emerald Rogue","console":"Game Boy Advance","earned":8,"total":83},
   {"gameId":30137,"title":"~Hack~ Pokémon Emerald Rogue V2","console":"Game Boy Advance","earned":15,"total":260},
-  {"gameId":34108,"title":"~Hack~ Pokémon Lazarus","console":"Game Boy Advance","earned":24,"total":63},
+  {"gameId":34108,"title":"~Hack~ Pokémon Lazarus","console":"Game Boy Advance","earned":27,"total":63},
   {"gameId":33063,"title":"~Hack~ Pokémon Odyssey","console":"Game Boy Advance","earned":26,"total":90},
   {"gameId":17530,"title":"~Hack~ Pokémon Unbound","console":"Game Boy Advance","earned":15,"total":129},
   {"gameId":27584,"title":"~Homebrew~ Goodboy Galaxy","console":"Game Boy Advance","earned":4,"total":125},
