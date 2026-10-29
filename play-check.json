@@ -4,9 +4,6 @@
     "510": {
       "lastPlayed": "2026-10-28"
     },
-    "526": {
-      "mins": 133
-    },
     "529": {
       "mins": 506
     },
@@ -14,14 +11,7 @@
       "mins": 3
     }
   },
-  "offList": [
-    {
-      "id": 526,
-      "t": "Animal Well",
-      "s": "done",
-      "mins": 133
-    }
-  ],
+  "offList": [],
   "untracked": [
     {
       "title": "Pokémon Platinum Version",

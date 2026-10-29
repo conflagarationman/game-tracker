@@ -1602,8 +1602,7 @@
   {"appid":3862670,"name":"Shelldiver","hours":3.5,"lastPlayed":"2026-06-27"},
   {"appid":4035270,"name":"Space Rock Breaker","hours":3.3,"lastPlayed":"2026-09-01"},
   {"appid":4231820,"name":"Castlevania: Belmont's Curse","hours":8.4,"lastPlayed":"2026-10-22"},
-  {"appid":4244510,"name":"Pratfall","hours":2.7,"lastPlayed":"2026-08-05"},
-  {"appid":4248000,"name":"How Many Dudes? Demo","hours":0.2,"lastPlayed":"2026-07-16"}
+  {"appid":4244510,"name":"Pratfall","hours":2.7,"lastPlayed":"2026-08-05"}
 ],
 "ra": [
   {"gameId":21360,"title":"~Hack~ Pokémon Emerald Rogue","console":"Game Boy Advance","earned":8,"total":83},
