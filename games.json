@@ -3177,7 +3177,7 @@
     "y": 2020
   },
   {
-    "r": 0,
+    "r": 8,
     "h": null,
     "cy": 2026,
     "cm": 9,
@@ -3734,6 +3734,31 @@
     "casual": true,
     "note": "Co-op with buddy",
     "start": null,
+    "queued": null,
+    "release": null
+  },
+  {
+    "id": 532,
+    "t": "Pokemon Ghost Grey",
+    "p": "ayn",
+    "s": "playing",
+    "r": 0,
+    "g": "RPG",
+    "y": 2026,
+    "h": null,
+    "cy": null,
+    "cm": null,
+    "gotm": null,
+    "gotmFlair": false,
+    "mastery": null,
+    "diff": null,
+    "achPct": null,
+    "achCount": null,
+    "actualHours": null,
+    "lastPlayed": null,
+    "casual": false,
+    "note": "Spooky season pick. No RA set yet.",
+    "start": "2026-10-29",
     "queued": null,
     "release": null
   }
