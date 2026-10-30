@@ -5,13 +5,20 @@
       "lastPlayed": "2026-10-28"
     },
     "529": {
-      "mins": 506
+      "mins": 410
     },
     "531": {
       "mins": 3
     }
   },
-  "offList": [],
+  "offList": [
+    {
+      "id": 510,
+      "t": "Pokemon Lazarus",
+      "s": "done",
+      "lastPlayed": "2026-10-28"
+    }
+  ],
   "untracked": [
     {
       "title": "Pokémon Platinum Version",
