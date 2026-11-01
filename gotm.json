@@ -1,12 +1,12 @@
 {
-  "fetchedAt": "2026-10-31T17:29:37.778Z",
-  "sourceUrl": "https://www.reddit.com/r/SBCGaming/comments/1wulcea/oct_26_gotm_parasite_eve_ps1/",
-  "generatedFor": "2026-10",
+  "fetchedAt": "2026-11-01T18:14:23.067Z",
+  "sourceUrl": "https://www.reddit.com/r/SBCGaming/comments/1xkokgb/nov_26_gotm_linux_assassin_presents_bonks_revenge/",
+  "generatedFor": "2026-11",
   "current": {
-    "month": "2026-10",
-    "game": "Parasite Eve",
-    "platform": "PS1",
-    "url": "https://www.reddit.com/r/SBCGaming/comments/1wulcea/oct_26_gotm_parasite_eve_ps1/"
+    "month": "2026-11",
+    "game": "Linux_Assassin Presents: Bonk's Revenge",
+    "platform": "TG16",
+    "url": "https://www.reddit.com/r/SBCGaming/comments/1xkokgb/nov_26_gotm_linux_assassin_presents_bonks_revenge/"
   },
   "picks": [
     {
@@ -15,7 +15,7 @@
       "game": "Super Mario World",
       "platform": null,
       "url": null,
-      "monthsLeft": -10,
+      "monthsLeft": -11,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -26,7 +26,7 @@
       "game": "Metroid Fusion",
       "platform": null,
       "url": null,
-      "monthsLeft": -9,
+      "monthsLeft": -10,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -37,7 +37,7 @@
       "game": "Metal Gear Solid",
       "platform": null,
       "url": null,
-      "monthsLeft": -8,
+      "monthsLeft": -9,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -48,7 +48,7 @@
       "game": "Streets of Rage 2",
       "platform": null,
       "url": null,
-      "monthsLeft": -7,
+      "monthsLeft": -8,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -59,7 +59,7 @@
       "game": "Chrono Trigger",
       "platform": null,
       "url": null,
-      "monthsLeft": -6,
+      "monthsLeft": -7,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -70,7 +70,7 @@
       "game": "Mega Man X",
       "platform": null,
       "url": null,
-      "monthsLeft": -5,
+      "monthsLeft": -6,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -81,7 +81,7 @@
       "game": "Kirby's Dream Land 2",
       "platform": null,
       "url": null,
-      "monthsLeft": -4,
+      "monthsLeft": -5,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -92,7 +92,7 @@
       "game": "Devil's Crush",
       "platform": null,
       "url": null,
-      "monthsLeft": -3,
+      "monthsLeft": -4,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -103,7 +103,7 @@
       "game": "Twisted Metal 2",
       "platform": null,
       "url": null,
-      "monthsLeft": -2,
+      "monthsLeft": -3,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -114,7 +114,7 @@
       "game": "Age of Zombies",
       "platform": null,
       "url": null,
-      "monthsLeft": -1,
+      "monthsLeft": -2,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -125,7 +125,7 @@
       "game": "Castlevania: Symphony of the Night",
       "platform": null,
       "url": null,
-      "monthsLeft": 0,
+      "monthsLeft": -1,
       "retired": true,
       "lastChance": false,
       "isCurrent": false
@@ -133,12 +133,12 @@
     {
       "month": "2025-11",
       "tag": "Nov 2025",
-      "game": "Alien Hominid",
+      "game": "Alien Hominid - RETIRED!",
       "platform": null,
       "url": null,
-      "monthsLeft": 1,
-      "retired": false,
-      "lastChance": true,
+      "monthsLeft": 0,
+      "retired": true,
+      "lastChance": false,
       "isCurrent": false
     },
     {
@@ -147,9 +147,9 @@
       "game": "The Legend of Zelda: A Link to the Past",
       "platform": null,
       "url": null,
-      "monthsLeft": 2,
+      "monthsLeft": 1,
       "retired": false,
-      "lastChance": false,
+      "lastChance": true,
       "isCurrent": false
     },
     {
@@ -158,7 +158,7 @@
       "game": "Ducktales",
       "platform": null,
       "url": null,
-      "monthsLeft": 3,
+      "monthsLeft": 2,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -169,7 +169,7 @@
       "game": "999",
       "platform": null,
       "url": null,
-      "monthsLeft": 4,
+      "monthsLeft": 3,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -180,7 +180,7 @@
       "game": "Sonic the Hedgehog 2",
       "platform": null,
       "url": null,
-      "monthsLeft": 5,
+      "monthsLeft": 4,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -191,7 +191,7 @@
       "game": "Advance Wars",
       "platform": null,
       "url": null,
-      "monthsLeft": 6,
+      "monthsLeft": 5,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -202,7 +202,7 @@
       "game": "Celeste",
       "platform": null,
       "url": null,
-      "monthsLeft": 7,
+      "monthsLeft": 6,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -213,7 +213,7 @@
       "game": "Tomb Raider",
       "platform": null,
       "url": null,
-      "monthsLeft": 8,
+      "monthsLeft": 7,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -224,7 +224,7 @@
       "game": "Star Fox 64",
       "platform": null,
       "url": null,
-      "monthsLeft": 9,
+      "monthsLeft": 8,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -235,7 +235,7 @@
       "game": "Marvel vs. Capcom 2",
       "platform": null,
       "url": null,
-      "monthsLeft": 10,
+      "monthsLeft": 9,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -246,7 +246,7 @@
       "game": "Civilization Revolution",
       "platform": "DS",
       "url": null,
-      "monthsLeft": 11,
+      "monthsLeft": 10,
       "retired": false,
       "lastChance": false,
       "isCurrent": false
@@ -257,6 +257,17 @@
       "game": "Parasite Eve",
       "platform": "PS1",
       "url": "https://www.reddit.com/r/SBCGaming/comments/1wulcea/oct_26_gotm_parasite_eve_ps1/",
+      "monthsLeft": 11,
+      "retired": false,
+      "lastChance": false,
+      "isCurrent": false
+    },
+    {
+      "month": "2026-11",
+      "tag": "Nov 2026",
+      "game": "Linux_Assassin Presents: Bonk's Revenge",
+      "platform": "TG16",
+      "url": "https://www.reddit.com/r/SBCGaming/comments/1xkokgb/nov_26_gotm_linux_assassin_presents_bonks_revenge/",
       "monthsLeft": 12,
       "retired": false,
       "lastChance": false,
