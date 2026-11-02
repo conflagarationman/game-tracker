@@ -132,15 +132,13 @@ function raDateStr(s) {
   return m ? m[1] : null;
 }
 
-// GET a read-only ASF route on the hub. With HUB_ASF_TOKEN set it goes in an Authorization
-// header (nothing secret in the URL, so it stays out of Caddy's access log). While that secret
-// is unset, fall back to the old master-token query string. TODO: drop the fallback once
-// HUB_ASF_TOKEN is set in the repo secrets.
+// GET a read-only ASF route on the hub with the read-only HUB_ASF_TOKEN in an Authorization header
+// (nothing secret in the URL, so it stays out of Caddy's access log). The old fallback to the hub's
+// master token in the query string was removed 2026-11-01, once the read token was set up and a
+// sync ran green with it.
 async function hubAsfFetch(path) {
-  const asfToken = process.env.HUB_ASF_TOKEN;
-  const base = `https://familyholocron.duckdns.org${path}`;
-  if (asfToken) return fetch(base, { headers: { Authorization: `Bearer ${asfToken}` } });
-  return fetch(`${base}?token=${process.env.HUB_STATUS_TOKEN}`);
+  return fetch(`https://familyholocron.duckdns.org${path}`,
+    { headers: { Authorization: `Bearer ${process.env.HUB_ASF_TOKEN}` } });
 }
 
 // Soft failures: pushed to the run log as before, and also to `warnings`, which main() writes
@@ -161,8 +159,8 @@ function softFail(log, warnings, msg, warning) {
 // lines, which on ASF's quiet log reaches back about two months. So it is now only the fallback
 // for when the farm ledger is unavailable; see getFarmingNow().
 export async function getRecentlyFarmedAppids(log, warnings = []) {
-  if (!process.env.HUB_ASF_TOKEN && !process.env.HUB_STATUS_TOKEN) {
-    softFail(log, warnings, "ASF farmed-appids check: missing HUB_STATUS_TOKEN, skipped (playtime may include idle time)",
+  if (!process.env.HUB_ASF_TOKEN) {
+    softFail(log, warnings, "ASF farmed-appids check: missing HUB_ASF_TOKEN, skipped (playtime may include idle time)",
       "ASF recently-farmed skipped: no hub token set");
     return new Set();
   }
@@ -208,8 +206,8 @@ export async function getFarmingNow(asf, log, warnings = []) {
 }
 
 export async function getAsfLedger(log, warnings = []) {
-  if (!process.env.HUB_ASF_TOKEN && !process.env.HUB_STATUS_TOKEN) {
-    softFail(log, warnings, "ASF farm ledger: missing HUB_STATUS_TOKEN, skipped (hours include past idling)",
+  if (!process.env.HUB_ASF_TOKEN) {
+    softFail(log, warnings, "ASF farm ledger: missing HUB_ASF_TOKEN, skipped (hours include past idling)",
       "ASF farm ledger skipped: no hub token set; hours include idling");
     return null;
   }
