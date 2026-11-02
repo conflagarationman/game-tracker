@@ -1166,6 +1166,7 @@ async function saveEdit(g, patch){
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
+    rememberSaved(g.id, prev, patch);
     return true;
   } catch (err) {
     Object.assign(g, prev);
@@ -1173,6 +1174,34 @@ async function saveEdit(g, patch){
     alert(`Couldn't save "${g.t}": ${err.message}`);
     return false;
   }
+}
+
+// ─── Saves that Pages hasn't published yet ─────────────
+// A save commits in a second or two, but GitHub Pages takes about a minute more to serve the
+// new games.json. Reloading inside that minute brought the old record back, which looked
+// exactly like a failed save (Animal Well, Oct 2026: "Save as done" was pressed twice). So
+// each successful save is kept here, with the values it replaced, and laid over games.json on
+// load until the published file catches up. A field the file shows with neither the old nor
+// the new value was changed somewhere else since, so that save stands aside.
+const SAVED_KEY = 'gt_saved_edits', SAVED_MS = 10*60*1000;
+function savedEdits(){ try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch(e){ return []; } }
+function storeSaved(list){ try { list.length ? localStorage.setItem(SAVED_KEY, JSON.stringify(list)) : localStorage.removeItem(SAVED_KEY); } catch(e){} }
+function rememberSaved(id, prev, patch){
+  storeSaved([...savedEdits(), { id, prev, patch, ts: Date.now() }]);
+}
+const sameVal = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+function applySaved(games){
+  const keep = [];
+  for (const e of savedEdits()){
+    const g = games.find(x => x.id === e.id);
+    if (!g || !(Date.now() - e.ts < SAVED_MS)) continue;
+    const keys = Object.keys(e.patch);
+    if (keys.every(k => sameVal(g[k], e.patch[k]))) continue;            // published: done with it
+    if (keys.some(k => !sameVal(g[k], e.patch[k]) && !sameVal(g[k], e.prev[k]))) continue; // edited elsewhere since
+    Object.assign(g, e.patch);
+    keep.push(e);
+  }
+  storeSaved(keep);
 }
 
 // ─── Heart Containers ──────────────────────────────────
@@ -2050,6 +2079,7 @@ Promise.all([
   fresh('rupees.json').then(r=>r.ok?r.json():null).catch(()=>null),
 ]).then(([games,covers,gotm,play,ach,rup])=>{
   G=games;
+  applySaved(G);
   PLAY=play;
   COVERS=covers;
   GOTM=refreshGotmWindows(gotm);

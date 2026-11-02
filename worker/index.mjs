@@ -200,19 +200,27 @@ export async function addGame(env, input) {
   }, `Add game: ${input.t.trim()}`);
 }
 
+// Resolves to { games, changed }. An edit that matches what's already there (the same save
+// sent twice, e.g. a retry while Pages was still publishing the first) writes nothing: the
+// contents API would otherwise commit an identical file as an empty "Edit game #n".
 export async function editGame(env, id, patch) {
   if (typeof id !== "number") throw httpError("id must be a number", 400);
   if (patch.p !== undefined && !VALID_PLATFORMS.has(patch.p)) throw httpError("invalid platform", 400);
   if (patch.s !== undefined && !VALID_STATUSES.has(patch.s)) throw httpError("invalid status", 400);
   const fieldErr = validateGameFields(patch);
   if (fieldErr) throw httpError(fieldErr, 400);
-  return mutateWithRetry(env, (games) => {
+  let changed = false;
+  const games = await mutateWithRetry(env, (games) => {
     const idx = games.findIndex(g => g.id === id);
     if (idx === -1) throw httpError(`no game with id ${id}`, 404);
+    const merged = { ...games[idx], ...patch };
+    changed = JSON.stringify(merged) !== JSON.stringify(games[idx]);
+    if (!changed) return null;
     const next = [...games];
-    next[idx] = { ...next[idx], ...patch };
+    next[idx] = merged;
     return next;
   }, `Edit game #${id}`);
+  return { games, changed };
 }
 
 // Up Next's 1..N numbering on the page is just games.json array order, so reordering that
@@ -445,12 +453,12 @@ export default {
       }
       if (url.pathname.endsWith("/games/edit")) {
         const { id, ...patch } = body;
-        const games = await editGame(env, id, patch);
+        const { games, changed } = await editGame(env, id, patch);
         // Only a status change affects what the hub push and Steam/RA sync care about
         // (now_playing/up_next categorization, whether a game is even synced at all) —
         // an edit to a note or rating would just burn an Actions run for an identical
         // sync result, same reasoning /games/reorder already documents.
-        if ("s" in patch) {
+        if ("s" in patch && changed) {
           const triggers = await triggerSyncWorkflows(env);
           return json({ games, triggers }, 200, origin);
         }

@@ -104,6 +104,27 @@ await test("picker: chips change the suggestions and Start writes s:playing", as
   await ctx.close();
 });
 
+await test("a save survives a reload before Pages publishes it, and stands aside once stale", async () => {
+  // games.json here never changes, exactly like the minute before Pages republishes.
+  const { page, writes, errors, ctx } = await open("index.html", 1280);
+  await page.waitForSelector("#tn-list .tn-row");
+  await page.click('#tn-time .chip:has-text("Long haul")');
+  await page.locator("#tn-list .tn-go").first().click();
+  await page.waitForTimeout(100);
+  const id = writes.at(-1).body.id;
+  const status = () => page.evaluate(id => G.find(g => g.id === id).s, id);
+  ok(await status() === "playing", "Start didn't apply");
+  await page.reload(); await page.waitForSelector("#tn-list .tn-row");
+  ok(await status() === "playing", "the started game reverted on reload");
+  // Ten minutes on with the file still unchanged, the published copy wins again.
+  await page.evaluate(() => { const l = JSON.parse(localStorage.getItem("gt_saved_edits")); l.forEach(e => e.ts -= 11*60*1000); localStorage.setItem("gt_saved_edits", JSON.stringify(l)); });
+  await page.reload(); await page.waitForSelector("#tn-list .tn-row");
+  ok(await status() !== "playing", "an expired save still overrode games.json");
+  ok(await page.evaluate(() => localStorage.getItem("gt_saved_edits")) === null, "expired save wasn't cleared");
+  ok(errors.length === 0, errors.join(" | "));
+  await ctx.close();
+});
+
 await test("someday triage: keep, up next, and remove-with-undo", async () => {
   const { page, writes, errors, ctx } = await open("index.html", 390, { clock: true });
   await page.waitForSelector("#tn-list .tn-row");
@@ -166,9 +187,11 @@ await test("play check: Playing writes s:playing; ✕ hides the row and survives
   const n = await items.count();
   if (n === 0) { await ctx.close(); return; }            // nothing to check today; not a failure
   const goBtn = page.locator('#play-check button.pc-btn.go').first();
+  let started = 0;
   if (await goBtn.count()) {
     await goBtn.click();
     ok(writes.at(-1).body.s === "playing", "sent " + JSON.stringify(writes.at(-1)));
+    started = 1;
   }
   const left = await items.count();
   if (left) {
@@ -176,9 +199,9 @@ await test("play check: Playing writes s:playing; ✕ hides the row and survives
     ok(await items.count() === left - 1, "✕ didn't hide the row");
     await page.reload();
     await page.waitForSelector("#tn-list .tn-row");
-    // The stubbed Worker never saves, so a game "started" above is back after the reload;
-    // only the hidden row should stay gone.
-    ok(await page.locator("#play-check .pc-item").count() === n - 1, "a hidden row came back after reload");
+    // The stubbed Worker answers 200, so a game "started" above is remembered as saved and
+    // stays started across the reload, and the hidden row stays gone.
+    ok(await page.locator("#play-check .pc-item").count() === n - 1 - started, "a row came back after reload");
   }
   ok(errors.length === 0, errors.join(" | "));
   await ctx.close();
