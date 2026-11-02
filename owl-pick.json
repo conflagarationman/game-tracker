@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-01",
+  "generated": "2026-11-02",
   "pick": {
     "id": 529,
     "t": "Castlevania: Belmont's Curse",
@@ -10,13 +10,13 @@
     ]
   },
   "weekend": {
-    "key": "id:529",
-    "t": "Castlevania: Belmont's Curse",
-    "p": "steam",
+    "key": "id:300",
+    "t": "The Legend of Zelda",
+    "p": "retro",
     "reasons": [
-      "Past the HLTB estimate, nearly done?",
-      "4.5h in the last 14 days"
+      "Could finish it (~5h left)",
+      "In progress"
     ],
-    "week": "2026-W44"
+    "week": "2026-W45"
   }
 }
