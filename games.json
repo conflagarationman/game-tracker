@@ -3840,5 +3840,30 @@
     "start": null,
     "queued": null,
     "release": null
+  },
+  {
+    "id": 536,
+    "t": "Final Fantasy VII Revelation",
+    "p": "switch2",
+    "s": "soon",
+    "r": 0,
+    "g": "Action RPG",
+    "y": 2027,
+    "h": null,
+    "cy": null,
+    "cm": null,
+    "gotm": null,
+    "gotmFlair": false,
+    "mastery": null,
+    "diff": null,
+    "achPct": null,
+    "achCount": null,
+    "actualHours": null,
+    "lastPlayed": null,
+    "casual": false,
+    "note": "FF7 Remake part 3. Spring 2027, no exact date yet. Buying on Switch 2.",
+    "start": null,
+    "queued": "2026-11-03",
+    "release": null
   }
 ]
