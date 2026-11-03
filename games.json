@@ -810,7 +810,7 @@
   {
     "id": 216,
     "t": "Final Fantasy VII Rebirth",
-    "p": "ps5",
+    "p": "switch2",
     "s": "queue",
     "r": 0,
     "g": "Action RPG",
@@ -827,7 +827,7 @@
     "actualHours": null,
     "lastPlayed": null,
     "casual": false,
-    "note": null,
+    "note": "Bought on Switch 2 ($7.49 sale) to play handheld; also owned unplayed on PS5.",
     "start": null,
     "queued": "2026-06-16",
     "release": null
@@ -3814,31 +3814,6 @@
     "note": "Christmas snack game",
     "start": null,
     "queued": "2026-11-02",
-    "release": null
-  },
-  {
-    "id": 535,
-    "t": "Final Fantasy VII Remake Intergrade",
-    "p": "switch2",
-    "s": "queue",
-    "r": 0,
-    "g": "Action RPG",
-    "y": null,
-    "h": null,
-    "cy": null,
-    "cm": null,
-    "gotm": null,
-    "gotmFlair": false,
-    "mastery": null,
-    "diff": null,
-    "achPct": null,
-    "achCount": null,
-    "actualHours": null,
-    "lastPlayed": null,
-    "casual": false,
-    "note": "Bought on Switch 2 ($7.99 sale) to play handheld; also owned unplayed on PS5.",
-    "start": null,
-    "queued": "2026-11-03",
     "release": null
   }
 ]
