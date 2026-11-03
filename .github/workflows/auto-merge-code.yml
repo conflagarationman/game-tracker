@@ -1,0 +1,101 @@
+name: Auto-merge code PRs
+
+# Lets a Claude session's feature PR land once it's proven, instead of waiting for Jonny to click
+# merge (most of the merges in Oct 2026 were exactly that: green PRs sitting until he noticed).
+# auto-merge-data.yml still handles games.json-only PRs; this is the code path.
+#
+# It merges a PR only when:
+#   - it comes from a branch in this repo (never a fork),
+#   - it is not a draft and has no "hold" label (either one is the way to opt out),
+#   - the whole Tests workflow (every suite AND the browser smoke test) passed on its current head,
+#   - it merges cleanly into main, and
+#   - it touches none of the paths that still need a person:
+#       worker/     the Worker is deployed by hand with wrangler, and the page must never get
+#                   ahead of the Worker it talks to;
+#       .github/    workflow changes (including this file) keep a human in the loop;
+#       games.json  mixed with code: data-only edits go through auto-merge-data.yml and its
+#                   validator; a PR mixing the two waits for a person.
+# Anything else is left alone; this never fails a PR for being out of scope.
+#
+# Note: korok.js is also loaded live by Steph's TV log (steph-tv-tracker), so a merged korok.js
+# change reaches her page too. That trade-off was chosen on purpose (2026-11-03).
+#
+# Neither trigger checks out or runs the PR's code: workflow_run and pull_request_target both run
+# this file from main, and the job only talks to the GitHub API.
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+  # Removing "hold" or marking a draft ready doesn't re-run Tests, so look again then.
+  pull_request_target:
+    types: [ready_for_review, unlabeled]
+    branches: [main]
+
+permissions:
+  contents: write        # merge
+  pull-requests: write   # merge
+  actions: read          # read the Tests run for the PR's head
+
+concurrency:
+  group: auto-merge-code-${{ github.event.workflow_run.head_branch || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'pull_request_target' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref }}
+    steps:
+      - name: Find the PR and check it qualifies
+        id: check
+        run: |
+          set -euo pipefail
+          say() { echo "$1"; echo "$1" >> "$GITHUB_STEP_SUMMARY"; }
+          skip() { say "Not auto-merged: $1"; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; }
+
+          pr=$(gh pr list -R "$REPO" --head "$HEAD_BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          [ -n "$pr" ] || skip "no open PR from $HEAD_BRANCH into main."
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+
+          info=$(gh pr view "$pr" -R "$REPO" --json isDraft,labels,headRefOid,headRepositoryOwner,isCrossRepository)
+          [ "$(jq -r .isCrossRepository <<<"$info")" = "false" ] || skip "#$pr comes from a fork."
+          [ "$(jq -r .isDraft <<<"$info")" = "false" ] || skip "#$pr is a draft."
+          jq -e '[.labels[].name] | index("hold")' <<<"$info" >/dev/null && skip "#$pr has the hold label."
+          head=$(jq -r .headRefOid <<<"$info")
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+
+          files=$(gh pr view "$pr" -R "$REPO" --json files --jq '.files[].path')
+          echo "Changed files:"; echo "$files"
+          [ "$files" = "games.json" ] && skip "#$pr is data-only; auto-merge-data.yml handles it."
+          grep -qE '^(worker/|\.github/)' <<<"$files" && skip "#$pr touches worker/ or .github/, which need a person."
+          grep -qx 'games.json' <<<"$files" && skip "#$pr mixes games.json with code, so it waits for a person."
+
+          # The Tests run for exactly this head must have passed (the workflow_run that woke us
+          # may be for an older push, and the pull_request_target path has no run of its own).
+          ok=$(gh run list -R "$REPO" --workflow tests.yml --commit "$head" --event pull_request \
+                 --json conclusion,status --jq '[.[] | select(.status=="completed")][0].conclusion // "none"')
+          [ "$ok" = "success" ] || skip "#$pr's Tests on ${head:0:7} are '$ok', not success."
+
+          for i in $(seq 1 12); do
+            state=$(gh pr view "$pr" -R "$REPO" --json mergeable --jq .mergeable)
+            [ "$state" != "UNKNOWN" ] && break
+            sleep 5
+          done
+          [ "$state" = "MERGEABLE" ] || skip "#$pr doesn't merge cleanly into main ($state)."
+          say "#$pr qualifies: tests green on ${head:0:7}, clean merge, no held paths."
+          echo "go=true" >> "$GITHUB_OUTPUT"
+
+      # --match-head-commit: a push after the check makes this refuse, and that push gets its own
+      # Tests run and its own pass through here.
+      - name: Merge
+        if: steps.check.outputs.go == 'true'
+        run: gh pr merge "${{ steps.check.outputs.pr }}" -R "$REPO" --merge --delete-branch --match-head-commit "${{ steps.check.outputs.head }}"
