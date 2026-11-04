@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-03",
+  "generated": "2026-11-04",
   "pick": {
     "id": 529,
     "t": "Castlevania: Belmont's Curse",
@@ -10,12 +10,12 @@
     ]
   },
   "weekend": {
-    "key": "id:300",
-    "t": "The Legend of Zelda",
-    "p": "retro",
+    "key": "id:400",
+    "t": "God of War",
+    "p": "ayn",
     "reasons": [
-      "Could finish it (~5h left)",
-      "In progress"
+      "Could finish it (~9h left)",
+      "#1 in Up Next"
     ],
     "week": "2026-W45"
   }
