@@ -8,6 +8,15 @@
       "meta": {
         "theme": "autumn"
       }
+    },
+    {
+      "id": "de9e647b-138f-4328-9839-fddf8ce66f8e",
+      "item": "maracas",
+      "cost": 500,
+      "ts": "2026-11-08T21:20:08.333Z",
+      "meta": {
+        "theme": "lostwoods"
+      }
     }
   ],
   "fairyUntil": {}
