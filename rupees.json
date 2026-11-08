@@ -17,6 +17,15 @@
       "meta": {
         "theme": "lostwoods"
       }
+    },
+    {
+      "id": "15e2cfd6-26d8-414a-97ed-d40353cca940",
+      "item": "mask",
+      "cost": 400,
+      "ts": "2026-11-08T21:20:36.138Z",
+      "meta": {
+        "mask": "majora"
+      }
     }
   ],
   "fairyUntil": {}
