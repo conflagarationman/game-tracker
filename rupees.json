@@ -26,6 +26,15 @@
       "meta": {
         "mask": "majora"
       }
+    },
+    {
+      "id": "49aa0964-92d3-43c3-a4b2-2157e4c53388",
+      "item": "maracas",
+      "cost": 500,
+      "ts": "2026-11-08T21:20:49.375Z",
+      "meta": {
+        "theme": "bloodmoon"
+      }
     }
   ],
   "fairyUntil": {}
