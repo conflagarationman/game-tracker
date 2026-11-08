@@ -112,8 +112,9 @@ One flat array. Every record carries every key, with `null` for unset.
                           // "100pct" (back to finish it), "1.0" (its 1.0 launch after early access);
                           // true = "replay". Counts like any other game; pages label it. A "1.0" game
                           // counts as released the year it was finished (old/new, played at launch).
-  "priorH": null,         // OPTIONAL: hours from before this run (Palworld: 75 of early access). Wrapped
-                          // credits the rest of a game's pre-log hours to the year it's started in.
+  "priorH": null,         // OPTIONAL: hours from before this run (Palworld: 75 of early access, Brotato:
+                          // 74). Wrapped leaves it out of finished-game hours and credits the rest of a
+                          // game's pre-log hours to the year it's started in.
   "note": null,
   "start": null,          // YYYY-MM-DD
   "queued": null,         // YYYY-MM-DD
@@ -205,7 +206,8 @@ Steam's. "Played at launch" means `y === cy`. The streak is consecutive months w
 finish (there's no daily play data). Devices: handheld = steamdeck/ayn/retro, Switch =
 switch/switch2, everything else PC & TV (Steam can't be told apart from Deck play). The
 persona is whichever trait clears its threshold by the most, with the number behind it, and
-"vs last year" compares with the closest earlier year that has finishes.
+"vs last year" compares with the closest earlier year that has 5+ finishes (`MIN_YEAR_FINISHES`;
+years before the tracker, with a few backfilled finishes, are no yardstick, and don't count for "best year" either).
 
 **From the ledgers** (`playedHours`, `unlockStats`, `backlogMath`): hours played in the year come from
 `ledger.json`, every Steam game finished or not, as rises above each game's previous high (never plain
@@ -360,7 +362,7 @@ node scripts/backfill-hltb.test.mjs    # 14
 node scripts/validate-games.test.mjs   # 10
 node scripts/fetch-gotm.test.mjs       # 26
 node scripts/pick.test.mjs             # 35
-node scripts/wrapped.test.mjs          # 30
+node scripts/wrapped.test.mjs          # 32
 node scripts/ledger.test.mjs           # 15
 node scripts/usage.test.mjs            # 29
 node scripts/freeze-wrapped.test.mjs   # 3

@@ -62,12 +62,30 @@ await test("achievements skip casual games; perfect means mastered/platinum/100%
   assert.equal(s.perfect.length, 3);
 });
 
-await test("you vs you compares with the closest earlier year that has finishes", () => {
-  const games = [g({ cy: 2024, r: 6 }), g({ cy: 2024, r: 8 }), g({ r: 9 }), g({ r: 9 }), g({ r: 9 })];
+await test("you vs you compares with the closest earlier year the tracker covers (5+ finishes)", () => {
+  const prev = [6, 8, 7, 7, 7].map(r => g({ cy: 2024, r }));
+  const games = [...prev, g({ cy: 2025, r: 1 }), ...[9, 9, 9, 9, 9, 9].map(r => g({ r }))]; // 2025: one backfilled finish, skipped
   const s = yearStats(games, 2026, NOW);
   assert.deepEqual(plain(s.vsPrev), { year: 2024, done: 1, hours: 10, avg: 2 });
   assert.equal(s.bestYear, true);
   assert.equal(yearStats(games, 2024, NOW).vsPrev, null);
+});
+
+await test("a year with only a few backfilled finishes is no yardstick: no vs-last-year, no best year", () => {
+  const games = [g({ cy: 2025, r: 6 }), g({ cy: 2025, r: 8 }), g({ cy: 2025, r: 7 }), ...[9, 9, 9, 9, 9, 9].map(r => g({ r }))];
+  const s = yearStats(games, 2026, NOW);
+  assert.equal(s.vsPrev, null);
+  assert.equal(s.bestYear, false);
+});
+
+await test("a return trip's priorH comes off its finished hours (share, totals, poster)", () => {
+  const games = [g({ t: "Brotato", replay: "100pct", actualHours: 111.8, priorH: 74, r: 8 }), g({ t: "Other", actualHours: 20, r: 7 }),
+    g({ t: "Early", replay: "1.0", actualHours: 50, priorH: 60, r: 7 })];
+  const s = yearStats(games, 2026, NOW);
+  assert.equal(Math.round(s.totalH * 10) / 10, 57.8);                  // 37.8 + 20 + 0 (never below zero)
+  assert.equal(s.hoursShare[0].g.t, "Brotato");
+  assert.equal(Math.round(s.hoursShare[0].hours * 10) / 10, 37.8);
+  assert.equal(Math.round(posterStats(games, 2026).hours * 10) / 10, 57.8);
 });
 
 await test("game of the year is the top rating, ties broken by hours", () => {

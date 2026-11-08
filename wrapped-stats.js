@@ -33,8 +33,12 @@
   // their hours say nothing about play, so they're left out of every hours figure.
   const isIdle = (g) => /\bidle\b/i.test(g.g || '');
   // Real Steam playtime where the sync has it (already net of ASF card idling, see
-  // sync-apis.mjs), else the HowLongToBeat estimate.
-  const hours = (g) => isIdle(g) ? 0 : (g.actualHours || parseHltb(g.h) || 0);
+  // sync-apis.mjs), else the HowLongToBeat estimate. A return trip's `priorH` (hours from before
+  // this run: Palworld's early access, most of Brotato) belongs to earlier years, so it comes off.
+  const hours = (g) => isIdle(g) ? 0 : g.actualHours ? Math.max(0, g.actualHours - (typeof g.priorH === 'number' ? g.priorH : 0)) : (parseHltb(g.h) || 0);
+  // A year the tracker really covers. Years before it (backfilled finishes: 2025 has 3) would make
+  // "vs last year" and "best year on record" meaningless, so they're left out of both.
+  const MIN_YEAR_FINISHES = 5;
   const median = (xs) => { const s = [...xs].sort((a, b) => a - b); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null; };
   const isPerfect = (g) => PERFECT.has(g.mastery) || g.achPct === 100;
   // A return trip (games.json `replay`): 'replay', '100pct' or '1.0'; true is the old plain replay.
@@ -207,8 +211,9 @@
     } : null;
     const perfect = done.filter(isPerfect);
 
-    // You vs you: the closest earlier year with anything finished.
-    const years = [...new Set(games.filter(g => g.s === 'done' && g.cy).map(g => g.cy))].sort((a, b) => a - b);
+    // You vs you: the closest earlier year the tracker really covers (MIN_YEAR_FINISHES).
+    const years = [...new Set(games.filter(g => g.s === 'done' && g.cy).map(g => g.cy))].sort((a, b) => a - b)
+      .filter(y => y === year || basic(games, y).done.length >= MIN_YEAR_FINISHES);
     const prevYear = years.filter(y => y < year).pop() || null;
     let vsPrev = null;
     if (prevYear) {
