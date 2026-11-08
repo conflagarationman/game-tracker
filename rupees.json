@@ -1,0 +1,14 @@
+{
+  "purchases": [
+    {
+      "id": "938c51b8-f6d6-4f96-8a0b-4dcd7b060cd5",
+      "item": "maracas",
+      "cost": 500,
+      "ts": "2026-11-08T21:20:06.908Z",
+      "meta": {
+        "theme": "autumn"
+      }
+    }
+  ],
+  "fairyUntil": {}
+}
