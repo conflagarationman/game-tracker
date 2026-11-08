@@ -35,6 +35,12 @@
       "meta": {
         "theme": "bloodmoon"
       }
+    },
+    {
+      "id": "7beb86ba-8b17-4bba-8374-fa6575c4c60e",
+      "item": "fairy",
+      "cost": 300,
+      "ts": "2026-11-08T21:20:55.517Z"
     }
   ],
   "fairyUntil": {}
