@@ -13,12 +13,25 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".mjs": "text/javascript" };
+const TYPES = { ".webmanifest": "application/manifest+json", ".png": "image/png", ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".mjs": "text/javascript" };
 
+// A counter the service-worker test reads: every request gets a new number, so a stale cached
+// answer is detectable. Nothing in the pages asks for it.
+let probeN = 0;
+// "Offline" for the service-worker test: the server drops every connection. (Playwright's
+// context.setOffline doesn't reliably reach a service worker's own fetches, so CI saw the network
+// answer when the test expected a failure.)
+let serverDown = false;
 const server = http.createServer(async (req, res) => {
+  if (serverDown) return req.destroy();
+  if (new URL(req.url, "http://x").pathname === "/__probe.json") {
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    return res.end(JSON.stringify({ n: ++probeN }));
+  }
   const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname)).replace(/^([/\\])+/, "");
   try {
     const body = await readFile(join(ROOT, path || "index.html"));
@@ -27,6 +40,15 @@ const server = http.createServer(async (req, res) => {
   } catch { res.writeHead(404); res.end(); }
 });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
+// A second origin (another port) standing in for the Worker, fonts, covers and the like.
+let otherHits = 0;
+const other = http.createServer((req, res) => {
+  otherHits++;
+  res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" });
+  res.end('{"other":true}');
+});
+await new Promise(r => other.listen(0, "127.0.0.1", r));
+const OTHER = `http://127.0.0.1:${other.address().port}`;
 const BASE = `http://127.0.0.1:${server.address().port}`;
 
 let pass = 0, fail = 0;
@@ -67,6 +89,73 @@ async function open(path, width, { clock = false, reducedMotion = "no-preference
 const noSideScroll = (page) => page.evaluate(async () => {
   await document.fonts.ready;
   return document.documentElement.scrollWidth <= window.innerWidth + 1;
+});
+
+// The installable shell: every page links the manifest and the Apple icon, the manifest points at
+// icons that exist, and the service worker is network-first (never a cached copy while the network
+// answers), keys its fallback without the ?_= cache-buster, and leaves other origins alone.
+// tests.yml lists suites by name and is off limits to session PRs, so the service worker's DOM-free
+// unit tests ride along here, where CI already runs.
+await test("sw.test.mjs (service worker cache key and request filter) passes", async () => {
+  const out = execFileSync(process.execPath, [join(ROOT, "scripts/sw.test.mjs")], { encoding: "utf8" });
+  ok(/(\d+)\/\1 passing/.test(out), out.trim().split("\n").pop());
+});
+
+await test("PWA: every page links the manifest and icon; manifest and its icons load", async () => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  for (const f of ["index", "add", "owl", "wrapped"]) {
+    await page.goto(`${BASE}/${f}.html`);
+    ok(await page.locator('link[rel="manifest"][href="manifest.webmanifest"]').count() === 1, `${f}.html has no manifest link`);
+    ok(await page.locator('link[rel="apple-touch-icon"]').count() === 1, `${f}.html has no apple-touch-icon`);
+  }
+  const m = await (await ctx.request.get(`${BASE}/manifest.webmanifest`)).json();
+  ok(m.name === "Game Log" && m.display === "standalone", "manifest name/display");
+  ok(/^#[0-9a-f]{6}$/i.test(m.theme_color) && /^#[0-9a-f]{6}$/i.test(m.background_color), "manifest colours");
+  for (const sz of ["180x180", "192x192", "512x512"]) ok(m.icons.some(i => i.sizes === sz), `no ${sz} icon`);
+  for (const i of m.icons) {
+    const r = await ctx.request.get(`${BASE}/${i.src}`);
+    ok(r.ok() && r.headers()["content-type"] === "image/png", `${i.src} didn't load as a PNG`);
+  }
+  ok(await page.evaluate(() => !navigator.serviceWorker.controller), "a local run must not register the worker by itself");
+  await ctx.close();
+});
+
+await test("service worker: network-first, one cache entry per file, offline fallback, other origins untouched", async () => {
+  const ctx = await browser.newContext({ serviceWorkers: "allow" });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}/add.html`);
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+  });
+  await page.reload();
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  const get = (u) => page.evaluate(async (u) => { try { const r = await fetch(u); return { ok: r.ok, text: await r.text() }; } catch (e) { return { err: String(e) }; } }, u);
+  // Online: every answer is fresh, never a cached copy.
+  const a = JSON.parse((await get("/__probe.json?_=1")).text).n;
+  const b = JSON.parse((await get("/__probe.json?_=2")).text).n;
+  ok(b === a + 1, `online answers must come from the network (got ${a} then ${b})`);
+  await get("/games.json?_=111"); await get("/games.json?_=222"); await get("/games.json?_=333");
+  const keys = await page.evaluate(async () => (await (await caches.open("gt-offline")).keys()).map(r => r.url));
+  ok(keys.filter(u => u.includes("games.json")).length === 1, `one games.json entry expected, got ${keys.filter(u => u.includes("games.json")).length}`);
+  ok(!keys.some(u => u.includes("?")), "no cache key may carry a query");
+  // Offline: the last copy comes back, whatever cache-buster is asked for; other origins just fail.
+  serverDown = true;
+  const off = await get("/__probe.json?_=999");
+  ok(!off.err && JSON.parse(off.text).n === b, `offline fallback should be the last copy (${b}), got ${JSON.stringify(off)}`);
+  const g = await get("/games.json?_=never-seen");
+  ok(!g.err && Array.isArray(JSON.parse(g.text)), "games.json should load offline under a new ?_=");
+  const miss = await get("/never-fetched.json");
+  ok(miss.err, "an uncached file offline must fail, not be invented");
+  otherHits = 0;
+  // Another origin keeps working while ours is down, goes straight to its own server, and is never cached.
+  const far = await get(`${OTHER}/x.json`);
+  ok(!far.err && otherHits === 1, `cross-origin request should pass straight through (hits ${otherHits}, ${JSON.stringify(far)})`);
+  const farKeys = await page.evaluate(async () => (await (await caches.open("gt-offline")).keys()).map(r => r.url));
+  ok(!farKeys.some(u => u.includes("x.json")), "a cross-origin response was cached");
+  serverDown = false;
+  await ctx.close();
 });
 
 for (const width of [390, 1280]) {
@@ -154,6 +243,95 @@ await test("someday triage: keep, up next, and remove-with-undo", async () => {
   await page.keyboard.press("Escape");
   ok(!(await page.locator("#sheet").isVisible()), "Escape didn't close the sheet");
   ok(errors.length === 0, errors.join(" | "));
+  await ctx.close();
+});
+
+// Someday and Archive each get a search box: title, genre and platform, case-insensitive,
+// diacritics folded, and the Archive's year groups vanish when nothing in them matches.
+for (const width of [390, 1280]) {
+  await test(`panel search at ${width}px: Someday and Archive filter by title, genre and platform`, async () => {
+    const games = JSON.parse(await readFile(join(ROOT, "games.json"), "utf8"));
+    const someday = games.filter(g => g.s === "soon"), arch = games.filter(g => g.s === "done" || g.s === "dropped");
+    const { page, errors, ctx } = await open("index.html", width);
+    await page.waitForSelector("#tn-list .tn-row");
+    // Someday
+    ok(!(await page.locator("#so-search").isVisible()), "Someday search shows before the panel opens");
+    await page.click("#so-toggle");
+    ok(await page.locator("#so-search").isVisible(), "Someday search isn't visible in the open panel");
+    const n0 = await page.locator("#soon .card").count();
+    ok(n0 === someday.length, `Someday shows ${n0} cards, data has ${someday.length}`);
+    const pick = someday.find(g => g.g && /[a-z]/i.test(g.g)) || someday[0];
+    const word = pick.t.split(/\s+/).find(w => w.length > 3) || pick.t;
+    await page.fill("#so-search", word.toUpperCase());
+    const byTitle = await page.locator("#soon .card").count();
+    ok(byTitle >= 1 && byTitle <= n0, "title search found nothing");
+    ok(await page.locator("#soon").innerText().then(t => t.toLowerCase().includes(word.toLowerCase())), "result doesn't contain the searched word");
+    await page.fill("#so-search", pick.g);
+    const byGenre = await page.locator("#soon .card").count();
+    ok(byGenre >= 1 && byGenre === someday.filter(g => (g.g || "").toLowerCase().includes(pick.g.toLowerCase())).length, `genre search count ${byGenre}`);
+    await page.fill("#so-search", "qzxjv no such game");
+    ok(await page.locator("#soon .empty").isVisible() && await page.locator("#soon .card").count() === 0, "no-match state missing");
+    await page.fill("#so-search", "");
+    ok(await page.locator("#soon .card").count() === n0, "clearing the search didn't restore Someday");
+    ok(/Someday \(\d+\)/i.test(await page.locator("#so-lbl").innerText()), "label should show the plain count with no search");
+    // Triage still works from the full list while a filter is typed
+    await page.fill("#so-search", "qzxjv");
+    if (width === 390) {
+      await page.click("#so-actions .mini-btn");
+      ok(await page.locator("#sheet").isVisible(), "triage sheet didn't open with a filter active");
+      await page.keyboard.press("Escape");
+    }
+    await page.fill("#so-search", "");
+    // Archive
+    await page.click("#ar-toggle");
+    ok(await page.locator("#ar-search").isVisible(), "Archive search isn't visible in the open panel");
+    const groups0 = await page.locator("#ar-list .mg").count();
+    const titled = arch.find(g => g.t) ;
+    await page.fill("#ar-search", titled.t.slice(0, 5).toUpperCase());
+    const g1 = await page.locator("#ar-list .mg").count();
+    ok(g1 >= 1 && g1 <= groups0, "archive title search");
+    const withAccent = arch.find(g => /[\u00c0-\u024f]/.test(g.t));
+    if (withAccent) {
+      const plain = withAccent.t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      await page.fill("#ar-search", plain.toLowerCase());
+      ok((await page.locator("#ar-list").innerText()).includes(withAccent.t), `diacritics weren't folded for ${withAccent.t}`);
+    }
+    const plat = arch[0].p;
+    await page.fill("#ar-search", plat);
+    const hits = await page.locator("#ar-list .mg").count();
+    ok(hits >= 1, "archive platform search found nothing");
+    // every visible group has a game: empty groups are hidden
+    ok(await page.locator("#ar-list .mg").evaluateAll(els => els.every(e => e.querySelectorAll(".mg-g, .ag, .gi, [class*=row], .card, div").length > 1)), "an empty group is showing");
+    await page.fill("#ar-search", "qzxjv no such game");
+    ok(await page.locator("#ar-list .mg").count() === 0 && await page.locator("#ar-list .empty").isVisible(), "archive no-match state");
+    await page.fill("#ar-search", "");
+    ok(await page.locator("#ar-list .mg").count() === groups0, "clearing the archive search didn't restore the groups");
+    ok(await noSideScroll(page), "page scrolls sideways");
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+
+// Reduced motion: nothing on any page keeps moving, hover doesn't shift a card, and the
+// content is still there. (The Heart Piece, Great Fairy and Hestu moments have their own tests.)
+for (const path of ["index.html", "add.html", "owl.html", "wrapped.html"]) {
+  await test(`${path}: reduced motion leaves no animation running`, async () => {
+    const { page, errors, ctx } = await open(path, 390, { reducedMotion: "reduce" });
+    await page.waitForTimeout(1200);
+    const running = await page.evaluate(() => document.getAnimations().filter(a => a.playState === "running").map(a => a.animationName || a.transitionProperty || a.constructor.name));
+    ok(running.length === 0, `still animating: ${[...new Set(running)].join(", ")}`);
+    ok(errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+}
+await test("index.html: reduced motion keeps card hover from moving the card", async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+  const page = await ctx.newPage();
+  await page.route("**/*", r => r.request().url().startsWith(BASE) ? r.continue() : r.abort());
+  await page.goto(BASE + "/index.html");
+  await page.waitForSelector("#queue .card");
+  await page.hover("#queue .card");
+  ok(await page.locator("#queue .card").first().evaluate(e => getComputedStyle(e).transform) === "none", "card moved on hover");
   await ctx.close();
 });
 
@@ -669,5 +847,6 @@ await test("forest skin: an owned, worn skin dresses the Korok Forest; Blood Moo
 
 await browser.close();
 server.close();
+other.close();
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);

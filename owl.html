@@ -7,6 +7,10 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%A6%89</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Game Log">
 <style>
 /* Palette from theme.css, plus OoT's text-box colours: key words in red, places in blue,
    and the Yes/No choices in green with a pointing cursor. */
@@ -141,7 +145,7 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 .struck .st-say{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);}
 
 @media (prefers-reduced-motion:reduce){
-  *,*::before{animation:none !important;transition:none !important;}
+  *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important;}
 }
 </style>
 </head>
@@ -923,5 +927,6 @@ Promise.all([
 </script>
 <script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="owl:50%,owl-hang:12%:top,owl-low:78%"></script>
 <script src="usage.js" defer></script>
+<script src="pwa.js" defer></script>
 </body>
 </html>
