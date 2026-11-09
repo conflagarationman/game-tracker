@@ -22,7 +22,12 @@ const TYPES = { ".webmanifest": "application/manifest+json", ".png": "image/png"
 // A counter the service-worker test reads: every request gets a new number, so a stale cached
 // answer is detectable. Nothing in the pages asks for it.
 let probeN = 0;
+// "Offline" for the service-worker test: the server drops every connection. (Playwright's
+// context.setOffline doesn't reliably reach a service worker's own fetches, so CI saw the network
+// answer when the test expected a failure.)
+let serverDown = false;
 const server = http.createServer(async (req, res) => {
+  if (serverDown) return req.destroy();
   if (new URL(req.url, "http://x").pathname === "/__probe.json") {
     res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
     return res.end(JSON.stringify({ n: ++probeN }));
@@ -35,6 +40,15 @@ const server = http.createServer(async (req, res) => {
   } catch { res.writeHead(404); res.end(); }
 });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
+// A second origin (another port) standing in for the Worker, fonts, covers and the like.
+let otherHits = 0;
+const other = http.createServer((req, res) => {
+  otherHits++;
+  res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" });
+  res.end('{"other":true}');
+});
+await new Promise(r => other.listen(0, "127.0.0.1", r));
+const OTHER = `http://127.0.0.1:${other.address().port}`;
 const BASE = `http://127.0.0.1:${server.address().port}`;
 
 let pass = 0, fail = 0;
@@ -127,18 +141,20 @@ await test("service worker: network-first, one cache entry per file, offline fal
   ok(keys.filter(u => u.includes("games.json")).length === 1, `one games.json entry expected, got ${keys.filter(u => u.includes("games.json")).length}`);
   ok(!keys.some(u => u.includes("?")), "no cache key may carry a query");
   // Offline: the last copy comes back, whatever cache-buster is asked for; other origins just fail.
-  await ctx.setOffline(true);
+  serverDown = true;
   const off = await get("/__probe.json?_=999");
   ok(!off.err && JSON.parse(off.text).n === b, `offline fallback should be the last copy (${b}), got ${JSON.stringify(off)}`);
   const g = await get("/games.json?_=never-seen");
   ok(!g.err && Array.isArray(JSON.parse(g.text)), "games.json should load offline under a new ?_=");
   const miss = await get("/never-fetched.json");
   ok(miss.err, "an uncached file offline must fail, not be invented");
-  const far = await get("https://example.com/x.json");
-  ok(far.err, "a cross-origin request must not be answered by the worker");
+  otherHits = 0;
+  // Another origin keeps working while ours is down, goes straight to its own server, and is never cached.
+  const far = await get(`${OTHER}/x.json`);
+  ok(!far.err && otherHits === 1, `cross-origin request should pass straight through (hits ${otherHits}, ${JSON.stringify(far)})`);
   const farKeys = await page.evaluate(async () => (await (await caches.open("gt-offline")).keys()).map(r => r.url));
-  ok(!farKeys.some(u => u.includes("example.com")), "a cross-origin response was cached");
-  await ctx.setOffline(false);
+  ok(!farKeys.some(u => u.includes("x.json")), "a cross-origin response was cached");
+  serverDown = false;
   await ctx.close();
 });
 
@@ -831,5 +847,6 @@ await test("forest skin: an owned, worn skin dresses the Korok Forest; Blood Moo
 
 await browser.close();
 server.close();
+other.close();
 console.log(`\n${pass}/${pass + fail} passing`);
 process.exit(fail ? 1 : 0);
