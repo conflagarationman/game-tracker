@@ -43,6 +43,7 @@ comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secret
 | `achievements-log.json` | bot only (`sync-games.yml`, daily) | One row per unlock, one per line: `{ src: steam|ra, id (tracker id or null), key, ts (unix UTC), name, game, pct, hc }`. Steam: every tracked Steam game's unlocks with their real times (Steam keeps them, so the first run filled every year); `pct` is Steam's global unlock %, fetched for the current year's rows only. RA: `API_GetAchievementsEarnedBetween` from an hour before the newest RA row (Jan 1 for an empty log), **every** RA game, tracked or not; RA's zoneless dates are read as UTC. Merged, never rebuilt: rows are only added or filled in. Bucket hours and days in America/New_York, never UTC. |
 | `wrapped-<year>.json` | bot only (`scripts/freeze-wrapped.mjs` in `sync-games.yml`) | A finished year's review inputs, frozen by the first sync on or after Jan 1 (8 AM ET): all of `games.json` and `asf-idle.json`, that year's `ledger.json` days plus the last day before, and that year's unlocks with a day of margin. Written once, never overwritten. `wrapped.html` loads it for any past year and prefers it over the live files. Rehearse with `node scripts/freeze-wrapped.mjs --year 2026 --force --out /tmp/w.json`. |
 | `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
+| `manifest.webmanifest` + `icons/` + `sw.js` + `pwa.js` | you | **Installable (PWA).** Name "Game Log", dark-theme colours, 180/192/512 PNG icons of the header's pixel heart (drawn by `scripts/make-icons.mjs`, no dependencies; re-run only to change the art). All four pages link the manifest and the Apple touch icon and load `pwa.js`, which registers `sw.js` on the live https site only (never localhost or file://, so the CI browser test never has a worker in the way). **`sw.js` is network-first for everything:** a cached copy is only a fallback for a failed network, so the pages' `?_=<timestamp>` cache-busting is never defeated. Cache entries are keyed by URL **without the query**, so timestamps don't pile up and offline lookups ignore `_`. It never handles other origins (the Worker, hub beacon, fonts, covers, YouTube) and its scope is this folder, so Steph's page loading `korok.js` cross-site is unaffected. The cache name is fixed on purpose: network-first means nothing needs a version bump. Pure helpers (`cacheKey`, `handles`, `cacheable`) tested by `scripts/sw.test.mjs`, which `smoke.browser.mjs` also runs because `tests.yml` can't be edited from a session PR; the worker's behaviour is in the smoke test. |
 | `scripts/*.mjs` | you | Run by Actions, not by the pages. |
 | `worker/` | you | The only thing that can commit to `games.json` (and `owl-skips.json`) from a browser. `worker/index.mjs` keeps its own copy of the 7/30/90 snooze table; its test compares it with `pick.js`'s. |
 
@@ -178,6 +179,8 @@ games you chose to keep) live in `localStorage` only.
   values it replaced) and laid over `games.json` on load for up to 10 minutes, until the file
   shows it; a field changed elsewhere in between wins. The Worker also skips an edit that
   changes nothing, so a retried save no longer makes an empty commit.
+- **Panel search.** Someday and Archive each have a search box in their open panel: every word must appear in the title, genre or platform (key or label), case-insensitive and diacritics folded (`gameMatches` in `index.html`). Archive groups with no match disappear; Someday triage and "Fill in finished games" always work on the full list, not the filtered one.
+- **Reduced motion.** Moving effects live behind `@media (prefers-reduced-motion:no-preference)` (index.html's Heart Piece, fairy, bomb, Great Fairy, card hover lift, skeleton shimmer), or are switched off under `reduce` (owl.html's global override, wrapped's story-card entrance, korok.js's Hestu). The content still shows and every moment still skips/dismisses. Keep new motion inside one of those two patterns.
 - **Play check rows act**: Playing, Finished (date + rating sheet), or ✕, which hides a row
   until that game's `lastPlayed` changes. "Add as playing" deep-links to
   `add.html?t=…&s=playing&p=…`.
@@ -363,6 +366,7 @@ node scripts/hearts.test.mjs           # 13
 node scripts/graveyard.test.mjs        # 12
 node scripts/rupees.test.mjs           # 18
 node scripts/theme.test.mjs            # 18
+node scripts/sw.test.mjs               # 13 (also run by the smoke test)
 node scripts/library-meta.test.mjs     # 4
 node scripts/library-hltb.test.mjs     # 8
 cd worker && node index.test.mjs       # 47
@@ -374,7 +378,9 @@ nineteen commands above.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
 `wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
-on sideways scroll, page errors, or a broken picker/triage/play-check/share-image flow. The
+on sideways scroll, page errors, or a broken picker/triage/play-check/share-image flow, plus the
+service worker (network-first, offline fallback, other origins untouched), the Someday/Archive
+search, and "nothing keeps animating under reduced motion" on every page. The
 Worker is stubbed inside the test (writes are recorded, never sent), and every other off-site
 request is aborted except web fonts, which are let through because the phone header only
 overflowed once Syne loaded. Locally: `npm i --no-save playwright@1.56.1 && npx playwright

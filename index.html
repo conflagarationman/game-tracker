@@ -7,6 +7,10 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%8E%AE</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Game Log">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:2rem 1rem;padding-bottom:max(2rem,env(safe-area-inset-bottom));}
@@ -135,6 +139,11 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 section:first-of-type .slabel{margin-top:0;}
 .game-list{display:flex;flex-direction:column;gap:5px;}
 
+/* Reduced motion keeps the hover cue (a brighter border) but never moves the card. */
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:reduce){
+  .card:hover{box-shadow:0 0 0 1px var(--border2);}
+  .hero-card:hover{box-shadow:0 0 0 2px var(--text);}
+}
 /* Cards */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:row;transition:border-color 0.15s;}
 .card:hover{border-color:var(--border2);}
@@ -149,7 +158,7 @@ section:first-of-type .slabel{margin-top:0;}
 
 /* Hover-lift only for devices with real mouse hover — gated so touch/mobile never gets a
    half-working hover state. Nothing is ever hidden behind hover; this is pure polish. */
-@media (hover:hover) and (pointer:fine){
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
   .card{transition:border-color 0.15s, transform 0.15s ease, box-shadow 0.15s ease;}
   .card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,0.35);}
 }
@@ -171,7 +180,7 @@ section:first-of-type .slabel{margin-top:0;}
 /* Crisp hover highlight, gated to real pointer devices only (see the .card rule above for
    why) — the closest honest equivalent to Steam Deck's focus ring, which is actually
    gamepad/keyboard focus, not mouse hover; these cards aren't a keyboard-navigable grid. */
-@media (hover:hover) and (pointer:fine){
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
   .hero-card{transition:box-shadow 0.15s ease, transform 0.15s ease;}
   .hero-card:hover{transform:scale(1.015);box-shadow:0 0 0 2px var(--text), 0 8px 20px rgba(0,0,0,0.4);}
 }
@@ -282,6 +291,7 @@ section:first-of-type .slabel{margin-top:0;}
 .search-box{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:0.85rem;padding:0.6rem 0.8rem;margin-bottom:0.75rem;}
 .search-box::placeholder{color:var(--dim);}
 .search-box:focus{outline:none;border-color:var(--accent);}
+.search-box{-webkit-appearance:none;appearance:none;}
 
 /* Year log */
 .yg{margin-bottom:1.5rem;}
@@ -536,6 +546,7 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
   <div class="cr" id="so-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="so-panel" onclick="tog('so')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('so');}"><span id="so-arr" aria-hidden="true">▶</span><span id="so-lbl">Someday (0)</span></div>
   <div id="so-panel" style="display:none;margin-top:0.75rem;">
     <div class="panel-actions" id="so-actions"></div>
+    <input type="search" id="so-search" class="search-box" placeholder="Search Someday by title, genre or platform…" aria-label="Search Someday by title, genre or platform" autocomplete="off" oninput="renderSomeday()">
     <div class="queue-grid" id="soon"></div>
   </div>
 </section>
@@ -544,7 +555,7 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
   <div class="cr" id="ar-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="ar-panel" onclick="tog('ar')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('ar');}"><span id="ar-arr" aria-hidden="true">▶</span><span id="ar-lbl">Archive (0)</span></div>
   <div id="ar-panel" style="display:none;margin-top:0.75rem;">
     <div class="panel-actions" id="ar-actions"></div>
-    <input type="text" id="ar-search" class="search-box" placeholder="Search archive by title…" aria-label="Search archive by title" oninput="renderPanels()">
+    <input type="search" id="ar-search" class="search-box" placeholder="Search archive by title, genre or platform…" aria-label="Search archive by title, genre or platform" autocomplete="off" oninput="renderPanels()">
     <div id="ar-list"></div>
   </div>
 </section>
@@ -959,13 +970,33 @@ function tog(k){
   renderPanels();
 }
 
+// Panel search: case-insensitive, diacritics folded ("pokemon" finds "Pokémon"), and a game matches
+// when every word of the query appears in its title, genre or platform (the platform's key and its
+// label, so "deck" and "switch 2" both work).
+function foldText(x){ return String(x==null?'':x).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+function gameMatches(g,q){
+  const words=foldText(q).split(/\s+/).filter(Boolean);
+  if(!words.length) return true;
+  const hay=foldText(`${g.t} ${g.g||''} ${g.p||''} ${PL[g.p]||''}`);
+  return words.every(w=>hay.includes(w));
+}
+function renderSomeday(){
+  const list=SOON_LIST, q=(document.getElementById('so-search').value||'').trim();
+  const shown=q?list.filter(g=>gameMatches(g,q)):list;
+  document.getElementById('soon').innerHTML=shown.length
+    ? shown.map(g=>qC(g,0,false)).join('')
+    : `<div class="empty">${list.length?'No Someday games match that search.':'Nothing here yet.'}</div>`;
+  const so=document.getElementById('so-lbl');
+  so.textContent=q&&list.length?`Someday (${shown.length} of ${list.length})`:`Someday (${list.length})`;
+}
+
 function renderPanels(){
   renderGraveyard();
   const arch=G.filter(g=>g.s==='done'||g.s==='dropped').sort((a,b)=>(b.cy||0)-(a.cy||0)||((b.cm??-1)-(a.cm??-1)));
   document.getElementById('ar-lbl').textContent=`Archive (${arch.length})`;
   if(open.ar){
-    const q=(document.getElementById('ar-search').value||'').trim().toLowerCase();
-    const filtered=q?arch.filter(g=>g.t.toLowerCase().includes(q)):arch;
+    const q=(document.getElementById('ar-search').value||'').trim();
+    const filtered=q?arch.filter(g=>gameMatches(g,q)):arch;
     if(q && filtered.length===0){
       document.getElementById('ar-list').innerHTML='<div class="empty">No archived games match that search.</div>';
     } else {
@@ -999,6 +1030,7 @@ function renderPanels(){
 // Consequently `s:"done"` does NOT clear a pick — only gotmFlair does. Finishing the game and
 // meeting that month's requirement are different things.
 let GOTM = null;
+let SOON_LIST = [];
 
 // gotm.json's monthsLeft/retired/isCurrent are a snapshot from whenever the bot last ran, and
 // that run can be weeks old (the fetch is paused while the Reddit secrets are unset). Derive
@@ -1129,8 +1161,7 @@ function render(){
   document.getElementById('now').innerHTML=playing.length?playing.map(nowC).join(''):'<div class="empty">Nothing playing.</div>';
   document.getElementById('queue').innerHTML=queue.length?queue.map((g,i)=>qC(g,i+1,true)).join(''):'<div class="empty">Nothing up next.</div>';
   document.getElementById('ongoing').innerHTML=ongoing.length?ongoing.map(ongC).join(''):'<div class="empty">Nothing ongoing.</div>';
-  document.getElementById('so-lbl').textContent=`Someday (${soon.length})`;
-  document.getElementById('soon').innerHTML=soon.length?soon.map(g=>qC(g,0,false)).join(''):'<div class="empty">Nothing here yet.</div>';
+  SOON_LIST=soon; renderSomeday();
   renderPlayCheck();
   renderGotm();
   renderTonight();
@@ -2134,5 +2165,6 @@ fresh('last-synced.json').then(r=>r.ok?r.json():null).then(d=>{
 </script>
 <script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="index:8%,index-hang:57%:top,index-low:93%"></script>
 <script src="usage.js" defer></script>
+<script src="pwa.js" defer></script>
 </body>
 </html>
