@@ -16,7 +16,7 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:1.5rem 1rem 3rem;}
 .wrap{max-width:820px;margin:0 auto;}
-.top{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;}
+.top{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin:0.5rem 0 1.25rem;} /* clear of the hanging Korok above */
 .back{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);text-decoration:none;text-transform:uppercase;letter-spacing:0.08em;}
 .back:hover{color:var(--text);}
 .years{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;}
@@ -40,6 +40,10 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .top5 li{display:flex;align-items:center;gap:0.65rem;min-width:0;}
 .rank{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);width:14px;text-align:center;flex-shrink:0;}
 .cov{width:72px;height:34px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--surface2);}
+.pglyph{display:block;height:auto;}
+.cov-ph .pglyph{width:22px;}
+.so-img-ph .pglyph{width:18px;}
+.goty-img-ph .pglyph{width:44%;max-width:96px;}
 .cov-ph{width:72px;height:34px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.9rem;}
 .t5-main{flex:1;min-width:0;}
 .t5-t{font-size:0.88rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -187,6 +191,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
   <div class="st-foot"><button type="button" class="st-nav" id="st-prev" onclick="stepCard(-1)">← Back</button><span class="st-s" id="st-count"></span><button type="button" class="st-nav" id="st-next" onclick="stepCard(1)">Next →</button></div>
 </div>
 
+<script src="glyphs.js"></script>
 <script src="wrapped-stats.js"></script>
 <script>
 // A year of finished games as one page you'd actually send someone, plus a share image drawn
@@ -195,7 +200,6 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const PL={steam:'Steam',steamdeck:'Steam Deck',pc:'PC',ps5:'PS5',switch:'Switch',switch2:'Switch 2',ayn:'AYN Thor',retro:'Retro',wiiu:'Wii U'};
 const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
-const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DEV_COL={handheld:'#ff4af0',hybrid:'#4aff8c',desk:'#00e5ff'};
 let G=[], COVERS={}, Y=null, D=null, ASF=null, POSTER_D=null, LEDGER=null, UNLOCKS=[];
 // wrapped-<year>.json: a finished year's inputs as they stood on Jan 1 (scripts/freeze-wrapped.mjs).
@@ -225,7 +229,7 @@ function yearData(year){
 
 function cover(g, cls='cov'){
   const url=COVERS[g.t.toLowerCase()], c=PC[g.p]||'#555';
-  const ph=`<div class="cov-ph ${cls}-ph" style="background:${c}22;color:${c}${url?';display:none':''}">${PLAT_EMOJI[g.p]||'🎮'}</div>`;
+  const ph=`<div class="cov-ph ${cls}-ph" style="background:${c}22;color:${c}${url?';display:none':''}">${GTGlyph.svg(g.p)}</div>`;
   return url ? `<img class="${cls}" src="${esc(url)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${ph}` : ph;
 }
 const fact=(l,g,s)=>g?`<div class="fact"><div class="fact-l">${l}</div><div class="fact-v" title="${esc(g.t)}">${esc(g.t)}</div><div class="fact-s">${s}</div></div>`:'';
@@ -701,7 +705,7 @@ Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=
   .then(([g,c,a,l,u])=>{ G=g; COVERS=c; ASF=a; LEDGER=l; UNLOCKS=(u&&u.unlocks)||[]; render(); openCardsFromUrl(); })
   .catch(e=>{ document.getElementById('main').innerHTML=`<p class="err">Couldn’t load game data (${esc(e.message)}).</p>`; });
 </script>
-<script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="wrapped:22%,wrapped-hang:81%:top"></script>
+<script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="wrapped:22%,wrapped-hang:30%:top"></script>
 <script src="usage.js" defer></script>
 <script src="pwa.js" defer></script>
 </body>

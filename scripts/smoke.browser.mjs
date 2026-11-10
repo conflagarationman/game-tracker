@@ -101,6 +101,11 @@ await test("sw.test.mjs (service worker cache key and request filter) passes", a
   ok(/(\d+)\/\1 passing/.test(out), out.trim().split("\n").pop());
 });
 
+await test("glyphs.test.mjs (platform glyphs) passes", async () => {
+  const out = execFileSync(process.execPath, [join(ROOT, "scripts/glyphs.test.mjs")], { encoding: "utf8" });
+  ok(/(\d+)\/\1 passing/.test(out), out.trim().split("\n").pop());
+});
+
 await test("PWA: every page links the manifest and icon; manifest and its icons load", async () => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
@@ -311,6 +316,193 @@ for (const width of [390, 1280]) {
     await ctx.close();
   });
 }
+
+// ── Visual cleanup of index.html ────────────────────────────────────────────────────────────────
+const READ = async (f) => JSON.parse(await readFile(join(ROOT, f), "utf8"));
+
+await test("index.html layout: Now Playing first, then Up Next, Ongoing, picker, GOTM, stats, panels; section ids intact", async () => {
+  const { page, errors, ctx } = await open("index.html", 390);
+  await page.waitForSelector("#tn-list .tn-row");
+  const order = ["now", "queue", "ongoing", "tonight-sec", "gotm-sec", "stats", "so-toggle", "ar-toggle", "yl-toggle"];
+  const tops = [];
+  for (const id of order) tops.push(await page.locator("#" + id).evaluate(e => e.getBoundingClientRect().top + scrollY));
+  ok(tops.every((t, i) => i === 0 || t > tops[i - 1]), "sections out of order: " + order.map((id, i) => `${id}@${Math.round(tops[i])}`).join(" "));
+  // The ids usage.js counts taps on must all still exist (a renamed id silently stops its counts).
+  const usage = await page.evaluate(() => TrackerUsage.SECTIONS.index.map(id => [id, !!document.getElementById(id)]));
+  ok(usage.every(([, here]) => here), "usage.js section id missing: " + usage.filter(([, h]) => !h).map(([i]) => i));
+  ok(await page.locator("#play-check").evaluate(e => e.previousElementSibling.id === "now"), "play-check isn't directly under Now Playing");
+  ok(await page.locator("#now").evaluate(e => e.getBoundingClientRect().top) < 300, "Now Playing starts too low on a phone");
+  ok(await noSideScroll(page), "page scrolls sideways");
+  ok(errors.length === 0, errors.join(" | "));
+  await ctx.close();
+});
+
+await test("index.html at 390x844: the first Now Playing card is on the first screen", async () => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  await page.route("**/*", r => r.request().url().startsWith(BASE) ? r.continue() : r.abort());
+  await page.goto(BASE + "/index.html");
+  await page.waitForSelector("#now .hero-card");
+  const box = await page.locator("#now .hero-card").first().boundingBox();
+  ok(box.y + 240 <= 844, `first card starts at ${Math.round(box.y)}px, its art and title would fall below the fold`);
+  await ctx.close();
+});
+
+for (const width of [390, 1280]) {
+  await test(`index.html at ${width}px: stats in Cinzel, six in a row on desktop, 3x2 on a phone`, async () => {
+    const { page, ctx } = await open("index.html", width);
+    await page.waitForSelector("#stats .stat-n");
+    ok(await page.locator("#stats .stat-n").first().evaluate(e => /Cinzel/.test(getComputedStyle(e).fontFamily)), "stat numbers aren't Cinzel");
+    const tops = await page.locator("#stats .stat").evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
+    const rows = [...new Set(tops)].length;
+    ok(tops.length === 6, `${tops.length} stat tiles`);
+    ok(width === 1280 ? rows === 1 : rows === 2 && tops.filter(t => t === tops[0]).length === 3, `stat rows: ${tops}`);
+    ok(await page.locator("#stats .stat").evaluateAll(els => els.every(e => e.scrollWidth <= e.clientWidth + 1)), "a stat tile overflows");
+    ok(await noSideScroll(page), "page scrolls sideways");
+    await ctx.close();
+  });
+
+  await test(`index.html at ${width}px: nothing a person reads is under 12px`, async () => {
+    const { page, ctx } = await open("index.html", width);
+    await page.waitForSelector("#tn-list .tn-row");
+    await page.evaluate(() => { for (const k of ["so", "ar", "yl", "gy"]) if (!open[k]) tog(k); });
+    const small = await page.evaluate(() => [...document.querySelectorAll("body *")]
+      .filter(e => !e.closest("svg,script,style,[hidden],.korok-spot,#korok-hestu") && getComputedStyle(e).display !== "none" && getComputedStyle(e).visibility !== "hidden")
+      .filter(e => [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()))
+      .map(e => ({ s: parseFloat(getComputedStyle(e).fontSize), c: e.className || e.tagName, t: e.textContent.trim().slice(0, 18) }))
+      .filter(x => x.s < 11.99));
+    ok(small.length === 0, `${small.length} under 12px, e.g. ${JSON.stringify(small.slice(0, 3))}`);
+    ok(await noSideScroll(page), "page scrolls sideways");
+    await ctx.close();
+  });
+
+  await test(`index.html at ${width}px: Up Next cards are one height, numbered 1..N in array order, with only the essential pills`, async () => {
+    const games = await READ("games.json");
+    const { page, ctx } = await open("index.html", width);
+    await page.waitForSelector("#queue .card");
+    const hs = await page.locator("#queue .card").evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().height)));
+    ok(new Set(hs).size === 1, `card heights differ: ${[...new Set(hs)]}`);
+    const queue = games.filter(g => g.s === "queue");
+    const nums = await page.locator("#queue .qnum").allInnerTexts();
+    ok(nums.join() === queue.map((_, i) => i + 1).join(), "queue numbering isn't 1..N");
+    const titles = await page.locator("#queue .gtitle").allInnerTexts();
+    ok(titles.join("|") === queue.map(g => g.t).join("|"), "queue order doesn't follow games.json");
+    const extra = await page.locator("#queue .genre-tag, #queue .yr, #queue .gotm, #queue .mast, #queue .diff, #queue .casual-pill, #queue .replay-pill").count();
+    ok(extra === 0, `${extra} non-essential pills still on Up Next cards`);
+    const withNote = queue.find(g => g.note);
+    if (withNote) {
+      const note = page.locator(`#queue .card[data-id="${withNote.id}"] .note-pill`);
+      ok(await note.getAttribute("title") === withNote.note, "full note isn't in its title");
+      ok(await note.evaluate(e => e.getBoundingClientRect().height < 30), "the note wraps past one line");
+    }
+    const detail = queue.find(g => g.g || g.y);
+    ok(await page.locator(`#queue .card[data-id="${detail.id}"]`).getAttribute("title") !== null, "dropped detail didn't move to the title");
+    ok(await noSideScroll(page), "page scrolls sideways");
+    await ctx.close();
+  });
+
+  await test(`index.html at ${width}px: the heart row never wraps`, async () => {
+    const { page, ctx } = await open("index.html", width);
+    await page.waitForSelector("#hearts svg");
+    const h = await page.locator("#hearts").evaluate(e => e.getBoundingClientRect().height);
+    ok(h < 40, `hearts pill is ${h}px tall: it wrapped`);
+    const wallet = await page.locator("#wallet").evaluate(e => e.getBoundingClientRect().top);
+    const hearts = await page.locator("#hearts").evaluate(e => e.getBoundingClientRect().top);
+    ok(Math.abs(wallet - hearts) < 12, "the wallet pill dropped to its own line");
+    await ctx.close();
+  });
+}
+
+await test("index.html GOTM: three least-time-left picks, '+N more' expands and is remembered; rules and links stay", async () => {
+  const { page, ctx } = await open("index.html", 390);
+  await page.waitForSelector("#gotm-sec .gotm-row");
+  const gotm = await READ("gotm.json");
+  const games = await READ("games.json");
+  const flair = new Set(games.filter(g => g.gotmFlair).map(g => g.gotm));
+  const left = await page.evaluate(() => GOTM.picks.filter(p => !p.retired).filter(p => { const g = gameForPick(p); return !(g && g.gotmFlair); }).map(p => p.monthsLeft).sort((a, b) => a - b));
+  const shown = await page.locator("#gotm-sec .gotm-rows:not(.gotm-more) .gotm-row").count();
+  ok(shown === Math.min(3, left.length), `${shown} rows shown, ${left.length} claimable`);
+  const labels = await page.locator("#gotm-sec .gotm-rows:not(.gotm-more) .gotm-left").allInnerTexts();
+  ok(labels.every((l, i) => l.trim() === (left[i] === 1 ? "LAST" : left[i] + "mo")), `shown picks aren't the least time left: ${labels} vs ${left.slice(0, 3)}`);
+  if (left.length > 3) {
+    const btn = page.locator("#gotm-toggle");
+    ok((await btn.innerText()).trim() === `+${left.length - 3} more`, "toggle label");
+    ok(await page.locator("#gotm-more").isHidden(), "the rest should start hidden");
+    await btn.click();
+    ok(await page.locator("#gotm-more .gotm-row").count() === left.length - 3, "expanding didn't show the rest");
+    ok(await page.evaluate(() => JSON.parse(localStorage.getItem("gt_panels")).gm === true), "choice wasn't saved with the panel state");
+    await page.reload(); await page.waitForSelector("#gotm-sec .gotm-row");
+    ok(await page.locator("#gotm-more").isVisible(), "the expanded choice didn't survive a reload");
+    await page.click("#gotm-toggle");
+    ok(await page.locator("#gotm-more").isHidden(), "collapsing didn't hide the rest");
+  }
+  ok(await page.locator('#gotm-sec a[href*="reddit"]').count() >= 1 || /r\/SBCGaming/.test(await page.locator("#gotm-sec .gotm-sub").innerText()), "club link missing");
+  ok(/only|differ every month/i.test(await page.locator("#gotm-sec .gotm-foot").innerText()), "rules note missing");
+  ok(gotm.picks && flair.size >= 0, "gotm data");
+  await ctx.close();
+});
+
+await test("platform glyphs: pixel SVGs replace the emoji fallbacks on index, wrapped and owl", async () => {
+  const EMOJI = /[\u{1F3AE}\u{1F5A5}\u{1F4F1}\u{1F4BB}\u{1F47E}]/u;
+  const a = await open("index.html", 390);
+  await a.page.waitForSelector("#now .hero-bg-fallback");
+  ok(await a.page.locator("#now .hero-bg-fallback svg.pglyph").count() > 0, "no glyph on Now Playing");
+  ok(await a.page.locator("#queue .thumb-placeholder svg.pglyph").count() > 0, "no glyph on Up Next");
+  const fb = await a.page.locator(".thumb-placeholder, .hero-bg-fallback").allInnerTexts();
+  ok(!fb.some(t => EMOJI.test(t)), "an emoji fallback is still showing");
+  ok(await a.page.locator(".pglyph").first().evaluate(e => e.getBoundingClientRect().width > 8), "glyph has no size");
+  ok(await a.page.locator(".hero-bg-fallback svg rect").first().evaluate(e => e.getAttribute("fill") === null && getComputedStyle(e.closest("svg")).fill !== "none"), "glyph isn't coloured through currentColor");
+  await a.ctx.close();
+  const w = await open("wrapped.html", 390);
+  await w.page.waitForSelector(".cov-ph");
+  ok(await w.page.locator(".cov-ph svg.pglyph").count() > 0, "no glyph in Wrapped");
+  ok(!(await w.page.locator(".cov-ph, .goty-img-ph").allInnerTexts()).some(t => EMOJI.test(t)), "emoji left in Wrapped");
+  ok(await noSideScroll(w.page), "wrapped scrolls sideways");
+  await w.ctx.close();
+  const o = await open("owl.html", 390, { reducedMotion: "reduce" });
+  await o.page.waitForSelector("#owl");
+  const src = await o.page.evaluate(() => typeof GTGlyph === "object" && GTGlyph.svg("steam").includes("pglyph"));
+  ok(src, "owl.html can't draw glyphs");
+  await o.ctx.close();
+});
+
+// A hanging Korok must leave a 6px margin around every link, button and text on the page.
+for (const [path, spot] of [["wrapped.html", "wrapped-hang"], ["owl.html", "owl-hang"]]) {
+  for (const width of [390, 1280]) {
+    await test(`${path} at ${width}px: the ${spot} Korok doesn't sit on a control or text`, async () => {
+      const { page, ctx } = await open(path, width);
+      await page.waitForSelector(".korok-top .korok-btn");
+      await page.waitForTimeout(400);
+      const hits = await page.evaluate(() => {
+        const rect = e => { const r = e.getBoundingClientRect(); return { l: r.left + scrollX, t: r.top + scrollY, r: r.right + scrollX, b: r.bottom + scrollY }; };
+        // Only the part of the Korok that shows counts: its wrapper clips it to a 22px strip.
+        const b = document.querySelector(".korok-top .korok-btn"), rb = rect(b), rw = rect(b.closest(".korok-spot")), P = 6;
+        const r0 = { l: rb.l, r: rb.r, t: Math.max(rb.t, rw.t), b: Math.min(rb.b, rw.b) };
+        const r = { l: r0.l - P, t: r0.t - P, r: r0.r + P, b: r0.b + P };
+        return [...document.querySelectorAll("body *")]
+          .filter(e => !e.closest(".korok-spot,#korok-hestu,.korok-counter,script,style,dialog,[hidden]") && getComputedStyle(e).visibility !== "hidden" && getComputedStyle(e).display !== "none")
+          .filter(e => e.matches("a,button,input,select,textarea,summary,[role=button],canvas,img,svg") || [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()))
+          .filter(e => !e.contains(b) && !b.contains(e))
+          .filter(e => { const q = rect(e); return q.r > q.l && q.b > q.t && q.l < r.r && q.r > r.l && q.t < r.b && q.b > r.t; })
+          .map(e => e.tagName + "." + e.className + ":" + e.textContent.trim().slice(0, 14));
+      });
+      ok(hits.length === 0, `Korok is within 6px of: ${hits.join(" | ")}`);
+      ok(await page.evaluate(() => { const r = document.querySelector(".korok-top .korok-btn").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }), "Korok is off screen");
+      await ctx.close();
+    });
+  }
+}
+await test("Korok contract: every page keeps its spot ids, repo and a total of 12", async () => {
+  const want = { "index.html": ["index", "index-hang", "index-low"], "add.html": ["add", "add-hang"], "owl.html": ["owl", "owl-hang", "owl-low"], "wrapped.html": ["wrapped", "wrapped-hang"] };
+  for (const [f, ids] of Object.entries(want)) {
+    const html = await readFile(join(ROOT, f), "utf8");
+    const tag = /<script[^>]*src="korok\.js"[^>]*>/.exec(html)[0];
+    ok(/data-repo="game-tracker"/.test(tag) && /data-total="12"/.test(tag), `${f}: repo/total`);
+    const got = /data-spots="([^"]*)"/.exec(tag)[1].split(",").map(x => x.split(":")[0]);
+    ok(got.join() === ids.join(), `${f}: spot ids ${got} != ${ids}`);
+    ok(/data-spots="([^"]*)"/.exec(tag)[1].split(",").every(x => /^[a-z-]+:\d+%(:top)?$/.test(x)), `${f}: spot syntax`);
+  }
+});
 
 // Reduced motion: nothing on any page keeps moving, hover doesn't shift a card, and the
 // content is still there. (The Heart Piece, Great Fairy and Hestu moments have their own tests.)
@@ -615,12 +807,18 @@ for (const width of [390, 1280]) {
   await test(`hearts at ${width}px: header meter, silent first visit, one celebration per new finish`, async () => {
     const { page, errors, ctx } = await open("index.html", width);
     await page.waitForSelector("#hearts svg");
-    ok(await page.locator("#hearts svg").count() > 1, "no hearts drawn");
+    const hn = await page.locator("#hearts svg").count();
+    if (width === 390) ok(hn === 1 && await page.locator("#hearts .hearts-n").count() === 1, "a phone shows one heart and a count");
+    else ok(hn > 1, "a desktop shows the row of hearts");
     ok(/Heart Container/.test(await page.getAttribute("#hearts", "title")), "no tooltip title");
     ok(await page.locator("#hp-banner").count() === 0, "celebrated on a first-ever visit");
     ok(await noSideScroll(page), "sideways scroll");
     await page.click("#hearts");
     ok(await page.locator("#hearts-tip.show").count() === 1, "tap did not show the tip");
+    if (width === 390) {
+      const full = await page.locator("#hearts-tip .hearts-full svg").count();
+      ok(full === await page.evaluate(() => { const m = GTHearts.heartMath(GTHearts.countDone(G)); return m.containers + (m.pieces ? 1 : 0); }), `the tap-open row has ${full} hearts`);
+    }
     const done = await page.evaluate(() => GTHearts.countDone(G));
     await page.evaluate(n => localStorage.setItem("gt_hearts_seen", String(n - 1)), done);
     await page.reload();

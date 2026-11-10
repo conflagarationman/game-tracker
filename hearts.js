@@ -48,7 +48,25 @@
     return c.kind;
   }
 
-  const api = { PER, SEEN_KEY, countDone, heartMath, celebration, readSeen, writeSeen, check };
+  // How the meter is drawn. At most MAX_ROW hearts in a single row that never wraps; if that many
+  // wouldn't fit in `availablePx` (a phone), or there are more than MAX_ROW, switch to the compact
+  // form: one heart plus a count ("x14 +3/4"), with the full row shown on tap. A heart is `size`
+  // px wide with `gap` px between. An unusable width (NaN, 0, negative) means "can't tell", which
+  // is treated as no room, so the page errs toward the compact form rather than wrapping.
+  const MAX_ROW = 20;
+  function heartLayout(done, availablePx, opts) {
+    const size = (opts && opts.size) || 16, gap = opts && opts.gap != null ? opts.gap : 2;
+    const m = heartMath(done);
+    const total = m.containers + (m.pieces ? 1 : 0);
+    const w = Number(availablePx);
+    const fits = Number.isFinite(w) && w > 0 ? Math.floor((w + gap) / (size + gap)) : 0;
+    const cap = Math.min(MAX_ROW, fits);
+    const compact = total > cap;
+    const text = m.pieces ? `\u00d7${m.containers} +${m.pieces}/${PER}` : `\u00d7${m.containers}`;
+    return { mode: compact ? 'compact' : 'row', total, cap, containers: m.containers, pieces: m.pieces, text, label: m.label };
+  }
+
+  const api = { PER, MAX_ROW, SEEN_KEY, countDone, heartMath, heartLayout, celebration, readSeen, writeSeen, check };
   root.GTHearts = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

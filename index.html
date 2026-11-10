@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Game Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%8E%AE</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -16,9 +16,9 @@
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:2rem 1rem;padding-bottom:max(2rem,env(safe-area-inset-bottom));}
 .header{display:flex;align-items:baseline;gap:1rem;margin-bottom:0.5rem;position:sticky;top:0;z-index:10;background:var(--bg);padding:0.75rem 0;}
 h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
-.edit-toggle{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;}
+.edit-toggle{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;}
 .edit-toggle.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700;}
-.add-link{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);text-decoration:none;font-weight:700;white-space:nowrap;}
+.add-link{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.8rem;border-radius:99px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);text-decoration:none;font-weight:700;white-space:nowrap;}
 .add-link:hover{background:color-mix(in srgb, var(--accent) 19%, transparent);}
 
 /* At 390px "GAME LOG" was wrapping to two lines and "EDIT MODE: OFF" was wrapping too, which
@@ -63,10 +63,10 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
   background:var(--surface);border-top:1px solid var(--border2);box-shadow:0 -8px 24px rgba(0,0,0,0.4);
 }
 .move-bar-title{flex:1;min-width:0;font-size:0.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.move-bar-hint{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;}
-.move-bar button{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;
+.move-bar-hint{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;}
+.move-bar button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;
   padding:0.5rem 0.9rem;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;}
-.updated{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);margin-bottom:1.5rem;}
+.updated{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);margin-bottom:1.5rem;}
 /* Amber once the sync is older than a scheduled run: the stamp used to show a plain date, so
    a sync that had been broken for weeks looked no different from one that ran this morning. */
 .updated.stale{color:var(--warn);}
@@ -74,8 +74,8 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 /* Page-level load failure, so an error can't be mistaken for an empty tracker. */
 .banner{display:none;align-items:center;gap:0.75rem;flex-wrap:wrap;background:color-mix(in srgb, var(--dropped) 9%, transparent);
   border:1px solid color-mix(in srgb, var(--dropped) 19%, transparent);color:var(--dropped);border-radius:8px;padding:0.75rem 0.9rem;
-  font-family:'DM Mono',monospace;font-size:0.72rem;margin-bottom:1.5rem;}
-.banner-btn{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;
+  font-family:'DM Mono',monospace;font-size:0.75rem;margin-bottom:1.5rem;}
+.banner-btn{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;
   letter-spacing:0.08em;padding:0.35rem 0.7rem;border-radius:6px;cursor:pointer;
   background:transparent;color:var(--dropped);border:1px solid color-mix(in srgb, var(--dropped) 38%, transparent);}
 
@@ -84,18 +84,23 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .gotm-sec{background:var(--surface);border:1px solid var(--border);border-radius:10px;
   padding:0.85rem 0.9rem;margin-bottom:1.5rem;}
 .gotm-head{display:flex;align-items:baseline;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.15rem;}
-.gotm-head h2{font-size:0.72rem;font-family:'DM Mono',monospace;text-transform:uppercase;
+.gotm-head h2{font-size:0.75rem;font-family:'DM Mono',monospace;text-transform:uppercase;
   letter-spacing:0.12em;color:var(--accent);font-weight:700;}
-.gotm-sub{font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--dim);}
+.gotm-sub{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);}
 .gotm-sub a{color:var(--muted);}
 .gotm-rows{display:flex;flex-direction:column;gap:4px;margin-top:0.6rem;}
+.gotm-rows[hidden]{display:none;}
+.gotm-more{margin-top:4px;}
+.gotm-toggle{margin-top:0.5rem;font-family:'DM Mono',monospace;font-size:0.75rem;letter-spacing:0.04em;padding:0.35rem 0.8rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;}
+.gotm-toggle:hover{color:var(--text);border-color:var(--accent);}
+.gotm-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .gotm-row{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;
   padding:0.4rem 0.5rem;border-radius:7px;background:var(--surface2);
   border-left:3px solid var(--dim);}
 .gotm-row.urgent{border-left-color:var(--dropped);background:color-mix(in srgb, var(--dropped) 7%, transparent);}
 .gotm-row.soonish{border-left-color:var(--warn);background:color-mix(in srgb, var(--warn) 6%, transparent);}
 .gotm-row.current{border-left-color:var(--accent);}
-.gotm-left{font-family:'DM Mono',monospace;font-size:0.62rem;font-weight:700;min-width:4.4em;flex-shrink:0;}
+.gotm-left{font-family:'DM Mono',monospace;font-size:0.75rem;font-weight:700;min-width:4.4em;flex-shrink:0;}
 .gotm-row.urgent .gotm-left{color:var(--dropped);}
 .gotm-row.soonish .gotm-left{color:var(--warn);}
 .gotm-row:not(.urgent):not(.soonish) .gotm-left{color:var(--muted);}
@@ -105,7 +110,7 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .gotm-name a:hover{text-decoration:underline;}
 /* Bumped from 0.58rem/--muted, which measured 9.3px at 3.52:1 against the chip's own
    translucent backdrop — under WCAG AA's 4.5:1 and small enough to squint at. */
-.gotm-state{font-family:'DM Mono',monospace;font-size:0.68rem;padding:3px 8px;border-radius:99px;
+.gotm-state{font-family:'DM Mono',monospace;font-size:0.75rem;padding:3px 8px;border-radius:99px;
   white-space:nowrap;background:color-mix(in srgb, var(--text) 3%, transparent);color:var(--muted);border:1px solid color-mix(in srgb, var(--text) 7%, transparent);}
 
 /* The "add to tracker" chip is the only actionable thing in the strip, so it reads as a
@@ -120,7 +125,7 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
   color:var(--accent);font-weight:700;text-decoration:none;border-radius:99px;}
 .gotm-state.act.link a:hover{background:color-mix(in srgb, var(--accent) 13%, transparent);text-decoration:underline;}
 .gotm-state.act.link a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-.gotm-foot{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--dim);margin-top:0.55rem;line-height:1.5;}
+.gotm-foot{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);margin-top:0.55rem;line-height:1.5;}
 .gotm-warn{color:var(--warn);}
 
 /* Loading placeholders. The shimmer is gated on prefers-reduced-motion; the boxes themselves
@@ -131,11 +136,13 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
     background-size:200% 100%;animation:skel 1.4s ease-in-out infinite;}
   @keyframes skel{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 }
-.stats-row{display:flex;gap:0.5rem;margin-bottom:2rem;flex-wrap:wrap;}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1rem;text-align:center;min-width:72px;flex:1;}
-.stat-n{font-size:1.5rem;font-weight:800;line-height:1;}
-.stat-l{font-size:0.62rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:0.08em;}
-.slabel{font-size:0.65rem;font-weight:400;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.6rem;margin-top:1.5rem;}
+.stats-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0.5rem;margin-bottom:2rem;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.4rem;text-align:center;min-width:0;}
+/* Numbers in Cinzel (already loaded for headings): Syne's wide figures looked squashed next to it. */
+.stat-n{font-family:'Cinzel',Georgia,serif;font-size:1.5rem;font-weight:700;line-height:1;letter-spacing:0;font-variant-numeric:lining-nums;}
+.stat-l{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.05em;line-height:1.25;}
+@media (max-width:760px){.stats-row{grid-template-columns:repeat(3,minmax(0,1fr));}}
+.slabel{font-size:0.75rem;font-weight:400;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.6rem;margin-top:1.5rem;}
 section:first-of-type .slabel{margin-top:0;}
 .game-list{display:flex;flex-direction:column;gap:5px;}
 
@@ -165,6 +172,9 @@ section:first-of-type .slabel{margin-top:0;}
 
 /* Thumbnail */
 .thumb{width:88px;min-width:88px;height:66px;object-fit:cover;object-position:center;display:block;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
+.pglyph{display:block;width:100%;height:auto;max-height:100%;}
+.thumb-placeholder .pglyph{width:58%;}
+.hero-bg-fallback .pglyph{width:96px;}
 .thumb-placeholder{width:88px;min-width:88px;height:66px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;align-self:center;margin:8px 0 8px 8px;border-radius:4px;}
 
 /* Now Playing: Steam Deck-style capsule cards — landscape art band (460:215, the real Steam
@@ -210,23 +220,29 @@ section:first-of-type .slabel{margin-top:0;}
 .row1{display:flex;align-items:center;gap:0.5rem;min-width:0;margin-top:4px;}
 .row2{display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;}
 .row3{padding-top:2px;}
-.qnum{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--dim);min-width:18px;text-align:center;flex-shrink:0;}
+.row-note{min-width:0;display:flex;}
+/* Up Next and Someday: one fixed card height so the grid never goes ragged. The note is a single
+   truncated line (full text in its title) and the achievement bar sits at the bottom. */
+.queue-grid .card{height:7.75rem;}
+.queue-grid .card-content{min-height:0;}
+.queue-grid .card .row3{margin-top:auto;}
+.qnum{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);min-width:18px;text-align:center;flex-shrink:0;}
 .gtitle{flex:1;font-size:0.9rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 @media(max-width:400px){
   .thumb{width:72px;min-width:72px;height:54px;}
   .thumb-placeholder{width:40px;min-width:40px;height:40px;font-size:1.1rem;}
   .gtitle{font-size:0.85rem;}
-  .hltb{font-size:0.7rem;}
+  .hltb{font-size:0.75rem;}
 }
 
 /* HLTB + playtime */
 .hltb{font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:700;color:var(--info);white-space:nowrap;flex-shrink:0;letter-spacing:-0.02em;}
-.hltb-sm{font-size:0.55rem;font-weight:400;opacity:0.65;}
-.actual-time{font-family:'DM Mono',monospace;font-size:0.65rem;color:color-mix(in srgb,#a06bff var(--plat-pct),black);white-space:nowrap;flex-shrink:0;}
+.hltb-sm{font-size:0.75rem;font-weight:400;opacity:0.65;}
+.actual-time{font-family:'DM Mono',monospace;font-size:0.75rem;color:color-mix(in srgb,#a06bff var(--plat-pct),black);white-space:nowrap;flex-shrink:0;}
 
 /* Platform badges */
-.plat{font-family:'DM Mono',monospace;font-size:0.6rem;padding:3px 7px;border-radius:99px;white-space:nowrap;flex-shrink:0;letter-spacing:0.04em;}
+.plat{font-family:'DM Mono',monospace;font-size:0.75rem;padding:3px 7px;border-radius:99px;white-space:nowrap;flex-shrink:0;letter-spacing:0.04em;}
 .p-steam    {background:#00e5ff22;color:color-mix(in srgb,#00e5ff var(--plat-pct),black);border:1px solid #00e5ff44;}
 .p-steamdeck{background:#a06bff22;color:color-mix(in srgb,#a06bff var(--plat-pct),black);border:1px solid #a06bff44;}
 .p-ps5      {background:#ff6b4a22;color:color-mix(in srgb,#ff6b4a var(--plat-pct),black);border:1px solid #ff6b4a44;}
@@ -239,37 +255,37 @@ section:first-of-type .slabel{margin-top:0;}
 .p-pc       {background:#9aa7b822;color:color-mix(in srgb,#9aa7b8 var(--plat-pct),black);border:1px solid #9aa7b844;}
 
 /* Meta pills */
-.yr{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--dim);}
-.genre-tag{font-size:0.6rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:4px;background:color-mix(in srgb, var(--text) 3%, transparent);color:var(--muted);white-space:nowrap;}
-.rating{font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:600;color:var(--accent);}
-.gotm{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
-.dropped-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:var(--dropped-bg);color:var(--dropped);border:1px solid color-mix(in srgb, var(--dropped) 35%, transparent);white-space:nowrap;}
-.note-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#a06bff18;color:color-mix(in srgb,#a06bff var(--plat-pct),black);border:1px solid #a06bff30;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
-.dormant-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 9%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 19%, transparent);white-space:nowrap;}
-.replay-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 69%, transparent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
-.casual-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--info) 6%, transparent);color:color-mix(in srgb, var(--info) 50%, transparent);border:1px solid color-mix(in srgb, var(--info) 13%, transparent);white-space:nowrap;}
-.start-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 44%, transparent);border:1px solid color-mix(in srgb, var(--accent) 13%, transparent);white-space:nowrap;}
-.queued-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 8%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 15%, transparent);white-space:nowrap;}
+.yr{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);}
+.genre-tag{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:4px;background:color-mix(in srgb, var(--text) 3%, transparent);color:var(--muted);white-space:nowrap;}
+.rating{font-family:'DM Mono',monospace;font-size:0.75rem;font-weight:600;color:var(--accent);}
+.gotm{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
+.dropped-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:var(--dropped-bg);color:var(--dropped);border:1px solid color-mix(in srgb, var(--dropped) 35%, transparent);white-space:nowrap;}
+.note-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#a06bff18;color:color-mix(in srgb,#a06bff var(--plat-pct),black);border:1px solid #a06bff30;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.dormant-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 9%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 19%, transparent);white-space:nowrap;}
+.replay-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 69%, transparent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
+.casual-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--info) 6%, transparent);color:color-mix(in srgb, var(--info) 50%, transparent);border:1px solid color-mix(in srgb, var(--info) 13%, transparent);white-space:nowrap;}
+.start-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 44%, transparent);border:1px solid color-mix(in srgb, var(--accent) 13%, transparent);white-space:nowrap;}
+.queued-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 8%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 15%, transparent);white-space:nowrap;}
 /* Play check (play-check.json, written by the daily sync): games with real recent play that
    aren't marked playing. Quiet by design: it renders nothing when there's nothing to say. */
-.play-check{margin-top:0.75rem;padding:8px 12px;border:1px dashed var(--border);border-radius:6px;font-size:0.72rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;}
+.play-check{margin-top:0.75rem;padding:8px 12px;border:1px dashed var(--border);border-radius:6px;font-size:0.75rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;}
 .play-check b{color:var(--text);font-weight:600;}
 .play-check a{color:var(--playing);text-decoration:none;}
 .play-check a:hover{text-decoration:underline;}
-.recent-time{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);white-space:nowrap;}
-.lp-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--text) 3%, transparent);color:var(--muted);border:1px solid color-mix(in srgb, var(--text) 6%, transparent);white-space:nowrap;}
+.recent-time{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);white-space:nowrap;}
+.lp-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--text) 3%, transparent);color:var(--muted);border:1px solid color-mix(in srgb, var(--text) 6%, transparent);white-space:nowrap;}
 /* Unreleased games: a countdown instead of a release date buried in a free-text note. */
-.release-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--warn) 9%, transparent);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);white-space:nowrap;}
+.release-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--warn) 9%, transparent);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);white-space:nowrap;}
 
 /* Mastery */
-.mast{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;white-space:nowrap;}
+.mast{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;white-space:nowrap;}
 .mast-progress{background:color-mix(in srgb, var(--warn) 9%, transparent);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);}
 .mast-mastered{background:#ffb84a22;color:color-mix(in srgb,#ffb84a var(--plat-pct),black);border:1px solid #ffb84a44;}
 .mast-platinum{background:#c8b4ff22;color:color-mix(in srgb,#c8b4ff var(--plat-pct),black);border:1px solid #c8b4ff44;}
 .mast-100{background:var(--done-bg);color:var(--done);border:1px solid color-mix(in srgb, var(--done) 35%, transparent);}
 
 /* Difficulty */
-.diff{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;white-space:nowrap;}
+.diff{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;white-space:nowrap;}
 .diff-1{background:color-mix(in srgb, var(--ok) 9%, transparent);color:var(--ok);border:1px solid color-mix(in srgb, var(--ok) 19%, transparent);}
 .diff-2{background:color-mix(in srgb, var(--info) 9%, transparent);color:var(--info);border:1px solid color-mix(in srgb, var(--info) 19%, transparent);}
 .diff-3{background:color-mix(in srgb, var(--done) 9%, transparent);color:var(--done);border:1px solid color-mix(in srgb, var(--done) 19%, transparent);}
@@ -280,11 +296,11 @@ section:first-of-type .slabel{margin-top:0;}
 .ach-bar-wrap{display:flex;align-items:center;gap:8px;}
 .ach-bar-track{flex:1;background:var(--surface2);border-radius:3px;height:4px;overflow:hidden;}
 .ach-bar-fill{height:4px;border-radius:3px;}
-.ach-pct{font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);min-width:48px;text-align:right;flex-shrink:0;}
-.ach-lbl{font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--dim);flex-shrink:0;}
+.ach-pct{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);min-width:48px;text-align:right;flex-shrink:0;}
+.ach-lbl{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);flex-shrink:0;}
 
 /* Collapsible */
-.cr{display:flex;align-items:center;gap:0.5rem;cursor:pointer;padding:0.85rem 0;color:var(--dim);font-size:0.68rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;border-top:1px solid var(--border);margin-top:1.5rem;user-select:none;touch-action:manipulation;}
+.cr{display:flex;align-items:center;gap:0.5rem;cursor:pointer;padding:0.85rem 0;color:var(--dim);font-size:0.75rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;border-top:1px solid var(--border);margin-top:1.5rem;user-select:none;touch-action:manipulation;}
 .cr:hover{color:var(--muted);}
 .cr:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
 
@@ -296,38 +312,38 @@ section:first-of-type .slabel{margin-top:0;}
 /* Year log */
 .yg{margin-bottom:1.5rem;}
 .yhead{font-size:1rem;font-weight:700;color:var(--accent);margin-bottom:0.75rem;display:flex;align-items:baseline;gap:0.75rem;}
-.ysub{font-size:0.7rem;font-family:'DM Mono',monospace;color:var(--muted);font-weight:400;}
+.ysub{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);font-weight:400;}
 .ystats{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;margin-bottom:1rem;}
 .ys{background:var(--surface2);border-radius:6px;padding:8px 10px;text-align:center;}
 .ys-n{font-size:1.1rem;font-weight:800;}
-.ys-l{font-size:0.58rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:2px;text-transform:uppercase;}
+.ys-l{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:2px;text-transform:uppercase;}
 .bsec{margin-bottom:0.75rem;}
-.blbl{font-size:0.58rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;}
+.blbl{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;}
 .brow{display:flex;align-items:center;gap:8px;margin:3px 0;}
-.bname{font-size:0.68rem;font-family:'DM Mono',monospace;color:var(--muted);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.bname{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
 .btrack{flex:1;background:var(--surface2);border-radius:2px;height:4px;}
 .bfill{height:4px;border-radius:2px;}
-.bval{font-size:0.62rem;font-family:'DM Mono',monospace;color:var(--dim);min-width:14px;text-align:right;}
+.bval{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--dim);min-width:14px;text-align:right;}
 .hlg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:1rem 0;}
 .hl{background:var(--surface2);border-radius:8px;padding:10px 12px;}
-.hl-l{font-size:0.58rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;}
+.hl-l{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;}
 .hl-v{font-size:0.8rem;font-weight:700;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.hl-s{font-size:0.62rem;font-family:'DM Mono',monospace;color:var(--muted);}
+.hl-s{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);}
 .mg{margin-bottom:1rem;}
-.mh{font-size:0.6rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;}
+.mh{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;}
 .empty{color:var(--dim);font-size:0.8rem;font-family:'DM Mono',monospace;padding:0.5rem 0;}
 
 /* ─── Tonight picker ─────────────────────────────────────
    Answers "what should I play?" from what's already decided (Now Playing, Up Next, plus
    Ongoing for short sessions and Someday club picks about to expire). Scoring lives in
    pick.js so it's unit-tested in Node; this is only the chips and the rows. */
-.tonight{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.85rem 0.9rem;margin-bottom:1.5rem;}
+.tonight{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.85rem 0.9rem;margin:1.5rem 0;}
 .tn-head{display:flex;align-items:baseline;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem;}
-.tn-owl{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);text-decoration:none;white-space:nowrap;}
+.tn-owl{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);text-decoration:none;white-space:nowrap;}
 .tn-owl:hover,.tn-owl:focus-visible{color:var(--accent);}
-.tn-head h2{font-size:0.72rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.12em;color:var(--playing);font-weight:700;}
+.tn-head h2{font-size:0.75rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.12em;color:var(--playing);font-weight:700;}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.5rem;}
-.chip{font-family:'DM Mono',monospace;font-size:0.68rem;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--border2);
+.chip{font-family:'DM Mono',monospace;font-size:0.75rem;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--border2);
   background:transparent;color:var(--muted);cursor:pointer;touch-action:manipulation;}
 .chip:hover{color:var(--text);border-color:var(--muted);}
 .chip[aria-pressed="true"]{background:var(--playing-bg);color:var(--playing);border-color:color-mix(in srgb, var(--playing) 45%, transparent);font-weight:700;}
@@ -335,18 +351,18 @@ section:first-of-type .slabel{margin-top:0;}
 .tn-list{display:flex;flex-direction:column;gap:6px;margin-top:0.35rem;}
 .tn-row{display:flex;align-items:center;gap:0.65rem;background:var(--surface2);border-radius:8px;padding:6px 8px;min-width:0;}
 .tn-row .thumb,.tn-row .thumb-placeholder{width:64px;min-width:64px;height:30px;margin:0;font-size:1rem;}
-.tn-rank{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--dim);min-width:12px;text-align:center;}
+.tn-rank{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);min-width:12px;text-align:center;}
 .tn-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
 .tn-title{font-size:0.85rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);text-decoration:none;}
 a.tn-title:hover{text-decoration:underline;}
-.tn-why{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tn-go{font-family:'DM Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.4rem 0.65rem;min-height:32px;border-radius:99px;
+.tn-why{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tn-go{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.4rem 0.65rem;min-height:32px;border-radius:99px;
   border:1px solid color-mix(in srgb, var(--info) 38%, transparent);background:color-mix(in srgb, var(--info) 8%, transparent);color:var(--playing);cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .tn-go:hover{background:color-mix(in srgb, var(--info) 19%, transparent);}
 
 /* Play check actions: the note used to only describe the mismatch; now each row fixes it. */
 .pc-item{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;margin-right:0.5rem;}
-.pc-btn{font-family:'DM Mono',monospace;font-size:0.6rem;padding:3px 8px;min-height:26px;border-radius:99px;border:1px solid var(--border2);
+.pc-btn{font-family:'DM Mono',monospace;font-size:0.75rem;padding:3px 8px;min-height:26px;border-radius:99px;border:1px solid var(--border2);
   background:transparent;color:var(--muted);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;}
 .pc-btn:hover{color:var(--text);border-color:var(--muted);}
 .pc-btn.go{color:var(--playing);border-color:color-mix(in srgb, var(--info) 38%, transparent);}
@@ -354,7 +370,7 @@ a.tn-title:hover{text-decoration:underline;}
 
 /* Small action buttons that sit at the top of a collapsible panel. */
 .panel-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.75rem;}
-.mini-btn{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;
+.mini-btn{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;
   border-radius:99px;border:1px solid color-mix(in srgb, var(--accent) 31%, transparent);background:color-mix(in srgb, var(--accent) 7%, transparent);color:var(--accent);cursor:pointer;}
 .mini-btn:hover{background:color-mix(in srgb, var(--accent) 15%, transparent);}
 
@@ -363,14 +379,14 @@ dialog.sheet{background:var(--surface);color:var(--text);border:1px solid var(--
   width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;margin:auto;}
 dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 .sh-top{display:flex;align-items:center;gap:0.5rem;padding:0.75rem 0.9rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:2;}
-.sh-kicker{flex:1;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);}
+.sh-kicker{flex:1;font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);}
 .sh-close{background:transparent;border:0;color:var(--muted);font-size:1.2rem;cursor:pointer;min-width:36px;min-height:36px;border-radius:8px;}
 .sh-close:hover{color:var(--text);background:var(--surface2);}
 .sh-art{position:relative;aspect-ratio:460/215;background:var(--surface2);overflow:hidden;}
 .sh-art.no-cover{aspect-ratio:auto;height:64px;}
 .sh-body{padding:0.85rem 0.9rem 1rem;display:flex;flex-direction:column;gap:0.6rem;}
 .sh-title{font-size:1.15rem;font-weight:800;line-height:1.2;}
-.sh-q{font-size:0.72rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:0.25rem;}
+.sh-q{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:0.25rem;}
 .sh-chips{display:flex;gap:5px;flex-wrap:wrap;}
 .sh-chips .chip{min-width:40px;}
 .sh-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:0.35rem;}
@@ -381,11 +397,11 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 .sh-btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);}
 .sh-btn.up{border-color:color-mix(in srgb, var(--info) 38%, transparent);color:var(--playing);}
 .sh-btn.bad{border-color:color-mix(in srgb, var(--dropped) 31%, transparent);color:var(--dropped);}
-.sh-btn kbd{font-family:'DM Mono',monospace;font-size:0.6rem;opacity:0.55;margin-left:4px;}
+.sh-btn kbd{font-family:'DM Mono',monospace;font-size:0.75rem;opacity:0.55;margin-left:4px;}
 .sh-btn:disabled{opacity:0.5;cursor:default;}
 .sh-done{text-align:center;padding:1.5rem 0.5rem;font-size:0.9rem;color:var(--muted);}
 .sh-done b{display:block;font-size:1.4rem;color:var(--accent);margin-bottom:0.4rem;}
-.sh-sel{background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:0.4rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.72rem;min-height:32px;}
+.sh-sel{background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:0.4rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.75rem;min-height:32px;}
 @media (hover:none){ .sh-btn kbd{display:none;} }
 
 /* Undo toast for removals: the delete is held back until the toast expires. */
@@ -393,7 +409,7 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
   background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:0.6rem 0.6rem 0.6rem 0.9rem;box-shadow:0 8px 24px rgba(0,0,0,0.5);
   font-size:0.8rem;max-width:calc(100vw - 32px);}
 .toast span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.toast button{font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;padding:0.45rem 0.8rem;min-height:32px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;}
+.toast button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;padding:0.45rem 0.8rem;min-height:32px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;}
 
 /* ─── Look and feel ─────────────────────────────────────
    Covers: a hero card with art gets a blurred copy of it behind its text panel, so the card
@@ -403,11 +419,13 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 .hero-blur{position:absolute;left:0;right:0;bottom:0;top:30%;width:100%;height:70%;object-fit:cover;filter:blur(28px) saturate(1.3);opacity:0.22;pointer-events:none;transform:scale(1.2);}
 .hero-content{position:relative;z-index:1;}
 .hero-art.no-cover{aspect-ratio:auto;height:72px;}
-.stat-u{font-size:0.55em;font-weight:700;margin-left:2px;letter-spacing:0;}
+.stat-u{font-size:0.75rem;font-weight:700;margin-left:2px;letter-spacing:0;}
 /* On a phone the picker's reasons get two lines instead of an ellipsis halfway through. */
 @media (max-width:480px){
-  /* Six stats as 3+3 rather than 4+2, which squeezed the widest figure out of its box. */
-  .stats-row .stat{flex:1 1 calc(33.333% - 0.5rem);padding:0.7rem 0.4rem;}
+  /* Six stats as a compact 3x2 on a phone. */
+  .stats-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:0.4rem;}
+  .stats-row .stat{padding:0.5rem 0.25rem;}
+  .stat-n{font-size:1.3rem;}
   .tn-why{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.5;}
   .tn-row .thumb,.tn-row .thumb-placeholder{width:44px;min-width:44px;height:44px;}
 }
@@ -420,17 +438,21 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 
 /* Heart Containers: the finished-games meter under the title. Pixel-art hearts drawn as SVG
    rects (shape-rendering crispEdges); colours are page variables so a theme can retarget them. */
-.hearts{display:flex;align-items:center;gap:2px;flex-wrap:wrap;margin:0 0 0.9rem;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:99px;background:var(--surface);width:fit-content;max-width:100%;cursor:pointer;font:inherit;color:inherit;}
+.hearts{display:flex;align-items:center;gap:2px;flex-wrap:nowrap;margin:0 0 0.9rem;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:99px;background:var(--surface);width:fit-content;max-width:100%;cursor:pointer;font:inherit;color:inherit;}
 .hearts:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .hearts svg{width:16px;height:15px;display:block;shape-rendering:crispEdges;}
-.hearts-tip{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.04em;margin:-0.5rem 0 0.9rem 0.25rem;display:none;}
+.hearts-tip{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);letter-spacing:0.04em;margin:-0.5rem 0 0.9rem 0.25rem;display:none;}
 .hearts-tip.show{display:block;}
+/* Compact form (too many hearts for one row): one heart and a count; the full row opens on tap. */
+.hearts-n{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);margin-left:6px;white-space:nowrap;letter-spacing:0.02em;}
+.hearts-full{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:6px;}
+.hearts-full svg{width:16px;height:15px;display:block;shape-rendering:crispEdges;}
 .heart-full{fill:var(--heart);}.heart-empty{fill:var(--border2);}.heart-shine{fill:color-mix(in srgb,var(--heart) 30%,white);}
 .hp-banner{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:1200;display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:1rem 1.6rem;border-radius:14px;background:var(--surface);border:2px solid var(--heart);box-shadow:0 12px 40px rgba(0,0,0,0.5);pointer-events:none;text-align:center;max-width:calc(100vw - 2rem);}
 .hp-banner svg{width:56px;height:52px;shape-rendering:crispEdges;}
 .hp-banner.big svg{width:96px;height:90px;}
 .hp-banner b{font-size:1.05rem;color:var(--text);}
-.hp-banner small{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);}
+.hp-banner small{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);}
 @media (prefers-reduced-motion:no-preference){
   .hp-banner{animation:hp-in 0.35s cubic-bezier(.2,1.4,.4,1) both, hp-out 0.4s 3.2s ease-in forwards;}
   .hp-banner svg{animation:hp-bob 0.7s ease-in-out 3;}
@@ -446,30 +468,30 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
 .gy-stone{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:60px 60px 8px 8px;padding:1.4rem 0.9rem 0.8rem;text-align:center;display:flex;flex-direction:column;gap:0.35rem;align-items:center;}
 .gy-stone::before{content:'✝';position:absolute;top:0.45rem;left:50%;transform:translateX(-50%);color:var(--dim);font-size:0.7rem;}
 .gy-title{font-weight:700;font-size:0.85rem;line-height:1.25;overflow-wrap:anywhere;}
-.gy-hrs{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;}
-.gy-epi{font-size:0.72rem;color:var(--muted);font-style:italic;line-height:1.4;}
-.gy-dig{margin-top:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;}
+.gy-hrs{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;}
+.gy-epi{font-size:0.75rem;color:var(--muted);font-style:italic;line-height:1.4;}
+.gy-dig{margin-top:auto;font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;}
 .gy-dig:hover:not(:disabled){background:color-mix(in srgb, var(--accent) 9%, transparent);}
 .gy-dig:disabled{opacity:0.5;cursor:default;}
 
 /* Rupee wallet, shop, Great Fairy. Gold = the mastery frame; everything else uses page variables. */
 .meters{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;margin:0 0 0.9rem;}
 .meters .hearts{margin:0;}
-.wallet{display:inline-flex;align-items:center;gap:0.4rem;padding:0.3rem 0.7rem;border:1px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text);font-family:'DM Mono',monospace;font-size:0.72rem;cursor:pointer;}
+.wallet{display:inline-flex;align-items:center;gap:0.4rem;padding:0.3rem 0.7rem;border:1px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text);font-family:'DM Mono',monospace;font-size:0.75rem;cursor:pointer;}
 .wallet:focus-visible,.shop-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .wallet svg{width:11px;height:16px;shape-rendering:crispEdges;}
-.wallet small{color:var(--muted);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.06em;}
+.wallet small{color:var(--muted);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;}
 .worn-mask{width:30px;height:25px;shape-rendering:crispEdges;}
 dialog.shop{width:min(560px,calc(100vw - 32px));}
 .shop-in{padding:1rem 1rem 1.2rem;display:flex;flex-direction:column;gap:1rem;}
-.shop h3{font-size:0.7rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:0.4rem;}
+.shop h3{font-size:0.75rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:0.4rem;}
 .shop-top{display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;}
 .shop-bal{font-size:1.4rem;font-weight:800;color:var(--accent);}
-.shop-note{font-size:0.7rem;color:var(--muted);line-height:1.45;}
+.shop-note{font-size:0.75rem;color:var(--muted);line-height:1.45;}
 .shop-row{display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0;border-top:1px solid var(--border);font-size:0.78rem;}
 .shop-row .grow{flex:1;min-width:0;}
 .shop-row svg{width:36px;height:30px;flex:none;shape-rendering:crispEdges;}
-.shop-btn{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap;}
+.shop-btn{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap;}
 .shop-btn:disabled{opacity:0.45;cursor:default;border-color:var(--border2);color:var(--muted);}
 .shop-btn.on{background:var(--accent);color:var(--on-accent);font-weight:700;}
 .shop-close{margin-left:auto;}
@@ -491,13 +513,13 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
   @keyframes fp-out{to{opacity:0;transform:translate(-50%,-30px)}}
   @keyframes fp-float{to{transform:translateY(-8px)}}
 }
-.fairy-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--fairy) 9%, transparent);color:var(--fairy);border:1px solid color-mix(in srgb, var(--fairy) 19%, transparent);white-space:nowrap;}
+.fairy-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--fairy) 9%, transparent);color:var(--fairy);border:1px solid color-mix(in srgb, var(--fairy) 19%, transparent);white-space:nowrap;}
 .gf-gold{outline:2px solid var(--accent);outline-offset:-2px;box-shadow:0 0 14px color-mix(in srgb, var(--accent) 25%, transparent);}
 .gf{position:fixed;inset:0;z-index:1400;background:radial-gradient(70% 60% at 50% 40%,#5a2a7a,#1d0b33 70%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1.5rem;text-align:center;cursor:pointer;overflow:hidden;}
 .gf svg.gf-art{width:min(260px,60vw);height:auto;}
 .gf p{font-size:1.05rem;line-height:1.5;max-width:30rem;min-height:3.2em;}
 .gf p b{color:#ffd96b;}
-.gf button{font-family:'DM Mono',monospace;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.55rem 1.1rem;border-radius:99px;border:1px solid color-mix(in srgb, var(--text) 50%, transparent);background:color-mix(in srgb, var(--text) 8%, transparent);color:#fff;cursor:pointer;}
+.gf button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.55rem 1.1rem;border-radius:99px;border:1px solid color-mix(in srgb, var(--text) 50%, transparent);background:color-mix(in srgb, var(--text) 8%, transparent);color:#fff;cursor:pointer;}
 .gf button:focus-visible{outline:2px solid #ffd96b;outline-offset:2px;}
 .gf-spark{position:absolute;width:6px;height:6px;background:#ffe9a8;border-radius:1px;opacity:0.8;}
 @media (prefers-reduced-motion:no-preference){
@@ -521,7 +543,19 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
 <div class="banner" id="load-error" role="alert"></div>
 <div class="meters"><button type="button" class="hearts" id="hearts" style="display:none;" aria-expanded="false" onclick="toggleHeartTip()"></button><button type="button" class="wallet" id="wallet" style="display:none;" onclick="openShop()"></button><span id="worn-mask"></span></div>
 <div class="hearts-tip" id="hearts-tip" role="status"></div>
-<div class="stats-row" id="stats"></div>
+<section aria-labelledby="now-playing-heading">
+  <h2 class="slabel" id="now-playing-heading">Now playing</h2>
+  <div class="hero-grid" id="now"></div>
+  <div class="play-check" id="play-check" style="display:none;"></div>
+</section>
+<section aria-labelledby="up-next-heading">
+  <h2 class="slabel" id="up-next-heading">Up next</h2>
+  <div class="queue-grid" id="queue"></div>
+</section>
+<section aria-labelledby="ongoing-heading">
+  <h2 class="slabel" id="ongoing-heading">Ongoing</h2>
+  <div class="ong-list" id="ongoing"></div>
+</section>
 <section class="tonight" id="tonight-sec" style="display:none;" aria-labelledby="tonight-heading">
   <div class="tn-head"><h2 id="tonight-heading">What should I play?</h2><a class="tn-owl" href="owl.html" title="Kaepora Gaebora: one pick at a time, by mood">🦉 Ask the owl</a></div>
   <div class="chips" id="tn-time" role="group" aria-label="How long have you got"></div>
@@ -529,19 +563,7 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
   <div class="tn-list" id="tn-list" aria-live="polite"></div>
 </section>
 <section class="gotm-sec" id="gotm-sec" style="display:none;" aria-labelledby="gotm-heading"></section>
-<section aria-labelledby="now-playing-heading">
-  <h2 class="slabel" id="now-playing-heading">Now playing</h2>
-  <div class="hero-grid" id="now"></div>
-  <div class="play-check" id="play-check" style="display:none;"></div>
-</section>
-<section aria-labelledby="ongoing-heading">
-  <h2 class="slabel" id="ongoing-heading">Ongoing</h2>
-  <div class="ong-list" id="ongoing"></div>
-</section>
-<section aria-labelledby="up-next-heading">
-  <h2 class="slabel" id="up-next-heading">Up next</h2>
-  <div class="queue-grid" id="queue"></div>
-</section>
+<div class="stats-row" id="stats"></div>
 <section aria-label="Soon">
   <div class="cr" id="so-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="so-panel" onclick="tog('so')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('so');}"><span id="so-arr" aria-hidden="true">▶</span><span id="so-lbl">Someday (0)</span></div>
   <div id="so-panel" style="display:none;margin-top:0.75rem;">
@@ -576,6 +598,7 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
 
 <script src="worker-config.js"></script>
 <script src="pick.js"></script>
+<script src="glyphs.js"></script>
 <script src="hearts.js"></script>
 <script src="graveyard.js"></script>
 <script src="rupees.js"></script>
@@ -591,14 +614,13 @@ let G = [];
 const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const PL={steam:'Steam',steamdeck:'Steam Deck',pc:'PC',ps5:'PS5',switch:'Switch',switch2:'Switch 2',ayn:'AYN Thor',retro:'Retro',wiiu:'Wii U'};
 const PC={steam:'#00e5ff',steamdeck:'#a06bff',pc:'#9aa7b8',ps5:'#ff6b4a',switch:'#ff4a6b',switch2:'#4aff8c',ayn:'#ff4af0',retro:'#ffb84a',wiiu:'#009ac7'};
-const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'🎮',switch2:'🎮',ayn:'📱',retro:'👾',wiiu:'🎮'};
 const DIFF_LABELS={1:'Easy',2:'Normal',3:'Hard',4:'Expert',5:'Brutal'};
 let NOW = new Date();
 let LOADED = false; // set once games.json has arrived; hearts only celebrate real data
 let RUP = { purchases: [], fairyUntil: {} }; // rupees.json (Worker-written); absent until the first purchase
 let ACH = []; // achievements-log.json unlocks, for the wallet
 let PLAY = null; // play-check.json; null when absent, and every consumer tolerates that
-let open={ar:false,yl:false,so:false,gy:false};
+let open={ar:false,yl:false,so:false,gy:false,gm:false};
 // Whether the Worker is configured. Cards only become links to their edit form when it is,
 // for the same reason the "+ Add game" link is hidden otherwise: add.html can't do anything
 // but show its setup notice, so the link would be a dead end.
@@ -620,7 +642,7 @@ function getCover(g) {
 function thumbEl(g) {
   const url = getCover(g);
   const color = PC[g.p] || '#555';
-  const emoji = PLAT_EMOJI[g.p] || '🎮';
+  const emoji = GTGlyph.svg(g.p);
   if (url) {
     return `<img class="thumb" src="${url}" alt="${esc(g.t)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
             <div class="thumb-placeholder" style="background:${color}18;color:${color};display:none">${emoji}</div>`;
@@ -635,7 +657,7 @@ function thumbEl(g) {
 function heroArt(g) {
   const url = getCover(g);
   const color = PC[g.p] || '#555';
-  const emoji = PLAT_EMOJI[g.p] || '🎮';
+  const emoji = GTGlyph.svg(g.p);
   const fallback = `<div class="hero-bg-fallback" style="background:linear-gradient(160deg, ${color}40, ${color}10);color:${color}${url ? ';display:none' : ''}">${emoji}</div>`;
   if (url) {
     return `<img class="hero-bg-img" src="${url}" alt="${esc(g.t)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.parentNode.classList.add('no-cover')">${fallback}`;
@@ -837,21 +859,31 @@ function nowC(g){
   </div>`);
 }
 
+// Up Next / Someday cards show only the essentials: platform, hours, when it was queued (and a
+// release countdown while the game isn't out), plus the note on one line. Year, genre, club tag,
+// mastery, difficulty, "casual" and "replay" moved into the card's tooltip rather than going
+// away. Cards are a fixed height (see .queue-grid .card), so the grid stays even whatever a game has.
+const RETURN_TEXT={replay:'replay','100pct':'100% run','1.0':'1.0 launch'};
+function qDetail(g){
+  const bits=[];
+  if(g.y) bits.push(String(g.y));
+  if(g.g) bits.push(g.g);
+  if(g.gotm) bits.push(`GOTM ${g.gotm}`);
+  if(g.mastery) bits.push(`mastery: ${g.mastery}`);
+  if(g.diff && DIFF_LABELS[g.diff]) bits.push(`difficulty: ${DIFF_LABELS[g.diff]}`);
+  if(g.casual) bits.push('casual play');
+  const r=RETURN_TEXT[g.replay===true?'replay':g.replay]; if(r) bits.push(r);
+  return bits.join(' · ');
+}
 function qC(g,n,showNum=true){
   const num=showNum?`<span class="qnum">${n}</span>`:'';
-  return cardLink(g, `<div class="card${gfc(g)}" data-id="${g.id}">
+  const detail=qDetail(g);
+  return cardLink(g, `<div class="card${gfc(g)}" data-id="${g.id}"${detail?` title="${esc(detail)}"`:''}>
     ${thumbEl(g)}
     <div class="card-content">
       <div class="row1">${num}${pb(g.p)}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
-      <div class="row2">
-        ${hltbEl(g)}
-        ${g.y?`<span class="yr">${g.y}</span>`:''}
-        ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
-        ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
-        ${releaseEl(g)}${queuedEl(g)}
-        ${g.casual?'<span class="casual-pill">casual play</span>':''}${returnPill(g)}
-        ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
-      </div>
+      <div class="row2">${hltbEl(g)}${releaseEl(g)}${queuedEl(g)}</div>
+      ${g.note?`<div class="row-note"><span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span></div>`:''}
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
     </div>
   </div>`);
@@ -1087,6 +1119,13 @@ function gotmRow(pick){
   </div>`;
 }
 
+// The strip shows the three claimable picks with the least time left; the rest sit behind "+N more".
+// Whether that's expanded is remembered per browser with the other panel state (gt_panels).
+const GOTM_SHOWN = 3;
+function toggleGotmMore(){
+  open.gm=!open.gm; savePanelState(); renderGotm();
+  const b=document.getElementById('gotm-toggle'); if(b) b.focus();
+}
 function renderGotm(){
   const sec = document.getElementById('gotm-sec');
   if(!GOTM || !Array.isArray(GOTM.picks) || !GOTM.picks.length){ sec.style.display='none'; return; }
@@ -1121,7 +1160,9 @@ function renderGotm(){
       <span class="gotm-sub">${outstanding.length} claimable · 12-month window · ${src}</span>
     </div>
     ${outstanding.length
-      ? `<div class="gotm-rows">${outstanding.map(gotmRow).join('')}</div>`
+      ? `<div class="gotm-rows">${outstanding.slice(0,GOTM_SHOWN).map(gotmRow).join('')}</div>
+         ${outstanding.length>GOTM_SHOWN?`<div class="gotm-rows gotm-more" id="gotm-more"${open.gm?'':' hidden'}>${outstanding.slice(GOTM_SHOWN).map(gotmRow).join('')}</div>
+         <button type="button" class="gotm-toggle" id="gotm-toggle" aria-expanded="${open.gm?'true':'false'}" aria-controls="gotm-more" onclick="toggleGotmMore()">${open.gm?'Show fewer':`+${outstanding.length-GOTM_SHOWN} more`}</button>`:''}`
       : '<div class="empty">Nothing outstanding — every live pick is claimed.</div>'}
     <div class="gotm-foot">
       ${missed.length?`Expired unclaimed: ${missed.map(p=>esc(p.game)).join(', ')}.<br>`:''}
@@ -1132,8 +1173,8 @@ function renderGotm(){
 
 // ─── Main render ───────────────────────────────────────
 function render(){
-  renderHearts();
   renderWallet();
+  renderHearts();
   checkHearts();
   const playing=G.filter(g=>g.s==='playing');
   const queue=G.filter(g=>g.s==='queue');
@@ -1152,7 +1193,7 @@ function render(){
   const mastTotal=G.filter(g=>g.mastery&&g.mastery!=='in-progress').length;
   document.getElementById('stats').innerHTML=`
     <div class="stat"><div class="stat-n" style="color:var(--playing)">${playing.length}</div><div class="stat-l">Playing</div></div>
-    <div class="stat"><div class="stat-n" style="color:#888">${queue.length+soon.length}</div><div class="stat-l">Backlog</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--muted)">${queue.length+soon.length}</div><div class="stat-l">Backlog</div></div>
     ${paceStat(backlogHrs, playing, queue)}
     <div class="stat"><div class="stat-n" style="color:var(--done)">${done.length}</div><div class="stat-l">Done</div></div>
     <div class="stat"><div class="stat-n" style="color:var(--warn)">${mastTotal}</div><div class="stat-l">Mastered</div></div>
@@ -1263,10 +1304,25 @@ function renderHearts(){
   for(let i=0;i<m.containers;i++) hearts.push(heartSvg(1));
   if(m.pieces) hearts.push(heartSvg(m.pieces/GTHearts.PER));
   el.style.display=hearts.length?'':'none';
-  el.innerHTML=hearts.join('');
+  // One row that never wraps: at most GTHearts.MAX_ROW hearts, and only as many as fit beside the
+  // wallet pill. Past that it's one heart and a count, with the full row in the tap-open note.
+  const lay=GTHearts.heartLayout(GTHearts.countDone(G), heartsRoom());
+  const compact=lay.mode==='compact' && hearts.length>0;
+  el.classList.toggle('compact',compact);
+  el.innerHTML=compact?`${heartSvg(1)}<span class="hearts-n">${lay.text}</span>`:hearts.join('');
   el.title=m.label; el.setAttribute('aria-label',`${m.label}. ${m.total} finished games.`);
-  tip.textContent=`${m.label} · ${m.total} finished`;
+  tip.innerHTML=(compact?`<span class="hearts-full" aria-hidden="true">${hearts.join('')}</span>`:'')+esc(`${m.label} · ${m.total} finished`);
 }
+// Pixels the hearts pill can use on one line: the header meters' width, less the wallet pill and
+// its gap when it's showing, less the pill's own padding and border.
+function heartsRoom(){
+  const meters=document.getElementById('hearts').parentElement, w=document.getElementById('wallet');
+  let room=meters.clientWidth-20;
+  if(w && w.style.display!=='none' && w.offsetWidth) room-=w.offsetWidth+8;
+  return room;
+}
+let HEARTS_RESIZE=null;
+window.addEventListener('resize',()=>{ clearTimeout(HEARTS_RESIZE); HEARTS_RESIZE=setTimeout(()=>{ if(LOADED) renderHearts(); },120); });
 function celebrateHearts(kind){
   if(!kind || kind==='none') return;
   const m=GTHearts.heartMath(GTHearts.countDone(G));
@@ -2077,7 +2133,7 @@ if (WORKER.url && WORKER.key){
 // reopen once data arrives.
 try {
   const stored=JSON.parse(localStorage.getItem('gt_panels')||'null');
-  if(stored) for(const k of ['ar','yl','so','gy']) if(typeof stored[k]==='boolean') open[k]=stored[k];
+  if(stored) for(const k of ['ar','yl','so','gy','gm']) if(typeof stored[k]==='boolean') open[k]=stored[k];
 } catch(e){}
 ['ar','yl','so','gy'].forEach(paintPanel);
 
