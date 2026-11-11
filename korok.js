@@ -10,8 +10,9 @@
 // Hestu dances at 3 seeds, 6 seeds and all of them; six unlocks the "Korok Forest" theme, toggled
 // from the seed counter at the foot of the page. Optional data-forest="--bg:...;" replaces the
 // theme's CSS variables for a site with different variable names.
-// The first block is DOM-free and unit-tested in Node (scripts/korok.test.mjs); this file is
-// copied verbatim into steph-tv-tracker, and its hub twin lives in home-hub's status_server.py.
+// The first block is DOM-free and unit-tested in Node (scripts/korok.test.mjs). steph-tv-tracker
+// loads this file live from the Pages site; the hub embeds a byte-identical copy (home-hub's
+// hub_assets/korok.js), and the hub's health check emails if the two drift.
 var KorokCore = (function () {
   var MILESTONES = [3, 6];
   function parseSpots(str) {
