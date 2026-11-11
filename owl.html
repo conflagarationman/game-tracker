@@ -1,5 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+<!--
+Kaepora Gaebora: the picker as a conversation with the Ocarina of Time owl. How it works:
+- Asks device, time and mood, then offers pick.js's owlLineup() one game at a time ("Do you want to
+  hear it again?"). Yes = next pick. No = Start (s:"playing" via /games/edit) or, for a wildcard,
+  add it as Now Playing via /games/add. The last answers are kept in localStorage `gt_owl`.
+- ?pick=<key> opens straight on that game ("You came about the weekend, hoo?") with the usual three
+  answers, looked up in the whole pool so a Friday link survives the data moving on. Keys: id:<n>
+  (tracked), steam:<appid>, ra:<normTitle>, canon:<normTitle>; URL-encode them.
+- "Not this one" snoozes a pick for the owl through the Worker (/owl/skip, stored in
+  owl-skips.json, never touching games.json): 7, then 30, then 90 days (pick.js SNOOZE_DAYS). The
+  fourth turn-down asks before a drop, in a red DROP box whose safe answer comes first. Drops are
+  listed under "Struck from the list" in the footer with a Restore (/owl/restore deletes the entry,
+  count back to zero; accepting the game with "No" does too).
+- Music is The 8-Bit Big Band's cover of Kaepora's theme through YouTube's own player, in a credited
+  "music box" at the bottom: YouTube's terms need the player visible (200px+), and the recording
+  isn't ours to host. On by default from the first tap or key press (`gt_owl_music`); nothing loads
+  from YouTube before that.
+- Text sounds are made in the page with Web Audio (no files): a quiet square blip every couple of
+  typed letters (at least 40ms apart) and an original falling-minor-third "hoo-hoo" at the start of
+  each line (at least 1.5s apart). They start on the first tap too and have their own toggle
+  (`gt_owl_sfx`), separate from the music.
+-->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -111,7 +133,6 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
   border:1px solid var(--border2);border-radius:99px;padding:.6rem 1.1rem;cursor:pointer;animation:rise .3s ease both;}
 .choice:hover,.choice:focus-visible{border-color:var(--accent);outline:none;}
 .choice.again{border-color:color-mix(in srgb, var(--accent) 44%, transparent);color:var(--accent);}
-.choice.suggested{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
 .choice:disabled{opacity:.5;cursor:default;}
 .choice small{display:block;font-family:'DM Mono',monospace;font-weight:400;font-size:.65rem;color:var(--muted);margin-top:.15rem;}
 @keyframes rise{from{opacity:0;transform:translateY(6px);}}
@@ -266,7 +287,6 @@ h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em;color:var(--accent);wh
 
 <script src="worker-config.js"></script>
 <script src="pick.js"></script>
-<script src="rupees.js"></script>
 <script>
 // ─── Kaepora Gaebora ───────────────────────────────────
 // The owl from Ocarina of Time, who gives long-winded advice and then asks whether you'd like
@@ -426,12 +446,7 @@ async function ask(){
     await say('Hoo hoo. And what does your heart want tonight?');
     if (conv !== CONV) return;
     owlPose('look-down');
-    // A worn mask from the tracker's shop suggests a mood: only a default, every answer still works.
-    let worn = null; try { worn = localStorage.getItem('gt_mask'); } catch(e){}
-    const dm = typeof GTRupees !== 'undefined' ? GTRupees.owlDefaultMood(worn, MOODS) : null;
-    choices(Object.keys(MOODS).map(k => [MOOD_ASK[k], () => { ANS.mood = k; decide(); },
-      k === dm ? 'suggested' : '', k === dm ? `your ${GTRupees.MASKS[worn].name} says so` : '']));
-    if (dm) { const b = $('choices').querySelector('.suggested'); if (b) b.focus({ preventScroll: true }); }
+    choices(Object.keys(MOODS).map(k => [MOOD_ASK[k], () => { ANS.mood = k; decide(); }]));
   }
 }
 
@@ -925,6 +940,7 @@ Promise.all([
   choices([['Try again', () => location.reload()]]);
 });
 </script>
+<script src="retired.js"></script>
 <script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="owl:50%,owl-hang:12%:top,owl-low:78%"></script>
 <script src="usage.js" defer></script>
 <script src="pwa.js" defer></script>

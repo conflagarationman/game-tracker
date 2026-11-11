@@ -1,5 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+<!--
+Year in review (?year=2026), read-only. The numbers are wrapped-stats.js (see its header and
+scripts/wrapped.test.mjs). A finished year loads wrapped-<year>.json (frozen on Jan 1 by
+scripts/freeze-wrapped.mjs) in preference to the live files.
+- Story mode ("Play the story" on the hero, or ?cards=1 to open straight into it): the same numbers
+  as full-screen cards. Tap the right 70% or swipe left for the next, the left 30% for back, arrow
+  keys, Esc closes. A card whose data is missing is skipped, not shown empty. The last card has the
+  share image and poster buttons.
+- The Year of Play poster (posterStats / layoutPoster in wrapped-stats.js, painted by drawPoster
+  here) is every non-Idle finish of the year as a pixel-art cartridge on a shelf, sized by hours
+  (actualHours, else the HLTB estimate), coloured by platform, with the title on a procedurally drawn
+  label. NEVER put cover art on a canvas: cross-origin images taint it and toBlob then fails. Game of
+  the Year is the highest rating, ties to the most hours, on the middle pedestal. "Download poster"
+  renders 3600x4800 (falling back to 3000x4000, then 1800x2400, where a browser caps canvas size);
+  the print stylesheet prints only the poster.
+-->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -701,6 +717,7 @@ Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=
   .then(([g,c,a,l,u])=>{ G=g; COVERS=c; ASF=a; LEDGER=l; UNLOCKS=(u&&u.unlocks)||[]; render(); openCardsFromUrl(); })
   .catch(e=>{ document.getElementById('main').innerHTML=`<p class="err">Couldn’t load game data (${esc(e.message)}).</p>`; });
 </script>
+<script src="retired.js"></script>
 <script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="wrapped:22%,wrapped-hang:81%:top"></script>
 <script src="usage.js" defer></script>
 <script src="pwa.js" defer></script>

@@ -1,5 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
+<!--
+The read surface: reads games.json and friends and renders them. Things the code alone doesn't say:
+- Writes go through the Worker's /games/edit, /games/delete and /games/add; per-viewer choices
+  (picker chips, dismissed play-check rows, Someday games you chose to keep `gt_*`, panel state
+  `gt_panels`, edit mode `gt_edit_mode`, hearts seen `gt_hearts_seen`, Great Fairy seen `gt_gf_seen`)
+  live in localStorage only.
+- A save outlives a reload before Pages publishes it: the commit lands in seconds but Pages serves the
+  new games.json about a minute later, which looked like a failed save. Each successful saveEdit is
+  kept in localStorage (`gt_saved_edits`, with the values it replaced) and laid over games.json on
+  load for up to 10 minutes, until the file shows it; a field changed elsewhere in between wins.
+- "What should I play?" is pick.js (see its header). "Start" sets s:"playing".
+- Panel search (Someday, Archive): every word must appear in the title, genre or platform (key or
+  label), case-insensitive, diacritics folded (gameMatches). Someday triage and "Fill in finished
+  games" always work on the full list, not the filtered one.
+- Play check rows (from play-check.json) act: Playing, Finished (date + rating sheet), or an x that
+  hides the row until that game's lastPlayed changes. "Add as playing" deep-links to
+  add.html?t=...&s=playing&p=...
+- Someday triage, one game at a time, oldest first: Up Next, Keep (hidden from triage for 90 days),
+  Already played, Remove (waits 6 seconds with an Undo before the delete is sent). "Fill in finished
+  games" (Archive panel) walks the done/dropped records missing a year or rating.
+- The "Up next ETA" stat is Up Next + Now Playing hours left divided by the hours finished per month
+  over the last 12 months; the whole-backlog figure is in its tooltip.
+- Dormant = 30 days since lastPlayed, which only means something for Steam and RetroAchievements
+  games. The wallet pill is the lifetime rupee total (rupees.js); Heart Containers are hearts.js;
+  a game whose mastery is mastered/platinum/100pct gets a gold frame and the Great Fairy scene once.
+- Reduced motion: moving effects live behind @media (prefers-reduced-motion:no-preference) (Heart
+  Piece, Great Fairy, card hover lift, skeleton shimmer) and the smoke test fails on anything that
+  keeps animating under "reduce". Keep new motion inside that pattern.
+-->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -440,58 +469,12 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
   @keyframes hp-bob{50%{transform:translateY(-8px) scale(1.08);}}
 }
 
-/* Dampe's graveyard: headstones in a wrapping row, gentle and a little silly. */
-.gy-dampe{font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem;}
-.gy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:0.75rem;}
-.gy-stone{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:60px 60px 8px 8px;padding:1.4rem 0.9rem 0.8rem;text-align:center;display:flex;flex-direction:column;gap:0.35rem;align-items:center;}
-.gy-stone::before{content:'✝';position:absolute;top:0.45rem;left:50%;transform:translateX(-50%);color:var(--dim);font-size:0.7rem;}
-.gy-title{font-weight:700;font-size:0.85rem;line-height:1.25;overflow-wrap:anywhere;}
-.gy-hrs{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;}
-.gy-epi{font-size:0.72rem;color:var(--muted);font-style:italic;line-height:1.4;}
-.gy-dig{margin-top:auto;font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.45rem 0.8rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;}
-.gy-dig:hover:not(:disabled){background:color-mix(in srgb, var(--accent) 9%, transparent);}
-.gy-dig:disabled{opacity:0.5;cursor:default;}
-
-/* Rupee wallet, shop, Great Fairy. Gold = the mastery frame; everything else uses page variables. */
+/* Rupee wallet and Great Fairy. Gold = the mastery frame; everything else uses page variables. */
 .meters{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;margin:0 0 0.9rem;}
 .meters .hearts{margin:0;}
-.wallet{display:inline-flex;align-items:center;gap:0.4rem;padding:0.3rem 0.7rem;border:1px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text);font-family:'DM Mono',monospace;font-size:0.72rem;cursor:pointer;}
-.wallet:focus-visible,.shop-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.wallet{display:inline-flex;align-items:center;gap:0.4rem;padding:0.3rem 0.7rem;border:1px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text);font-family:'DM Mono',monospace;font-size:0.72rem;cursor:default;}
 .wallet svg{width:11px;height:16px;shape-rendering:crispEdges;}
 .wallet small{color:var(--muted);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.06em;}
-.worn-mask{width:30px;height:25px;shape-rendering:crispEdges;}
-dialog.shop{width:min(560px,calc(100vw - 32px));}
-.shop-in{padding:1rem 1rem 1.2rem;display:flex;flex-direction:column;gap:1rem;}
-.shop h3{font-size:0.7rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:0.4rem;}
-.shop-top{display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;}
-.shop-bal{font-size:1.4rem;font-weight:800;color:var(--accent);}
-.shop-note{font-size:0.7rem;color:var(--muted);line-height:1.45;}
-.shop-row{display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0;border-top:1px solid var(--border);font-size:0.78rem;}
-.shop-row .grow{flex:1;min-width:0;}
-.shop-row svg{width:36px;height:30px;flex:none;shape-rendering:crispEdges;}
-.shop-btn{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.4rem 0.75rem;min-height:32px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap;}
-.shop-btn:disabled{opacity:0.45;cursor:default;border-color:var(--border2);color:var(--muted);}
-.shop-btn.on{background:var(--accent);color:var(--on-accent);font-weight:700;}
-.shop-close{margin-left:auto;}
-.bomb-list{max-height:180px;overflow:auto;}
-.boom{position:fixed;inset:0;z-index:1300;display:flex;align-items:center;justify-content:center;pointer-events:none;}
-.boom b{font-size:3rem;filter:drop-shadow(0 0 20px #ff8a00);}
-@media (prefers-reduced-motion:no-preference){
-  .boom b{animation:boom 0.9s ease-out forwards;}
-  .boom::before{content:'';position:absolute;width:60px;height:60px;border-radius:50%;background:radial-gradient(#fff6c0,#ff9a1f 40%,#d8341f 70%,transparent 72%);animation:boom-ring 0.8s ease-out forwards;}
-  @keyframes boom{0%{transform:scale(.2);opacity:0}30%{opacity:1}100%{transform:scale(2.4);opacity:0}}
-  @keyframes boom-ring{0%{transform:scale(.2);opacity:1}100%{transform:scale(9);opacity:0}}
-}
-.fairy-pop{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:1250;background:var(--surface);border:2px solid var(--fairy);border-radius:14px;padding:0.8rem 1.1rem;display:flex;gap:0.7rem;align-items:center;max-width:calc(100vw - 2rem);box-shadow:0 0 30px color-mix(in srgb, var(--fairy) 33%, transparent);pointer-events:none;font-size:0.82rem;}
-.fairy-pop svg{width:44px;height:44px;flex:none;}
-@media (prefers-reduced-motion:no-preference){
-  .fairy-pop{animation:fp-in 0.5s ease-out both,fp-out 0.5s 4s ease-in forwards;}
-  .fairy-pop svg{animation:fp-float 1.2s ease-in-out infinite alternate;}
-  @keyframes fp-in{from{opacity:0;transform:translate(-50%,40px)}to{opacity:1;transform:translate(-50%,0)}}
-  @keyframes fp-out{to{opacity:0;transform:translate(-50%,-30px)}}
-  @keyframes fp-float{to{transform:translateY(-8px)}}
-}
-.fairy-pill{font-size:0.58rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--fairy) 9%, transparent);color:var(--fairy);border:1px solid color-mix(in srgb, var(--fairy) 19%, transparent);white-space:nowrap;}
 .gf-gold{outline:2px solid var(--accent);outline-offset:-2px;box-shadow:0 0 14px color-mix(in srgb, var(--accent) 25%, transparent);}
 .gf{position:fixed;inset:0;z-index:1400;background:radial-gradient(70% 60% at 50% 40%,#5a2a7a,#1d0b33 70%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1.5rem;text-align:center;cursor:pointer;overflow:hidden;}
 .gf svg.gf-art{width:min(260px,60vw);height:auto;}
@@ -519,7 +502,7 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
 </div>
 <div class="updated" id="updated-stamp">loading…</div>
 <div class="banner" id="load-error" role="alert"></div>
-<div class="meters"><button type="button" class="hearts" id="hearts" style="display:none;" aria-expanded="false" onclick="toggleHeartTip()"></button><button type="button" class="wallet" id="wallet" style="display:none;" onclick="openShop()"></button><span id="worn-mask"></span></div>
+<div class="meters"><button type="button" class="hearts" id="hearts" style="display:none;" aria-expanded="false" onclick="toggleHeartTip()"></button><span class="wallet" id="wallet" style="display:none;" role="img"></span></div>
 <div class="hearts-tip" id="hearts-tip" role="status"></div>
 <div class="stats-row" id="stats"></div>
 <section class="tonight" id="tonight-sec" style="display:none;" aria-labelledby="tonight-heading">
@@ -564,20 +547,12 @@ dialog.shop{width:min(560px,calc(100vw - 32px));}
   <div id="yl-panel" style="display:none;margin-top:0.75rem;"></div>
 </section>
 
-<section aria-label="Dampé's graveyard">
-  <div class="cr" id="gy-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="gy-panel" onclick="tog('gy')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('gy');}"><span id="gy-arr" aria-hidden="true">▶</span><span id="gy-lbl">Dampé's graveyard (0)</span></div>
-  <div id="gy-panel" style="display:none;margin-top:0.75rem;"></div>
-</section>
-
-<dialog class="sheet shop" id="shop" aria-labelledby="shop-h"></dialog>
-
 <dialog class="sheet" id="sheet" aria-labelledby="sheet-kicker"></dialog>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="worker-config.js"></script>
 <script src="pick.js"></script>
 <script src="hearts.js"></script>
-<script src="graveyard.js"></script>
 <script src="rupees.js"></script>
 <script>
 // Data lives in games.json/covers.json, kept current by the daily GitHub Action
@@ -595,10 +570,9 @@ const PLAT_EMOJI={steam:'🖥',steamdeck:'🎮',pc:'💻',ps5:'🎮',switch:'�
 const DIFF_LABELS={1:'Easy',2:'Normal',3:'Hard',4:'Expert',5:'Brutal'};
 let NOW = new Date();
 let LOADED = false; // set once games.json has arrived; hearts only celebrate real data
-let RUP = { purchases: [], fairyUntil: {} }; // rupees.json (Worker-written); absent until the first purchase
 let ACH = []; // achievements-log.json unlocks, for the wallet
 let PLAY = null; // play-check.json; null when absent, and every consumer tolerates that
-let open={ar:false,yl:false,so:false,gy:false};
+let open={ar:false,yl:false,so:false};
 // Whether the Worker is configured. Cards only become links to their edit form when it is,
 // for the same reason the "+ Add game" link is hidden otherwise: add.html can't do anything
 // but show its setup notice, so the link would be a dead end.
@@ -651,14 +625,10 @@ function pb(p){return `<span class="plat p-${p}">${PL[p]||p}</span>`;}
 // zone, so building the Date from its parts in local time is the correct reading.
 function localDate(s){ const [y,m,d]=String(s).split('-').map(Number); return new Date(y, m-1, d); }
 
-// The tracker's staleness rule: 30 days since last play. A fairy in a bottle (rupee shop) covers
-// a game for 7 days, which silences the warning without touching lastPlayed (bot-owned).
-function rawDormant(g){
+// The tracker's staleness rule: 30 days since last play.
+function isDormant(g){
   if(!g.lastPlayed) return false;
   return (NOW - localDate(g.lastPlayed))/(1000*60*60*24) > 30;
-}
-function isDormant(g){
-  return rawDormant(g) && !(typeof GTRupees!=='undefined' && GTRupees.fairyActive(RUP, g.id, NOW));
 }
 
 // Dormancy means opposite things for the two kinds of in-progress game. For a backlog game,
@@ -827,7 +797,7 @@ function nowC(g){
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
         ${gotmBadge(g.gotm)}${masteryBadge(g.mastery)}${diffBadge(g.diff)}
         ${releaseEl(g)}${startEl(g)}
-        ${dormant?'<span class="dormant-pill">💤 dormant</span>':lastPlayedEl(g)}${fairyPill(g)}
+        ${dormant?'<span class="dormant-pill">💤 dormant</span>':lastPlayedEl(g)}
         ${g.casual?'<span class="casual-pill">casual play</span>':''}${returnPill(g)}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
@@ -991,7 +961,6 @@ function renderSomeday(){
 }
 
 function renderPanels(){
-  renderGraveyard();
   const arch=G.filter(g=>g.s==='done'||g.s==='dropped').sort((a,b)=>(b.cy||0)-(a.cy||0)||((b.cm??-1)-(a.cm??-1)));
   document.getElementById('ar-lbl').textContent=`Archive (${arch.length})`;
   if(open.ar){
@@ -1288,184 +1257,18 @@ function checkHearts(){
   celebrateHearts(GTHearts.check(storage||{getItem(){throw 0;},setItem(){throw 0;}}, G));
 }
 
-// ─── Dampé's graveyard ─────────────────────────────────
-function renderGraveyard(){
-  if(typeof GTGraveyard==='undefined') return;
-  const dead=GTGraveyard.dropped(G);
-  document.getElementById('gy-lbl').textContent=`Dampé's graveyard (${dead.length})`;
-  const panel=document.getElementById('gy-panel');
-  if(!dead.length){ panel.innerHTML=`<div class="gy-dampe">🪦 ${esc(GTGraveyard.emptyLine(G.length))}</div>`; return; }
-  const stones=dead.map(g=>{
-    const h=GTGraveyard.hoursPlayed(g);
-    const hrs=h?`${esc(h.text)}${h.est?' est.':''} played`:'hours unknown';
-    return `<div class="gy-stone">
-      <div class="gy-title">${esc(g.t)}</div>
-      <div class="gy-hrs">${hrs}</div>
-      <div class="gy-epi">“${esc(GTGraveyard.epitaph(g,G))}”</div>
-      ${CAN_EDIT?`<button type="button" class="gy-dig" data-id="${g.id}" onclick="digUp(${g.id},this)">Dig it up</button>`:''}
-    </div>`;
-  }).join('');
-  panel.innerHTML=`<div class="gy-dampe">Dampé: “Hehehe… the dead are resting. Dig one up if you must.”</div><div class="gy-grid">${stones}</div>`;
-}
-async function digUp(id,btn){
-  const g=byId(id); if(!g) return;
-  if(!confirm(GTGraveyard.digUpConfirm(g))) return;
-  if(btn) btn.disabled=true;
-  const ok=await saveEdit(g, GTGraveyard.digUpPatch(g, todayStr()));
-  if(!ok && btn) btn.disabled=false;
-}
-
-// ─── Rupee wallet & shop ───────────────────────────────
-const RUP_ENDPOINT = (p) => WORKER.url + p;
-const newPid = () => (self.crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`).toLowerCase().slice(0,36);
-function rupBalance(){ return GTRupees.balance(ACH, RUP); }
+// ─── Rupee wallet ──────────────────────────────────────
+// Lifetime rupees earned from achievements (see rupees.js). Nothing is for sale, so this is a score.
 function gemSvg(color){ return `<svg viewBox="0 0 7 10" aria-hidden="true"><path style="fill:${color}" d="M3 0h1v1h1v1h1v5H5v1H4v1H3V8H2V7H1V2h1V1h1z"/><path fill="#fff8" d="M2 2h1v3H2z"/></svg>`; }
 function renderWallet(){
   if(typeof GTRupees==='undefined') return;
   const el=document.getElementById('wallet');
-  if(!ACH.length && !RUP.purchases.length){ el.style.display='none'; return; }
-  const life=GTRupees.earned(ACH), t=GTRupees.walletTier(life), bal=rupBalance();
-  const tip=`${t.name}'s Wallet · ${life} earned, ${GTRupees.spent(RUP)} spent`+(t.next?` · ${t.next.need} to the ${t.next.name}'s Wallet`:'');
+  if(!ACH.length){ el.style.display='none'; return; }
+  const life=GTRupees.earned(ACH), t=GTRupees.walletTier(life);
+  const tip=`Lifetime rupees earned from achievements (rarer unlocks are worth more). ${t.name}'s Wallet`+(t.next?` · ${t.next.need} more for the ${t.next.name}'s Wallet`:'');
   el.style.display='';
-  el.innerHTML=`${gemSvg('var(--rupee)')}<span>${bal}</span><small>${t.name}</small>`;
-  el.title=tip; el.setAttribute('aria-label',`Rupee wallet: ${bal} rupees. ${tip}. Opens the shop.`);
-  const m=wornMask(), w=document.getElementById('worn-mask');
-  w.innerHTML=m?`<span title="${esc(GTRupees.MASKS[m].name)}: ${esc(GTRupees.MASKS[m].hint)}">${maskSvg(m,'worn-mask')}</span>`:'';
-}
-function maskSvg(id,cls){
-  const a=GTRupees.MASK_ART[id]; if(!a) return '';
-  const rects=a.rows.map((row,y)=>{ let out='',x=0; while(x<12){ const c=row[x]; if(c!=='.'){ let e=x; while(e<12&&row[e]===c) e++; out+=`<rect x="${x}" y="${y}" width="${e-x}" height="1" fill="${a.pal[c]}"/>`; x=e; } else x++; } return out; }).join('');
-  return `<svg class="${cls||''}" viewBox="0 0 12 10" aria-hidden="true">${rects}</svg>`;
-}
-function wornMask(){
-  let m=null; try{ m=localStorage.getItem('gt_mask'); }catch(e){}
-  return m && GTRupees.ownedMasks(RUP).includes(m) ? m : null;
-}
-function setWorn(m){ try{ m?localStorage.setItem('gt_mask',m):localStorage.removeItem('gt_mask'); }catch(e){} renderWallet(); renderShop(); }
-function korokStore(){ try{ return localStorage; }catch(e){ return null; } }
-function currentSkin(){ const st=korokStore(); try{ return (st&&st.getItem('korok:all:skin'))||''; }catch(e){ return ''; } }
-function forestReady(){
-  try{ return typeof KorokCore!=='undefined' && KorokCore.forestUnlocked(KorokCore.load(localStorage,'korok:all',[]),12); }catch(e){ return false; }
-}
-function setSkin(theme){
-  try{ if(theme){ localStorage.setItem('korok:all:skin',theme); localStorage.setItem('korok:all:forest','1'); } else localStorage.removeItem('korok:all:skin'); }catch(e){}
-  if(window.KorokApply) window.KorokApply();
-  renderShop();
-}
-
-async function rupPost(path, body){
-  try{
-    const res=await fetch(RUP_ENDPOINT(path),{method:'POST',headers:{'Content-Type':'application/json','X-Sync-Key':WORKER.key},body:JSON.stringify(body)});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.error||`request failed (${res.status})`);
-    if(data && Array.isArray(data.purchases)) RUP=data;
-    return true;
-  }catch(err){ alert(`The shop couldn't do that: ${err.message}`); return false; }
-}
-async function buyItem(item, meta){
-  const why=GTRupees.whyNot(item,RUP,{unlocks:ACH,now:new Date(),meta,game:meta&&meta.game});
-  if(why){ alert(`Can't buy that: ${why}.`); return false; }
-  const ok=await rupPost('/rupees/buy',{id:newPid(),item,meta:meta&&meta.game?{gameId:meta.game.id}:meta});
-  renderWallet(); renderShop();
-  return ok;
-}
-async function refundItem(id){
-  if(!await rupPost('/rupees/refund',{id})) return;
-  renderWallet(); renderShop();
-}
-async function buyAndWear(kind,key){
-  if(await buyItem(kind,kind==='mask'?{mask:key}:{theme:key})) { if(kind==='mask') setWorn(key); else setSkin(key); }
-}
-
-const SHOP = document.getElementById('shop');
-function openShop(){ renderShop(); if(!SHOP.open) SHOP.showModal(); }
-function renderShop(){
-  if(!SHOP.open && !SHOP.dataset.ready){ SHOP.dataset.ready='1'; }
-  const now=new Date(), life=GTRupees.earned(ACH), t=GTRupees.walletTier(life), bal=rupBalance();
-  const can=CAN_EDIT;
-  const dis=(why)=>can&&!why?'':' disabled';
-  const fullMoon=KorokCore.isFullMoon(now);
-  const themes=Object.entries(GTRupees.THEMES).map(([k,name])=>{
-    const owned=GTRupees.ownedThemes(RUP).includes(k), cur=currentSkin()===k;
-    const why=owned?null:GTRupees.whyNot('maracas',RUP,{unlocks:ACH,now,meta:{theme:k}});
-    const extra=k==='bloodmoon'?` <span class="shop-note">only glows on full-moon nights${fullMoon?' (tonight!)':''}</span>`:'';
-    return `<div class="shop-row"><div class="grow">${esc(name)}${extra}</div>`+(owned
-      ?`<button type="button" class="shop-btn${cur?' on':''}" onclick="setSkin('${cur?'':k}')">${cur?'Wearing':'Wear'}</button>`
-      :`<button type="button" class="shop-btn"${dis(why)} title="${esc(why||'')}" onclick="buyAndWear('maracas','${k}')">${GTRupees.PRICES.maracas} ₹</button>`)+`</div>`;
-  }).join('');
-  const left=GTRupees.bombsLeft(RUP,now);
-  const queue=G.filter(g=>g.s==='queue');
-  const bombs=queue.length?queue.map(g=>`<div class="shop-row"><div class="grow">${esc(g.t)}</div><button type="button" class="shop-btn"${dis(GTRupees.whyNot('bomb',RUP,{unlocks:ACH,now,game:g}))} onclick="bombGame(${g.id})">💣 ${GTRupees.PRICES.bomb} ₹</button></div>`).join(''):`<div class="shop-note">Nothing in Up Next to blow up.</div>`;
-  const fairyHeld=GTRupees.holdsFairy(RUP);
-  const covered=Object.entries(RUP.fairyUntil||{}).filter(([id])=>GTRupees.fairyActive(RUP,id,now)).map(([id,u])=>`${esc((byId(id)||{t:'a game'}).t)} (until ${esc(u)})`);
-  const fairyWhy=fairyHeld?null:GTRupees.whyNot('fairy',RUP,{unlocks:ACH,now});
-  const worn=wornMask();
-  const masks=Object.entries(GTRupees.MASKS).map(([k,m])=>{
-    const owned=GTRupees.ownedMasks(RUP).includes(k), on=worn===k;
-    const why=owned?null:GTRupees.whyNot('mask',RUP,{unlocks:ACH,now,meta:{mask:k}});
-    return `<div class="shop-row">${maskSvg(k)}<div class="grow"><b>${esc(m.name)}</b><div class="shop-note">${esc(m.hint)}</div></div>`+(owned
-      ?`<button type="button" class="shop-btn${on?' on':''}" onclick="setWorn(${on?'null':`'${k}'`})">${on?'Worn':'Wear'}</button>`
-      :`<button type="button" class="shop-btn"${dis(why)} title="${esc(why||'')}" onclick="buyAndWear('mask','${k}')">${GTRupees.priceOf('mask',{mask:k})} ₹</button>`)+`</div>`;
-  }).join('');
-  const refundable=can?RUP.purchases.filter(p=>GTRupees.canRefund(p,now)):[];
-  const names=(p)=>p.item==='maracas'?GTRupees.THEMES[p.meta.theme]:p.item==='mask'?GTRupees.MASKS[p.meta.mask].name:'Fairy in a bottle';
-  const refunds=refundable.length?`<div><h3>Changed your mind? (first 24 hours)</h3>${refundable.map(p=>`<div class="shop-row"><div class="grow">${esc(names(p))}</div><button type="button" class="shop-btn" onclick="refundItem('${p.id}')">Refund ${p.cost} ₹</button></div>`).join('')}</div>`:'';
-  SHOP.innerHTML=`<div class="shop-in">
-    <div class="shop-top"><div><h2 id="shop-h" class="slabel" style="margin:0">Rupee shop</h2><div class="shop-bal">${bal} ₹</div>
-      <div class="shop-note">${t.name}'s Wallet · ${life} earned from achievements${t.next?` · ${t.next.need} more for the ${t.next.name}'s Wallet`:''}</div></div>
-      <button type="button" class="shop-btn shop-close" onclick="SHOP.close()">Close</button></div>
-    ${can?'':'<div class="shop-note">The Worker isn’t set up on this page, so the shop is look-only.</div>'}
-    <div><h3>Hestu’s maracas · forest themes</h3>${forestReady()?'':'<div class="shop-note">Themes dress the Korok Forest, which grows once you have found 6 Koroks.</div>'}${themes}</div>
-    <div><h3>Bomb a game off the queue · ${left} of ${GTRupees.BOMBS_PER_QUARTER} left this quarter</h3><div class="shop-note">Up Next games only. It goes to Dampé’s graveyard, where “Dig it up” brings it back.</div><div class="bomb-list">${bombs}</div></div>
-    <div><h3>Fairy in a bottle</h3><div class="shop-row"><div class="grow">When a Now Playing game goes dormant, the fairy saves it for ${GTRupees.FAIRY_DAYS} more days. Hold one at a time.${covered.length?`<div class="shop-note">Covered now: ${covered.join(', ')}</div>`:''}</div>
-      <button type="button" class="shop-btn"${fairyHeld?' disabled':dis(fairyWhy)} title="${esc(fairyWhy||'')}" onclick="buyItem('fairy')">${fairyHeld?'Holding one':GTRupees.PRICES.fairy+' ₹'}</button></div></div>
-    <div><h3>Mask shop</h3>${masks}</div>
-    ${refunds}
-  </div>`;
-}
-
-// 💣 Confirm, blow it up, then drop it through the usual write path: the game lands in Dampé's
-// graveyard and "Dig it up" is the undo. The drop goes first so a failed purchase can be undone.
-async function bombGame(id){
-  const g=byId(id), now=new Date();
-  if(!g) return;
-  const why=GTRupees.whyNot('bomb',RUP,{unlocks:ACH,now,game:g});
-  if(why){ alert(`Can't bomb that: ${why}.`); return; }
-  if(!confirm(`Bomb ${g.t} off the queue? It goes to Dampé's graveyard (dig it up any time). Costs ${GTRupees.PRICES.bomb} rupees.`)) return;
-  showBoom();
-  const dropped=await saveEdit(g,{ s:'dropped', cy:now.getFullYear(), cm:now.getMonth() });
-  if(!dropped) return;
-  const bought=await rupPost('/rupees/buy',{id:newPid(),item:'bomb',meta:{gameId:g.id}});
-  if(!bought) await saveEdit(g,{ s:'queue' }); // couldn't pay the Worker: put it back
-  renderWallet(); renderShop();
-}
-function showBoom(){
-  const b=document.createElement('div'); b.className='boom'; b.setAttribute('role','status'); b.innerHTML='<b>💥</b>';
-  document.body.appendChild(b); setTimeout(()=>b.remove(),1000);
-}
-
-// 🧚 One fairy per page load: the first Now Playing game that has gone dormant gets 7 more days.
-let FAIRY_BUSY=false;
-async function tryFairy(){
-  if(FAIRY_BUSY||!CAN_EDIT||typeof GTRupees==='undefined') return;
-  const g=GTRupees.fairyTarget(RUP,G,rawDormant,NOW);
-  if(!g) return;
-  FAIRY_BUSY=true;
-  const ok=await rupPost('/rupees/use',{gameId:g.id});
-  FAIRY_BUSY=false;
-  if(!ok) return;
-  render(); fairyPopOut(g);
-}
-const FAIRY_SVG='<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="#bfe9ff99" d="M1 3h4v3H3v2H1zM15 3h-4v3h2v2h2z"/><path fill="#fff3a8" d="M6 5h4v1h1v4h-1v1H6v-1H5V6h1z"/><path fill="#fff" d="M7 6h2v2H7z"/><path fill="#f2a0d8" d="M7 11h2v2H7z"/></svg>';
-function fairyPopOut(g){
-  const old=document.getElementById('fairy-pop'); if(old) old.remove();
-  const el=document.createElement('div'); el.id='fairy-pop'; el.className='fairy-pop'; el.setAttribute('role','status');
-  el.innerHTML=`${FAIRY_SVG}<div><b>The fairy saved ${esc(g.t)}!</b><br><span class="shop-note">${GTRupees.FAIRY_DAYS} more days before it counts as dormant.</span></div>`;
-  document.body.appendChild(el); setTimeout(()=>el.remove(),4700);
-}
-function fairyPill(g){
-  if(typeof GTRupees==='undefined'||!rawDormant(g)||!GTRupees.fairyActive(RUP,g.id,NOW)) return '';
-  return `<span class="fairy-pill" title="A fairy in a bottle is keeping this game from going dormant until ${esc(RUP.fairyUntil[g.id])}">🧚 until ${esc(RUP.fairyUntil[g.id])}</span>`;
+  el.innerHTML=`${gemSvg('var(--rupee)')}<span>${life}</span><small>${t.name}</small>`;
+  el.title=tip; el.setAttribute('aria-label',`${life} rupees earned. ${tip}.`);
 }
 
 // ─── Great Fairy ───────────────────────────────────────
@@ -2077,9 +1880,9 @@ if (WORKER.url && WORKER.key){
 // reopen once data arrives.
 try {
   const stored=JSON.parse(localStorage.getItem('gt_panels')||'null');
-  if(stored) for(const k of ['ar','yl','so','gy']) if(typeof stored[k]==='boolean') open[k]=stored[k];
+  if(stored) for(const k of ['ar','yl','so']) if(typeof stored[k]==='boolean') open[k]=stored[k];
 } catch(e){}
-['ar','yl','so','gy'].forEach(paintPanel);
+['ar','yl','so'].forEach(paintPanel);
 
 // Placeholder cards while the two fetches resolve. Without these the entire page — stats,
 // every section — is blank on arrival, which reads as "no games" rather than "still loading".
@@ -2107,8 +1910,7 @@ Promise.all([
   fresh('gotm.json').then(r=>r.ok?r.json():null).catch(()=>null),
   fresh('play-check.json').then(r=>r.ok?r.json():null).catch(()=>null),
   fresh('achievements-log.json').then(r=>r.ok?r.json():null).catch(()=>null),
-  fresh('rupees.json').then(r=>r.ok?r.json():null).catch(()=>null),
-]).then(([games,covers,gotm,play,ach,rup])=>{
+]).then(([games,covers,gotm,play,ach])=>{
   G=games;
   applySaved(G);
   PLAY=play;
@@ -2116,11 +1918,9 @@ Promise.all([
   GOTM=refreshGotmWindows(gotm);
   NOW=new Date();
   ACH=(ach&&Array.isArray(ach.unlocks))?ach.unlocks:[];
-  if(rup&&Array.isArray(rup.purchases)) RUP={ purchases:rup.purchases, fairyUntil:rup.fairyUntil||{} };
   LOADED=true;
   render();
   checkGreatFairy();
-  tryFairy();
 }).catch(err=>{
   console.error('Failed to load game data', err);
   // Page-level, not tucked into #now: previously the stats row and every other section were
@@ -2163,6 +1963,7 @@ fresh('last-synced.json').then(r=>r.ok?r.json():null).then(d=>{
     : `🔄 Steam & RA data synced ${s.rel} (${s.abs})`;
 }).catch(()=>{ document.getElementById('updated-stamp').textContent=''; });
 </script>
+<script src="retired.js"></script>
 <script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="index:8%,index-hang:57%:top,index-low:93%"></script>
 <script src="usage.js" defer></script>
 <script src="pwa.js" defer></script>
