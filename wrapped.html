@@ -701,6 +701,7 @@ Promise.all([fresh('games.json').then(r=>r.json()), fresh('covers.json').then(r=
   .then(([g,c,a,l,u])=>{ G=g; COVERS=c; ASF=a; LEDGER=l; UNLOCKS=(u&&u.unlocks)||[]; render(); openCardsFromUrl(); })
   .catch(e=>{ document.getElementById('main').innerHTML=`<p class="err">Couldn’t load game data (${esc(e.message)}).</p>`; });
 </script>
+<script src="retired.js"></script>
 <script src="korok.js" data-repo="game-tracker" data-forest="--bg:#0e2f12;--surface:#153c18;--surface2:#1c4a1f;--border:#2c6a2e;--border2:#3d8a3d;--text:#f2ffe3;--muted:#b3e0a4;--dim:#88c07c;--accent:#a6f05a;--on-accent:#0e2f12;--yellow:#c9e87a;--blue:#7ad6a0;" data-total="12" data-spots="wrapped:22%,wrapped-hang:81%:top"></script>
 <script src="usage.js" defer></script>
 <script src="pwa.js" defer></script>

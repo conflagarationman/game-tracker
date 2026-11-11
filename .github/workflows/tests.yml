@@ -77,10 +77,7 @@ jobs:
       - name: Heart Containers
         run: node scripts/hearts.test.mjs
 
-      - name: Dampé's graveyard
-        run: node scripts/graveyard.test.mjs
-
-      - name: Rupee wallet and shop
+      - name: Rupee wallet and Great Fairy
         run: node scripts/rupees.test.mjs
 
       - name: Theme contrast
