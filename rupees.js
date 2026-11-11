@@ -8,7 +8,7 @@
 // Giant, Tycoon) follow lifetime earned. The Great Fairy scene plays the first time a game's
 // mastery becomes mastered/platinum/100pct (seen-set in localStorage `gt_gf_seen`, seeded silently
 // on a first visit); mastered cards always carry a gold frame.
-// Dormant leftovers: the Worker's /rupees/* endpoints and rupees.json are no longer used by any page.
+// rupees.json in the repo is a leftover of the shop: nothing reads or writes it.
 (function (root) {
   // ─── Earning ─────────────────────────────────────────
   // Steam unlocks are coloured by global rarity (pct); an unlock with no pct, and every
@@ -50,15 +50,6 @@
     return { name: t.name, index: i, next: nextW ? { name: nextW.name, need: nextW.min - lifetime } : null };
   }
 
-  // ─── Dormant Worker contract ─────────────────────────
-  // No page sells anything any more. These four constants stay only because worker/index.test.mjs
-  // checks the deployed Worker's own copy against them (the Worker's /rupees/* endpoints are still
-  // live but unused). Delete them together with that test when the Worker is next cleaned up.
-  const PRICES = { maracas: 500, bomb: 50, fairy: 300, mask: 200, majora: 400 };
-  const BOMBS_PER_QUARTER = 10;
-  const FAIRY_DAYS = 7;
-  const REFUND_MS = 24 * 3600 * 1000;
-
   // ─── Great Fairy ─────────────────────────────────────
   const MASTERED = ['mastered', 'platinum', '100pct'];
   const isMastered = (g) => !!g && MASTERED.includes(g.mastery);
@@ -78,7 +69,7 @@
     return r.fresh;
   }
 
-  const api = { PRICES, BOMBS_PER_QUARTER, FAIRY_DAYS, REFUND_MS, VALUES, TIER_ORDER, WALLETS, SEEN_KEY, MASTERED,
+  const api = { VALUES, TIER_ORDER, WALLETS, SEEN_KEY, MASTERED,
     rupeeTier, rupeeValue, earned, tierCounts, walletTier, isMastered, newMasteries, checkMastery };
   root.GTRupees = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
