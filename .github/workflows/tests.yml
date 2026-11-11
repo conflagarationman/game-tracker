@@ -31,61 +31,36 @@ jobs:
         with:
           node-version: 20
 
-      # Deliberately one step per suite rather than a single chained command: a failure then
-      # names the suite in the run's step list, instead of collapsing into one red blob.
-      - name: Steam / RetroAchievements sync
-        run: node scripts/sync-apis.test.mjs
-
-      - name: SteamGridDB cover backfill
-        run: node scripts/backfill-covers.test.mjs
-
-      - name: HowLongToBeat backfill
-        run: node scripts/backfill-hltb.test.mjs
-
-      - name: games.json validator (the auto-merge gate)
-        run: node scripts/validate-games.test.mjs
-
-      - name: Game of the Month fetch
-        run: node scripts/fetch-gotm.test.mjs
-
-      - name: What-should-I-play picker
-        run: node scripts/pick.test.mjs
-      - name: Owl pick tests
-        run: node scripts/owl-pick.test.mjs
-
-      - name: Koroks and Hestu
-        run: node scripts/korok.test.mjs
-
-      - name: Library meta tests
-        run: node scripts/library-meta.test.mjs
-
-      - name: Wildcard play-length estimates
-        run: node scripts/library-hltb.test.mjs
-
-      - name: Year in review numbers
-        run: node scripts/wrapped.test.mjs
-
-      - name: Playtime ledger and unlock log
-        run: node scripts/ledger.test.mjs
-
-      - name: Wrapped Jan 1 freeze
-        run: node scripts/freeze-wrapped.test.mjs
-
-      - name: Usage counts
-        run: node scripts/usage.test.mjs
-
-      - name: Heart Containers
-        run: node scripts/hearts.test.mjs
-
-      - name: Rupee wallet and Great Fairy
-        run: node scripts/rupees.test.mjs
-
-      - name: Theme contrast
-        run: node scripts/theme.test.mjs
-
-      - name: Admin Worker
-        run: node index.test.mjs
-        working-directory: worker
+      # Every suite is discovered, not listed: a new scripts/*.test.mjs is run the day it is added,
+      # with nobody to remember to edit this file. A suite that fails is named in the summary but
+      # the loop carries on, so one red run shows every broken suite at once. Finding no suites at
+      # all is a failure too (a renamed folder or a bad glob must not pass by running nothing).
+      - name: Run every suite (scripts/*.test.mjs and the Worker's)
+        run: |
+          shopt -s nullglob
+          suites=(scripts/*.test.mjs)
+          if [ "${#suites[@]}" -eq 0 ]; then
+            echo "::error::found no scripts/*.test.mjs suites"
+            exit 1
+          fi
+          if [ ! -f worker/index.test.mjs ]; then
+            echo "::error::worker/index.test.mjs is missing"
+            exit 1
+          fi
+          failed=()
+          for s in "${suites[@]}"; do
+            echo "::group::$s"
+            if ! node "$s"; then failed+=("$s"); fi
+            echo "::endgroup::"
+          done
+          echo "::group::worker/index.test.mjs"
+          if ! (cd worker && node index.test.mjs); then failed+=("worker/index.test.mjs"); fi
+          echo "::endgroup::"
+          echo "Ran $(( ${#suites[@]} + 1 )) suites."
+          if [ "${#failed[@]}" -gt 0 ]; then
+            for f in "${failed[@]}"; do echo "::error::suite failed: $f"; done
+            exit 1
+          fi
 
   # The pages themselves, in a real browser. Separate from the job above because it is the
   # only thing here that needs an install step (Playwright + Chromium) and network for it.

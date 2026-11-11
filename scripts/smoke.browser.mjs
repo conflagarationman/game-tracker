@@ -13,7 +13,6 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -94,12 +93,6 @@ const noSideScroll = (page) => page.evaluate(async () => {
 // The installable shell: every page links the manifest and the Apple icon, the manifest points at
 // icons that exist, and the service worker is network-first (never a cached copy while the network
 // answers), keys its fallback without the ?_= cache-buster, and leaves other origins alone.
-// tests.yml lists suites by name and is off limits to session PRs, so the service worker's DOM-free
-// unit tests ride along here, where CI already runs.
-await test("sw.test.mjs (service worker cache key and request filter) passes", async () => {
-  const out = execFileSync(process.execPath, [join(ROOT, "scripts/sw.test.mjs")], { encoding: "utf8" });
-  ok(/(\d+)\/\1 passing/.test(out), out.trim().split("\n").pop());
-});
 
 await test("PWA: every page links the manifest and icon; manifest and its icons load", async () => {
   const ctx = await browser.newContext();
