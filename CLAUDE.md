@@ -67,9 +67,11 @@ summary says why. Draft or `hold` is the way to stop it.
 **Code PRs from a session merge themselves too** (`auto-merge-code.yml`, since 2026-11-03): once the
 whole Tests workflow (every suite and the browser smoke test) is green on the PR's head and it merges
 cleanly, it's merged. It holds back, for a person, anything that touches `worker/` (deployed by hand
-with wrangler; the page must never get ahead of the Worker), `.github/`, or `games.json` mixed with
+with wrangler; the page must never get ahead of the Worker), `.github/`, any non-test script under
+`scripts/` (everything except `*.test.mjs` and `smoke.browser.mjs`, plus `pick.js`: the scheduled
+workflows run these with the API keys and a token that can push to main), or `games.json` mixed with
 code. Draft or `hold` stops it here as well. So a session should open its PR **ready, not draft, only
-when the work is finished and verified**: green tests are the only gate left.
+when the work is finished and verified**: green tests are the only gate left for page code and tests.
 
 So when editing: change records in place, add new ones at the end of the array (or where they
 belong in Up Next), and never rewrite the file from a sorted or filtered copy. "Archive" means
