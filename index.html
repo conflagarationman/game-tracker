@@ -1,5 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
+<!--
+The read surface: reads games.json and friends and renders them. Things the code alone doesn't say:
+- Writes go through the Worker's /games/edit, /games/delete and /games/add; per-viewer choices
+  (picker chips, dismissed play-check rows, Someday games you chose to keep `gt_*`, panel state
+  `gt_panels`, edit mode `gt_edit_mode`, hearts seen `gt_hearts_seen`, Great Fairy seen `gt_gf_seen`)
+  live in localStorage only.
+- A save outlives a reload before Pages publishes it: the commit lands in seconds but Pages serves the
+  new games.json about a minute later, which looked like a failed save. Each successful saveEdit is
+  kept in localStorage (`gt_saved_edits`, with the values it replaced) and laid over games.json on
+  load for up to 10 minutes, until the file shows it; a field changed elsewhere in between wins.
+- "What should I play?" is pick.js (see its header). "Start" sets s:"playing".
+- Panel search (Someday, Archive): every word must appear in the title, genre or platform (key or
+  label), case-insensitive, diacritics folded (gameMatches). Someday triage and "Fill in finished
+  games" always work on the full list, not the filtered one.
+- Play check rows (from play-check.json) act: Playing, Finished (date + rating sheet), or an x that
+  hides the row until that game's lastPlayed changes. "Add as playing" deep-links to
+  add.html?t=...&s=playing&p=...
+- Someday triage, one game at a time, oldest first: Up Next, Keep (hidden from triage for 90 days),
+  Already played, Remove (waits 6 seconds with an Undo before the delete is sent). "Fill in finished
+  games" (Archive panel) walks the done/dropped records missing a year or rating.
+- The "Up next ETA" stat is Up Next + Now Playing hours left divided by the hours finished per month
+  over the last 12 months; the whole-backlog figure is in its tooltip.
+- Dormant = 30 days since lastPlayed, which only means something for Steam and RetroAchievements
+  games. The wallet pill is the lifetime rupee total (rupees.js); Heart Containers are hearts.js;
+  a game whose mastery is mastered/platinum/100pct gets a gold frame and the Great Fairy scene once.
+- Reduced motion: moving effects live behind @media (prefers-reduced-motion:no-preference) (Heart
+  Piece, Great Fairy, card hover lift, skeleton shimmer) and the smoke test fails on anything that
+  keeps animating under "reduce". Keep new motion inside that pattern.
+-->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

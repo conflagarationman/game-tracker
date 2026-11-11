@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+<!--
+The write surface: add a game, edit one, reorder Up Next. Everything goes through the Worker
+(worker/), which is the only thing that can commit to games.json from a browser. Adding a game also
+triggers the sync and cover workflows, best-effort: a failed trigger never fails the add. Records
+that need attention (done with no completion year or rating, playing/queue/soon with no `h`) are
+listed in a "Needs attention" group at the top of the dropdown with counts under it.
+-->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

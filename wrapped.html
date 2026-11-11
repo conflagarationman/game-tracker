@@ -1,5 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+<!--
+Year in review (?year=2026), read-only. The numbers are wrapped-stats.js (see its header and
+scripts/wrapped.test.mjs). A finished year loads wrapped-<year>.json (frozen on Jan 1 by
+scripts/freeze-wrapped.mjs) in preference to the live files.
+- Story mode ("Play the story" on the hero, or ?cards=1 to open straight into it): the same numbers
+  as full-screen cards. Tap the right 70% or swipe left for the next, the left 30% for back, arrow
+  keys, Esc closes. A card whose data is missing is skipped, not shown empty. The last card has the
+  share image and poster buttons.
+- The Year of Play poster (posterStats / layoutPoster in wrapped-stats.js, painted by drawPoster
+  here) is every non-Idle finish of the year as a pixel-art cartridge on a shelf, sized by hours
+  (actualHours, else the HLTB estimate), coloured by platform, with the title on a procedurally drawn
+  label. NEVER put cover art on a canvas: cross-origin images taint it and toBlob then fails. Game of
+  the Year is the highest rating, ties to the most hours, on the middle pedestal. "Download poster"
+  renders 3600x4800 (falling back to 3000x4000, then 1800x2400, where a browser caps canvas size);
+  the print stylesheet prints only the poster.
+-->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

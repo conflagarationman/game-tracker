@@ -1,5 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+<!--
+Kaepora Gaebora: the picker as a conversation with the Ocarina of Time owl. How it works:
+- Asks device, time and mood, then offers pick.js's owlLineup() one game at a time ("Do you want to
+  hear it again?"). Yes = next pick. No = Start (s:"playing" via /games/edit) or, for a wildcard,
+  add it as Now Playing via /games/add. The last answers are kept in localStorage `gt_owl`.
+- ?pick=<key> opens straight on that game ("You came about the weekend, hoo?") with the usual three
+  answers, looked up in the whole pool so a Friday link survives the data moving on. Keys: id:<n>
+  (tracked), steam:<appid>, ra:<normTitle>, canon:<normTitle>; URL-encode them.
+- "Not this one" snoozes a pick for the owl through the Worker (/owl/skip, stored in
+  owl-skips.json, never touching games.json): 7, then 30, then 90 days (pick.js SNOOZE_DAYS). The
+  fourth turn-down asks before a drop, in a red DROP box whose safe answer comes first. Drops are
+  listed under "Struck from the list" in the footer with a Restore (/owl/restore deletes the entry,
+  count back to zero; accepting the game with "No" does too).
+- Music is The 8-Bit Big Band's cover of Kaepora's theme through YouTube's own player, in a credited
+  "music box" at the bottom: YouTube's terms need the player visible (200px+), and the recording
+  isn't ours to host. On by default from the first tap or key press (`gt_owl_music`); nothing loads
+  from YouTube before that.
+- Text sounds are made in the page with Web Audio (no files): a quiet square blip every couple of
+  typed letters (at least 40ms apart) and an original falling-minor-third "hoo-hoo" at the start of
+  each line (at least 1.5s apart). They start on the first tap too and have their own toggle
+  (`gt_owl_sfx`), separate from the music.
+-->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

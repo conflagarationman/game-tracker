@@ -2,409 +2,217 @@
 
 A static personal game-backlog tracker. `index.html` reads `games.json` and renders it;
 `add.html` writes to it through a Cloudflare Worker. No build step, no dependencies, no
-framework — plain HTML/CSS/JS served by GitHub Pages, and Node scripts run by GitHub Actions.
+framework: plain HTML/CSS/JS on GitHub Pages, Node scripts run by GitHub Actions. The owner is Jonny.
 
-This file is reference material about how the data and the moving parts fit together. It
-exists because several of the rules below are not recoverable by reading the JSON — they were
-re-derived from scratch more than once, and one of them (the difference between "finished" and
-"flair earned") lives in two independent fields, `s` and `gotmFlair`.
+This file holds only what you can't get from reading the code and what would cause damage if
+missed. Feature lore (how the owl talks, picker rules, story mode, localStorage keys) lives in the
+header comment of the file that implements it: `pick.js`, `owl.html`, `index.html`, `wrapped.html`,
+`wrapped-stats.js`, `hearts.js`, `rupees.js`, `sw.js`, `theme.css`, `usage.js`, `scripts/*.mjs`.
 
-**This is a public repo.** Nothing secret belongs in this file, in the tracked JSON, or in any
-comment. Credentials live in GitHub Actions secrets and Cloudflare Worker secrets; see
-`worker/README.md` for how the write path is set up and what its threat model actually is.
+**This is a public repo.** Nothing secret belongs in this file, the tracked JSON, or any comment.
+Credentials live in GitHub Actions secrets and Cloudflare Worker secrets; see `worker/README.md`
+for the write path and its threat model.
 
-## Layout
+## Who writes what
 
-| File | Written by | Notes |
-|---|---|---|
-| `games.json` | you, via `add.html` → Worker, or a session's PR (auto-merged); **and** the sync bot | The whole library. Human-owned fields and bot-owned fields share each record — see below. |
-| `covers.json` | bot only (`backfill-covers.yml`, daily + on `games.json` push) | Cover art URLs, **keyed by lowercase title**. |
-| `gotm.json` | bot only (`fetch-gotm.mjs`, daily) | Mirror of the r/SBCGaming club's pick list. Overwritten wholesale — never put human state here. |
-| `last-synced.json` | bot only (`sync-games.yml`, daily) | Drives the freshness stamp on the page, and carries `warnings` (short strings, empty when clean) for hub-side soft failures like a failed ASF ledger fetch; the hub's `health_check.py` reads it daily. |
-| `play-check.json` | bot only (`sync-games.yml`, daily) | Recent real play vs. status — see "Play check" below. Keyed by `id`. |
-| `asf-idle.json` | bot only (`sync-games.yml`, daily) | ASF card farming per year, and per tracked game how much idling was taken out of its hours. Kept as-is when the hub doesn't answer. |
-| `worker-config.js` | you | Points the pages at the deployed Worker. |
-| `index.html` / `add.html` | you | Read and write surfaces. Self-contained. |
-| `pick.js` | you | The "What should I play?" scorer. Plain script, DOM-free, loaded by `index.html` and unit-tested in Node. |
-| `korok.js` | you | Hidden Koroks + **Hestu**. One tag per page with `data-spots="id:left[:top],…"`; finds live under ONE localStorage key, `korok:all`, as `repo/id`, shared with Steph's TV log (same github.io origin; old `korok:<repo>` keys are folded in, never deleted). **12 spots in all: 10 here (index 3, owl 3, wrapped 2, add 2) + 2 on Steph's log** — every tag says `data-total="12"`; add a spot and bump it everywhere. Hestu (a pixel tree-friend with maracas) dances at 3, 6 and all seeds; 6 unlocks a "Korok Forest" theme toggle in the seed counter at the foot of the page (the counter only appears after the first find). The first block is DOM-free and tested by `scripts/korok.test.mjs`; **Steph's TV log loads this file live from this site** (`https://conflagarationman.github.io/game-tracker/korok.js`, no copy in that repo since 2026-11-03), so a merged change here reaches her page too: keep the `data-repo` / `data-total` / `data-spots` tag contract working, since her `index.html` isn't tested here. The hub still has its own twin in `status_server.py` (`KOROK_SRC`), and its health check emails when the two drift. |
-| `theme.css` | you | **Ocarina green and gold** palette for every page: the `:root` tokens (`--bg --surface --surface2 --border --border2 --text --muted --dim --accent --on-accent`, status pairs `--playing/-bg --done/-bg --dropped/-bg`, plus `--heart --rupee --info --ok --warn --fairy`). Dark is the default; the "Hyrule map" parchment follows `prefers-color-scheme: light` or `<html data-theme="light">` (`data-theme="dark"` forces dark). Pages carry **no literal colours of their own** except platform colours (`index.html`'s `PC`/`.p-*`, mixed toward black on parchment via `--plat-pct`), art (owl, fairy, masks) and the share-image canvas. Headings are Cinzel, labels DM Mono, body Syne. The Korok Forest sets its own brighter leaf palette through each page's `data-forest` attribute (korok.js is untouched) and `:root.korok-forest` pins the status colours to their dark set. Wrapped's story slides are always dark (`.story`). Contrast of every pair, in both modes and the forest, is checked by `scripts/theme.test.mjs`. |
-| `hearts.js` | you | **Heart Containers**: every `s:"done"` game is a Heart Piece, four make a container (only `done` counts). DOM-free; `index.html` draws the pixel hearts under the title and plays a "Heart Piece!" moment when the finished count rises past what this browser last saw (`gt_hearts_seen` in localStorage; a first visit seeds silently). Tested by `scripts/hearts.test.mjs`. |
-| `graveyard.js` | you | **Dampé's graveyard**: a collapsible section at the foot of `index.html` with a headstone per `dropped` game (hours, a deterministic epitaph by id). "Dig it up" sends `{s:"soon", queued}` through the existing `/games/edit` (`saveEdit`) after a confirm; no new endpoint. Tested by `scripts/graveyard.test.mjs`. |
-| `rupees.js` | you | **Rupee wallet, shop, Great Fairy**. Earned = the sum over `achievements-log.json` unlocks by rarity (Steam `pct`: green ≥50 = 1, blue 20-50 = 5, red 5-20 = 20, silver 1-5 = 100, gold <1 = 300; no `pct` and every RA unlock = green). Spent = `rupees.json` purchases not refunded. Values, wallet tiers (Child/Adult/Giant/Tycoon by lifetime earned), prices, mask art and the Great Fairy seen-set logic are all constants/functions in this one DOM-free file, tested by `scripts/rupees.test.mjs`. Shop (wallet pill in `index.html`'s header): **Hestu's maracas** (forest skins Autumn / Lost Woods fog / Blood Moon, worn through `korok:all:skin`; Blood Moon only on full-moon days), **bomb a game off the queue** (queue-only, 10 per calendar quarter, drops via `saveEdit` so it lands in Dampé's graveyard), **fairy in a bottle** (hold one; auto-used on the first `playing` game that trips `isDormant`'s 30-day rule: 7 days of cover in `rupees.json` `fairyUntil`, `lastPlayed` is never touched), **masks** (worn one is `gt_mask` in localStorage; `owl.html` pre-selects its mood). Great Fairy: the first time a game's `mastery` is mastered/platinum/100pct, a skippable fountain scene (`gt_gf_seen`, seeded silently on a first visit); mastered cards always carry a gold frame. |
-| `rupees.json` | **Worker only** (`/rupees/buy`, `/rupees/refund`, `/rupees/use`) | `{ purchases: [{ id, item, cost, ts, meta?, refunded?, used? }], fairyUntil: { gameId: "YYYY-MM-DD" } }`. The Worker prices every purchase itself, refuses duplicates, a second fairy and an 11th bomb in a quarter, and refunds only within 24h (never a bomb that went off or a used fairy). Doesn't check the balance (the page does; household fun, not a vault). **Not read by the hub** (its Backlog Pressure doesn't know about `fairyUntil` yet). Absent until the first purchase. |
-| `owl.html` | you | **Kaepora Gaebora**: the picker as a conversation with the OoT owl. Asks device, time and mood, then offers `pick.js`'s ranking one game at a time. "Do you want to hear it again?" Yes = next pick, No = Start (or, for a wildcard, add it as Now Playing via `/games/add`), `?pick=<key>` opens straight on that game ("You came about the weekend, hoo?") with the usual three answers, looked up in the whole pool so a Friday link survives the data moving on. Not this one = snooze it for the owl (see `owl-skips.json`; the fourth turn-down shows a red DROP warning whose safe answer comes first, and drops are listed under "Struck from the list" in the footer with a Restore). Uses `GTPick.owlLineup()`: tracked + Someday games, with a wildcard every third pick and in the lead when nothing tracked fits the mood. Music is The 8-Bit Big Band's cover of Kaepora's theme through YouTube's player, in a credited "music box" at the bottom of the page: YouTube's terms need the player visible (200px+), and the recording isn't ours to host. On by default from the first tap or key press; nothing loads from YouTube before it. **Text sounds** are made in the page with Web Audio (no files): a quiet square blip every couple of typed letters (≥40ms apart) and an original falling-minor-third "hoo-hoo" at the start of each line (≥1.5s apart). They start on the first tap too, and have their own 🔈 toggle (`gt_owl_sfx`), separate from the ♪. |
-| `library.json` | bot only (`sync-games.yml`, daily) | Every owned Steam game (hours minus the ASF ledger's recorded idling) and every RetroAchievements game with progress, one per line. For the owl's wildcards. **Published in full on purpose** (Jonny's call). Only rewritten when Steam answers. |
-| `library-meta.json` | bot only (`scripts/library-meta.mjs`, scheduled runs only) | Steam genres (`g`), Metacritic (`m`) and Deck rating (`d`: 3 verified, 2 playable, 1 unsupported, 0 unknown) per appid. Filled ~120 games a day, most-played first; known appids are never re-fetched. |
-| `library-hltb.json` | bot only (`scripts/library-hltb.mjs`, scheduled runs only) | HowLongToBeat estimates (`h`) for the owl's wildcards, keyed like `owl-skips.json` (`steam:<appid>`, `ra:<normTitle>`), `{ t, h, checked }`. The candidates are `pick.js`'s own `wildcards()` (not the canon, which has its own `h`), ~40 a day, best-scoring first, through `backfill-hltb.mjs`'s client and exact-title matching. **A title that was found or declined (`h: null` with a `why`) is never asked again**; delete its entry to retry (e.g. after a `STEAM_NAME_ALIASES` entry). A lookup that errored isn't recorded, so it's retried. Never fails the sync. `wildcards()` scores with it like tracked games' `h` (a favourite or RA run by what's left, the rest by length). |
-| `retro-canon.json` | you | Hand-curated retro must-plays (`t`, `c` console, `y`, `g`, `h`, `why`) for the owl's "never logged" wildcard. Anything tracked or with RA progress is skipped automatically, so it never needs pruning. |
-| `owl-pick.json` | bot only (`sync-games.yml`, daily, via `scripts/owl-pick.mjs`) | The owl's pick for tonight (any device, an evening, no mood), for the Home Hub's peeking owl. Runs the real `pick.js` so the hub (Python, token in its URL) neither re-implements the ranking nor loads remote script. `pick` is null when there's nothing to suggest. **`weekend`** is the Friday hoot's pick (`{ key, t, p, reasons, week }`, or null): any device, a long session, no mood, wildcards included, anything in `owl-skips.json` left out, drawn with a seed from the ISO week. Friday to Sunday the previous run's pick is kept while it still stands, so the hub's nudge and the page agree all weekend. `key` is what `owl.html?pick=<key>` opens (URL-encode it: `id:12`, `steam:730`, `ra:…`, `canon:…`). |
-| `owl-skips.json` | **Worker only** (`/owl/skip`, `/owl/restore`) | What the owl has set aside, from "Not this one": `{ key: { t, count, until, dropped, last } }`, keyed `id:<n>` (tracked), `steam:<appid>`, `ra:<normTitle>` (RA runs and club picks) or `canon:<normTitle>`. Turn-downs snooze 7, 30, then 90 days; the fourth asks before a drop, and a drop is only `dropped: true`. Restore deletes the entry (count back to zero), and so does accepting the game with "No". **Never touches `games.json`**, and nothing writes it but the Worker, so keep human edits out. |
-| `ledger.json` | bot only (`sync-games.yml`, daily); backfilled once by `scripts/backfill-ledger.mjs` | Every game's `actualHours`, one row per UTC day, one line per day: `{ version, since, rawUntil, days: { "YYYY-MM-DD": { id: hours } } }`. The source for hours played in a year. **Backfilled from git on 2026-10-17** (57 days from 2026-07-28); days up to `rawUntil` (2026-10-11) were Steam's raw playtime, so the backfill took the hub farm ledger's cumulative idling out of them, and the whole file reads as hours minus card idling. Snapshots can dip (a game frozen while ASF farmed it), so read play as rises above the game's previous high, never as plain differences. A game's first number is a baseline, not play: null-then-populated is a sync change. The repo's git history is no longer the only playtime record, but still don't squash it casually. |
-| `achievements-log.json` | bot only (`sync-games.yml`, daily) | One row per unlock, one per line: `{ src: steam|ra, id (tracker id or null), key, ts (unix UTC), name, game, pct, hc }`. Steam: every tracked Steam game's unlocks with their real times (Steam keeps them, so the first run filled every year); `pct` is Steam's global unlock %, fetched for the current year's rows only. RA: `API_GetAchievementsEarnedBetween` from an hour before the newest RA row (Jan 1 for an empty log), **every** RA game, tracked or not; RA's zoneless dates are read as UTC. Merged, never rebuilt: rows are only added or filled in. Bucket hours and days in America/New_York, never UTC. |
-| `wrapped-<year>.json` | bot only (`scripts/freeze-wrapped.mjs` in `sync-games.yml`) | A finished year's review inputs, frozen by the first sync on or after Jan 1 (8 AM ET): all of `games.json` and `asf-idle.json`, that year's `ledger.json` days plus the last day before, and that year's unlocks with a day of margin. Written once, never overwritten. `wrapped.html` loads it for any past year and prefers it over the live files. Rehearse with `node scripts/freeze-wrapped.mjs --year 2026 --force --out /tmp/w.json`. |
-| `wrapped.html` + `wrapped-stats.js` | you | Year in review (`?year=2026`) with a canvas-drawn share image. Read-only. The numbers are `wrapped-stats.js` (DOM-free, unit-tested); see "Year in review" below. |
-| `manifest.webmanifest` + `icons/` + `sw.js` + `pwa.js` | you | **Installable (PWA).** Name "Game Log", dark-theme colours, 180/192/512 PNG icons of the header's pixel heart (drawn by `scripts/make-icons.mjs`, no dependencies; re-run only to change the art). All four pages link the manifest and the Apple touch icon and load `pwa.js`, which registers `sw.js` on the live https site only (never localhost or file://, so the CI browser test never has a worker in the way). **`sw.js` is network-first for everything:** a cached copy is only a fallback for a failed network, so the pages' `?_=<timestamp>` cache-busting is never defeated. Cache entries are keyed by URL **without the query**, so timestamps don't pile up and offline lookups ignore `_`. It never handles other origins (the Worker, hub beacon, fonts, covers, YouTube) and its scope is this folder, so Steph's page loading `korok.js` cross-site is unaffected. The cache name is fixed on purpose: network-first means nothing needs a version bump. Pure helpers (`cacheKey`, `handles`, `cacheable`) tested by `scripts/sw.test.mjs`, which `smoke.browser.mjs` also runs because `tests.yml` can't be edited from a session PR; the worker's behaviour is in the smoke test. |
-| `scripts/*.mjs` | you | Run by Actions, not by the pages. |
-| `worker/` | you | The only thing that can commit to `games.json` (and `owl-skips.json`) from a browser. `worker/index.mjs` keeps its own copy of the 7/30/90 snooze table; its test compares it with `pick.js`'s. |
+Bot-written files are overwritten wholesale on each run. Anything a human needs to keep belongs in
+`games.json`, never in a bot file.
 
-Bot-written files are overwritten wholesale on each run. Anything a human needs to edit and
-keep belongs in `games.json`, never in `covers.json` or `last-synced.json`.
+| File | Written by |
+|---|---|
+| `games.json` | You (via `add.html` → Worker, or a session PR) **and** the sync bot: human and bot-owned fields share each record |
+| `covers.json` | bot (`backfill-covers.yml`), keyed by **lowercase title** |
+| `gotm.json` | bot (`fetch-gotm.mjs`): mirror of the club's pick list, never put human state here |
+| `last-synced.json` | bot: freshness stamp, plus `warnings` (empty when clean) that the hub's health check reads |
+| `play-check.json` | bot: recent real play vs. status, keyed by `id` |
+| `asf-idle.json` | bot: ASF card farming per year and per game; kept as-is when the hub doesn't answer |
+| `ledger.json` | bot (daily); backfilled once from git on 2026-10-17: every game's `actualHours`, one line per UTC day |
+| `achievements-log.json` | bot: one row per unlock, merged never rebuilt |
+| `wrapped-<year>.json` | bot (`freeze-wrapped.mjs`): a finished year's inputs, written once on Jan 1, never overwritten |
+| `library.json` | bot: every owned Steam game and RA game with progress. **Published in full on purpose (Jonny's call).** Only rewritten when Steam answers |
+| `library-meta.json`, `library-hltb.json` | bot: genres/Metacritic/Deck rating and HLTB lengths for the owl's wildcards; a title already answered is never asked again (delete its entry to retry) |
+| `owl-pick.json` | bot (`owl-pick.mjs`): runs the real `pick.js` for the Home Hub's owl, so the hub never re-implements the ranking |
+| `owl-skips.json` | **Worker only** (`/owl/skip`, `/owl/restore`). Never touches `games.json`; keep human edits out |
+| `rupees.json` | **Worker only, dormant**: see "Dormant leftovers" |
+| `retro-canon.json`, `worker-config.js` | you (hand-curated retro must-plays; the Worker URL) |
+| `worker/` | you, **deployed by hand with wrangler**. The pages must never call something the deployed Worker lacks, so a page change that needs a Worker change waits for the deploy |
+
+`scripts/*.mjs` are run by Actions, not by the pages. `pick.js`, `hearts.js`, `rupees.js`,
+`wrapped-stats.js` and `usage.js` are DOM-free plain scripts that Node tests load directly.
+
+**Dormant leftovers.** The rupee shop was removed. The Worker's `/rupees/buy|refund|use`
+endpoints and `rupees.json` still exist but no page uses them. `rupees.js` keeps its four price
+constants only because `worker/index.test.mjs` compares the Worker's copy with them. The wallet
+pill is just lifetime rupees earned from `achievements-log.json` by rarity.
 
 ## Updating the tracker from a session
 
 "I finished X, mark it 10/10 and archive it" needs no code and no click. **Edit `games.json`
-only, and open a PR against `main`.** `auto-merge-data.yml` validates it and merges it within
-a minute or two, then dispatches the backfill and sync so new games get art, an HLTB estimate
-and achievements.
+only, and open a PR against `main`.** `auto-merge-data.yml` validates and merges it within a
+minute or two, then dispatches the backfill and sync so new games get art, an HLTB estimate and
+achievements. It merges only when the PR changes `games.json` and nothing else, comes from a
+branch in this repo, is not a draft, has no `hold` label, merges cleanly, and passes
+`scripts/validate-games.mjs`: every record has every key with a legal value, ids are unique, at
+most 6 records change position and at most 3 are removed. Anything else waits for a person; the
+run summary says why. Draft or `hold` is how you stop it.
 
-It merges only when the PR changes `games.json` and nothing else, comes from a branch in this
-repo, is not a draft, has no `hold` label, merges cleanly into `main`, and passes
-`scripts/validate-games.mjs`: every record has every key with a legal value (the rules below),
-ids are unique, no more than 6 records change position (so a re-sorted or regenerated file
-is refused), and no more than 3 are removed. Anything else waits for a person, and the run
-summary says why. Draft or `hold` is the way to stop it.
+**Code PRs merge themselves too** (`auto-merge-code.yml`): once the whole Tests workflow (every
+suite and the browser smoke test) is green on the PR's head and it merges cleanly. It holds back,
+for a person: anything touching `worker/` or `.github/`; any non-test script under `scripts/`
+(everything except `*.test.mjs` and `smoke.browser.mjs`) and `pick.js`, because the scheduled
+workflows run those with the API keys and a token that can push to main; and `games.json` mixed
+with code. So open a PR **ready, not draft, only when the work is finished and verified**.
 
-**Code PRs from a session merge themselves too** (`auto-merge-code.yml`, since 2026-11-03): once the
-whole Tests workflow (every suite and the browser smoke test) is green on the PR's head and it merges
-cleanly, it's merged. It holds back, for a person, anything that touches `worker/` (deployed by hand
-with wrangler; the page must never get ahead of the Worker), `.github/`, any non-test script under
-`scripts/` (everything except `*.test.mjs` and `smoke.browser.mjs`, plus `pick.js`: the scheduled
-workflows run these with the API keys and a token that can push to main), or `games.json` mixed with
-code. Draft or `hold` stops it here as well. So a session should open its PR **ready, not draft, only
-when the work is finished and verified**: green tests are the only gate left for page code and tests.
-
-So when editing: change records in place, add new ones at the end of the array (or where they
-belong in Up Next), and never rewrite the file from a sorted or filtered copy. "Archive" means
-`s: "done"` with `cy`/`cm` set (`cm` zero-indexed), and a rating in `r`.
+When editing `games.json`: change records in place, add new ones at the end of the array (or where
+they belong in Up Next), and **never rewrite the file from a sorted or filtered copy**. "Archive"
+means `s: "done"` with `cy`/`cm` set (`cm` zero-indexed) and a rating in `r`.
 
 ## `games.json` record shape
 
-One flat array. Every record carries every key, with `null` for unset.
+One flat array. Every record carries every key, `null` for unset.
 
 ```jsonc
 {
   "id": 410,              // unique, assigned by the Worker as max(id)+1
   "t": "Halo: Campaign Evolved",
   "p": "steam",           // steam | steamdeck | pc | ps5 | switch | switch2 | ayn | retro | wiiu
-                          // "pc" = a PC game NOT in the Steam library (Battle.net, GOG,
-                          // itch, a private server). The sync skips it, so achPct /
-                          // actualHours stay null by design, not by failure.
+                          // "pc" = a PC game NOT in the Steam library (Battle.net, GOG, itch). The
+                          // sync skips it, so achPct / actualHours stay null by design.
   "s": "playing",         // playing | ongoing | queue | soon | done | dropped
-                          // "ongoing" = a live-service/evergreen game (WoW, Marvel Snap) played
-                          // indefinitely, never reaching "done" — no completion date, no HLTB
-                          // estimate, by design. See "Ongoing vs a boolean flag" below.
+                          // "ongoing" = live-service/evergreen (WoW, Marvel Snap): no completion
+                          // date, no HLTB estimate, by design.
   "g": "FPS",             // genre, free text
   "y": 2026,              // release year
-  "h": "20h",             // HowLongToBeat estimate, free text ("20h", "10-15h", "40+").
-                          // Filled by the bot only while blank (backfill-hltb.mjs); a typed
-                          // value is never overwritten. Same for a blank "y".
-  "r": 0,                 // rating 0-10. 0 means UNRATED, not "rated zero" — see below
+  "h": "20h",             // HLTB estimate, free text ("20h", "10-15h", "40+"). The bot fills it
+                          // only while blank; a typed value is never overwritten. Same for "y".
+  "r": 0,                 // rating 0-10. 0 means UNRATED, not "rated zero"
   "cy": null,             // completion year
   "cm": null,             // completion month, ZERO-INDEXED (0 = January)
-  "gotm": null,           // r/SBCGaming Game of the Month tag, "Mon YYYY" — see below
-  "gotmFlair": false,     // club flair actually earned. NOT implied by s:"done" — see below
+  "gotm": null,           // r/SBCGaming Game of the Month tag, "Mon YYYY"
+  "gotmFlair": false,     // club flair actually earned. NOT implied by s:"done"
   "mastery": null,        // in-progress | mastered | platinum | 100pct
   "diff": null,           // 1-5 (Easy..Brutal)
   "achPct": null,         // bot-owned
   "achCount": null,       // bot-owned, [earned, total]
-  "actualHours": null,    // bot-owned. Steam playtime MINUS the ASF card idling the hub's
-                          // farm ledger has recorded for that appid (see Automation)
+  "actualHours": null,    // bot-owned: Steam playtime MINUS the ASF card idling the hub recorded
   "lastPlayed": null,     // bot-owned, YYYY-MM-DD
   "casual": false,        // true = deliberately excluded from achievement display
-  "replay": false,        // OPTIONAL (absent = false): a return trip, one of "replay" (played before),
-                          // "100pct" (back to finish it), "1.0" (its 1.0 launch after early access);
-                          // true = "replay". Counts like any other game; pages label it. A "1.0" game
-                          // counts as released the year it was finished (old/new, played at launch).
-  "priorH": null,         // OPTIONAL: hours from before this run (Palworld: 75 of early access, Brotato:
-                          // 74). Wrapped leaves it out of finished-game hours and credits the rest of a
-                          // game's pre-log hours to the year it's started in.
+  "replay": false,        // OPTIONAL (absent = false): "replay" | "100pct" | "1.0" (true = "replay")
+  "priorH": null,         // OPTIONAL: hours from before this run (Palworld 75, Brotato 74)
   "note": null,
   "start": null,          // YYYY-MM-DD
   "queued": null,         // YYYY-MM-DD
-  "release": null         // YYYY-MM-DD, only for a game that isn't out yet. index.html shows
-                          // "out in N days" until then and nothing after, so it never needs
-                          // clearing. Use this, not the note, for release dates.
+  "release": null         // YYYY-MM-DD, only for a game not out yet; use this, not the note
 }
 ```
 
-### Things that are easy to get wrong
+### Easy to get wrong
 
-- **`cm` is zero-indexed** so it can index the month-name array in `index.html` directly.
-  `cm: 6` is July. The Worker rejects anything outside 0–11.
-- **`r: 0` means unrated.** The stats row averages only `r > 0` and shows the count it used, so
-  treating 0 as a real score would silently drag the average down.
-- **`casual: true` suppresses achievement display**, it does not mean the game has no
-  achievements.
-- **Genre `"Idle"`** (any `g` containing the word) marks a desk pet or clicker left running.
-  The game still counts as finished, but its hours are left out of every hours figure
-  (year in review, the "Up next ETA" pace). It's a genre on purpose: editable in `add.html`,
-  and a data-only PR still auto-merges.
-- **A finished game with `cy: null` is invisible in the Year Log**, which filters on a truthy
-  `cy`, and lands in the Archive's "Unknown" group. `add.html`
-  lists them in a "Needs attention" group at the top of its dropdown, alongside `done` games
-  with `r: 0` and `playing`/`queue`/`soon` games with no `h`, with counts under the dropdown.
-- **`achPct` / `achCount` / `actualHours` / `lastPlayed` are bot-owned.** Editing them by hand
-  is pointless — the next sync overwrites them. The exception worth knowing: `lastPlayed` on a
-  non-Steam, non-RA platform (`pc`, `switch`, `ps5`, `wiiu` with no RA entry) has no source at
-  all and will stay wherever it was, so any "stale/dormant" logic reading it is only meaningful
-  for Steam and RetroAchievements titles.
-- **An `ongoing` game having `h: null`, `cy: null`, and `cm: null` is not missing data.** A
-  live-service game has no finish line to estimate and no completion date to record; those
-  fields stay null by design, the same way `pc`'s null `achPct` is a design choice and not a
-  sync failure.
+- **`cm` is zero-indexed** (`cm: 6` is July); the Worker rejects anything outside 0-11.
+- **`r: 0` means unrated.** Averages use only `r > 0`; treating 0 as a score drags them down.
+- **`casual: true` suppresses achievement display**; it doesn't mean the game has no achievements.
+- **Genre containing `Idle`** marks a desk pet or clicker left running: still counts as finished,
+  but its hours are left out of every hours figure. It's a genre so a data-only PR still merges.
+- **A finished game with `cy: null`** is invisible in the Year Log and lands in the Archive's
+  "Unknown" group. `add.html` lists these under "Needs attention".
+- **`achPct` / `achCount` / `actualHours` / `lastPlayed` are bot-owned**; hand edits are overwritten
+  by the next sync. Exception: `lastPlayed` on a non-Steam, non-RA platform has no source and
+  stays where it was, so "dormant" is only meaningful for Steam and RetroAchievements titles.
+- **An `ongoing` game with null `h`, `cy` and `cm` is not missing data.**
+- **Finished is not flair.** `s` and `gotmFlair` are independent (see the club rules below).
 
-### Ongoing vs a boolean flag
+### Array order is the Up Next priority
 
-`ongoing` is a sixth value of `s`, not a `casual`-style boolean modifier on `"playing"`. A
-modifier was considered and rejected: every consumer in this codebase filters statuses by
-strict equality (`g.s === 'playing'`, `g.s === 'queue'`, `g.s === 'done' || g.s === 'dropped'`),
-so a new enum value excludes itself from all of them for free, while a boolean would need
-remembering — and excluding — in every one of those places, with silent over-counting as the
-failure mode. Don't relitigate this by proposing a `continuous: true` flag; it was already
-weighed and it's the wrong shape for how this codebase reads status.
+`index.html` numbers the queue 1..N straight from array position, the Home Hub takes the first
+four `queue` rows in that order, and `add.html`'s reorder panel changes it (Worker
+`/games/reorder` moves only `queue` rows). Sorting or regenerating the array destroys it. Nothing
+else depends on position; every script looks records up by `id`.
 
-### In-page writes from `index.html`
+### `ongoing` is a status, not a flag
 
-Everything below goes through the Worker's existing `/games/edit` and `/games/delete`; none of
-it needed a Worker change. Per-viewer choices (picker chips, dismissed play-check rows, Someday
-games you chose to keep) live in `localStorage` only.
-
-- **What should I play?** ranks Now Playing and Up Next (plus Ongoing for a 30-minute session,
-  and Someday games whose club pick has 3 months or less left) by time left to the credits
-  (`h` minus `actualHours`), recent real play, Up Next position and GOTM deadline, filtered by
-  device. The device-to-platform map is `DEVICES` in `pick.js`. "Start" sets `s:"playing"`.
-  **The owl (`owlLineup`) differs from this picker on purpose:** it lets Someday in
-  (`someday: true`) and adds wildcards from outside the tracker (`wildcards()`): Steam
-  favourites (15h+ after idling, not played in 45 days), never-started Steam games with
-  Metacritic 80+, RA games 5-90% done, unclaimed club picks, and `retro-canon.json`. Steam
-  wildcards go to PC/Deck (Deck skips "unsupported"), retro ones to the Thor. Each result
-  carries `fits` (does it match the mood?), and the owl says so when his best doesn't.
-  `pickGames` also takes an optional `mood` (`MOODS`: chill / deep / finish), used only by
-  `owl.html`; with no mood the ranking is unchanged. Moods match the free-text genre by keyword,
-  so a new genre may need adding to `CHILL_G` / `HARD_G` / `DEEP_G`. Every mode names a game
-  1-5 achievements from 100% (`achLeft`, never for `casual` games).
-- **A save outlives a reload before Pages publishes it.** The commit lands in seconds but
-  Pages serves the new `games.json` about a minute later, which made a reload look like a
-  failed save. Each successful `saveEdit` is kept in localStorage (`gt_saved_edits`, with the
-  values it replaced) and laid over `games.json` on load for up to 10 minutes, until the file
-  shows it; a field changed elsewhere in between wins. The Worker also skips an edit that
-  changes nothing, so a retried save no longer makes an empty commit.
-- **Panel search.** Someday and Archive each have a search box in their open panel: every word must appear in the title, genre or platform (key or label), case-insensitive and diacritics folded (`gameMatches` in `index.html`). Archive groups with no match disappear; Someday triage and "Fill in finished games" always work on the full list, not the filtered one.
-- **Reduced motion.** Moving effects live behind `@media (prefers-reduced-motion:no-preference)` (index.html's Heart Piece, fairy, bomb, Great Fairy, card hover lift, skeleton shimmer), or are switched off under `reduce` (owl.html's global override, wrapped's story-card entrance, korok.js's Hestu). The content still shows and every moment still skips/dismisses. Keep new motion inside one of those two patterns.
-- **Play check rows act**: Playing, Finished (date + rating sheet), or ✕, which hides a row
-  until that game's `lastPlayed` changes. "Add as playing" deep-links to
-  `add.html?t=…&s=playing&p=…`.
-- **Someday triage** (Someday panel): one game at a time, oldest first: Up Next, Keep (hidden
-  from triage for 90 days), Already played, Remove. Remove waits 6 seconds with an Undo before
-  the delete is sent. **Fill in finished games** (Archive panel) walks the done/dropped records
-  missing a year or rating.
-- The "Up next ETA" stat is Up Next + Now Playing hours left divided by the hours finished per
-  month over the last 12 months; the whole-backlog figure is in its tooltip.
-
-### Year in review
-
-`wrapped-stats.js` borrows the ideas behind Steam Replay, PlayStation Wrap-Up and Nintendo
-Year in Review but computes them from this file's own fields; nothing is fetched from the
-platforms. Hours are `actualHours` (lifetime Steam playtime for that game) else the HLTB
-estimate, and the page marks which. New / recent / classic splits at 8 years back, like
-Steam's. "Played at launch" means `y === cy`. The streak is consecutive months with a
-finish (there's no daily play data). Devices: handheld = steamdeck/ayn/retro, Switch =
-switch/switch2, everything else PC & TV (Steam can't be told apart from Deck play). The
-persona is whichever trait clears its threshold by the most, with the number behind it, and
-"vs last year" compares with the closest earlier year that has 5+ finishes (`MIN_YEAR_FINISHES`;
-years before the tracker, with a few backfilled finishes, are no yardstick, and don't count for "best year" either).
-
-**From the ledgers** (`playedHours`, `unlockStats`, `backlogMath`): hours played in the year come from
-`ledger.json`, every Steam game finished or not, as rises above each game's previous high (never plain
-differences, which dips would corrupt); a game's first number is a baseline, except for a game released
-that year (`y`), whose baseline counts too (every hour of it is that year's; a `start` in the year isn't enough,
-since a restart carries old hours, e.g. Palworld and Brotato in 2026; the month
-chart leaves it out since when isn't known). Unlock stats bucket every timestamp in America/New_York:
-peak hour, share between 10 PM and 4 AM, busiest day, longest run of days with an unlock, and the
-rarest Steam unlock by global %. Backlog math is games queued that year vs finished or dropped; a day
-with 15+ games queued is the tracker being filled in (2026-06-16: 51 games) and counts as `imported`,
-not added. Personas gained The Night Owl, The Backlog Slayer and The Collector.
-
-**Story mode** (`▶ Play the story` on the hero, or `?cards=1` to open straight into it): the same
-numbers as full-screen cards, one at a time; tap the right 70% or swipe left for the next, the left 30%
-for back, arrow keys, Esc closes. A card whose data is missing is skipped, not shown empty. The last
-card has the share image and poster buttons.
-
-The **Year of Play poster** on the same page (`posterStats` / `layoutPoster` in
-`wrapped-stats.js`, painted by `drawPoster` in `wrapped.html`) is every non-Idle finish of the
-year as a pixel-art cartridge on a shelf, sized by hours (`actualHours`, else the HLTB
-estimate), coloured by platform, with the title on a procedurally drawn label. **Never put cover
-art on this canvas:** cross-origin images taint it and `toBlob` then fails. Game of the Year
-is the highest rating, ties to the most hours, on the middle pedestal. "Download poster" renders
-3600x4800 (falling back to 3000x4000, then 1800x2400, where a browser caps canvas size);
-the print stylesheet prints only the poster.
-
-### Array order is meaningful
-
-**The order of records in `games.json` is the Up Next priority.** `index.html` numbers the
-queue 1..N straight from array position, the Home Hub reads `games.json` directly and takes
-the first four `queue` rows in that same array order, and the reorder panel in `add.html`
-exists to change it (via the Worker's `/games/reorder`, which moves only `queue` rows and
-leaves every other record's position untouched).
-
-Sorting or regenerating the array — for tidiness, or as a side effect of a rewrite — silently
-destroys that ordering. Nothing else in the codebase depends on array position; every script
-looks records up by `id`.
+It is a sixth value of `s`, not a `casual`-style boolean on `"playing"`. Every consumer filters
+by strict equality (`g.s === 'playing'`, `'queue'`, `'done' || 'dropped'`), so a new enum value
+excludes itself from all of them for free, while a boolean would need remembering everywhere with
+silent over-counting as the failure mode. Don't relitigate this with a `continuous: true` flag.
 
 ## The r/SBCGaming Game of the Month club
 
-`gotm` tags a game as a monthly club pick, e.g. `"Oct 2025"`. The club's rules matter for
-interpreting it:
+- **Picks stay claimable for 12 months, then retire.** The useful question is "how long is left",
+  not "is it late"; an expired pick is not outstanding.
+- **Each month sets its own criteria, on its own post**, and they differ a lot. They aren't
+  derivable from the game or this repo, so link to the month's post, never assert what counts.
+- **Finishing is not meeting the criteria.** `s: "done"` says you played it; `gotmFlair: true` says
+  the requirement was met and proof posted. Only `gotmFlair` clears a pick from the GOTM strip; a
+  finished pick without flair shows "played · verify flair".
+- **The `gotm` tag is the reliable join, not the title.** Club and tracker titles drift, and fuzzy
+  matching pairs the club's "Super Mario World" with "Super Mario World 2: Yoshi's Island".
+- `fetch-gotm.mjs` reads the club's host posts from **Arctic Shift** (a free Reddit archive; Reddit
+  itself refuses cloud IPs). Picks are merged, never rebuilt; a pick older than the newest known
+  month is refused; a failed fetch keeps the last picks, records the error, and goes red on purpose.
 
-- **Picks stay claimable for 12 months, then retire.** The useful question about a tagged game
-  is therefore "how long is left", not "is it late". A pick whose year has elapsed is expired —
-  the reward is unobtainable and there is no point flagging it as outstanding.
-- **Each month sets its own completion criteria, on its own post.** They differ substantially
-  month to month (beat a specific boss; post a multiplayer screenshot; finish arcade mode).
-  They are not derivable from the game or from this repo — the month's own post is the only
-  authority, so anything built here should link to it rather than assert what counts.
-- **Finishing a game is not the same as meeting that month's criteria.** `s: "done"` says you
-  played it; **`gotmFlair: true` says the club requirement was met and proof was posted.** They
-  are independent, and only `gotmFlair` clears a pick from the tracker's GOTM strip. A finished
-  pick without flair shows as "played · verify flair" rather than disappearing.
-- Club titles and tracker titles drift ("The Legend of Zelda: A Link to the Past" vs
-  "Zelda: A Link to the Past"; "999" vs "999: Nine Hours, Nine Persons"). **The `gotm` tag is
-  the reliable join, not the title.** Fuzzy title matching against the club's list is unsafe:
-  it pairs the club's "Super Mario World" with this library's "Super Mario World 2: Yoshi's
-  Island", which is a different game.
+## Sync invariants (`sync-games.yml`, daily; `backfill-covers.yml`, daily and on every `games.json` push)
 
-## Automation
+- **RetroAchievements needs two endpoints.** `API_GetUserCompletedGames` has counts but no play
+  date; `API_GetUserRecentlyPlayedGames` supplies `LastPlayed`. `lastPlayed` only ever moves
+  **forward** (the second endpoint is a rolling window). Steam and RA games are matched by
+  normalised title (`resolveRaTitles()` for `ayn`/`retro`), so a new game needs only the right
+  title and platform. `RA_TITLE_MAP` holds only renames no rule can derive: don't grow it into an
+  allow-list, or any retro game missing from it silently never syncs.
+- **ASF idling is subtracted.** The hub's `/asf/farm-ledger` is taken out of `playtime_forever`
+  (for `actualHours`) and `playtime_2weeks` (play check); a last-played day ASF spent idling with
+  no real play doesn't move `lastPlayed`; an app being idled right now has its playtime skipped.
+  Idling from before the ledger can't be known. If the hub is down the run uses raw playtime.
+- **Read `ledger.json` as rises above the game's previous high**, never plain differences:
+  snapshots dip (a game frozen while ASF farmed it). A game's first number is a baseline, not play
+  (null-then-populated is a sync change). Days up to `rawUntil` were raw Steam playtime, backfilled
+  with the farm ledger's idling removed. Don't squash git history casually.
+- **Bucket hours and days in America/New_York, never UTC.** RA's zoneless dates are read as UTC.
+- **Play check** (`buildPlayCheck`) compares status with real recent play; it does not re-flag idle
+  Now Playing games (the page's "dormant" pill does that). ASF-idled appids and
+  `PLAY_CHECK_IGNORE` apps are excluded.
+- **Cover art**: Steam/Steam Deck games ask the Steam store first, then SteamGridDB; uncertain
+  matches are declined on purpose (the pages fall back to a platform glyph); misses are listed on
+  the run summary, and the fix is an `SGDB_TITLE_ALIASES` entry. `backfill-hltb.mjs` fills a blank
+  `h` and `y` by exact normalized title only. HLTB renames its search endpoint every few months;
+  the script reads the new name from the site's JS, and goes red if no lookup succeeds.
+- Bot pushes use `GITHUB_TOKEN`, which never re-triggers a workflow, so nothing loops.
+- **Never put cover art on a canvas** (`wrapped.html` poster and share image): cross-origin
+  images taint it and `toBlob` fails.
 
-- `sync-games.yml` — daily. Pulls Steam playtime/achievements and RetroAchievements progress
-  into `games.json` and writes `last-synced.json`.
-  **RetroAchievements needs two endpoints, not one.** `API_GetUserCompletedGames` carries
-  achievement counts but no play date; without the second endpoint an actively-played RA game
-  reads as "dormant" here and "stale" on the Home Hub while its achievement counts keep
-  updating. `API_GetUserRecentlyPlayedGames` supplies `LastPlayed`;
-  `syncRA()` merges the two, and only ever moves `lastPlayed` **forward** — that endpoint is a
-  rolling window, so an old row from it must never drag a newer date backwards. The two are
-  handled independently, so a freshly-started game with no awards row still gets a date.
-  Steam games are matched by normalised title against the owned-games list rather than a
-  hand-maintained map, so a new game only needs the right title and platform to start syncing.
-  **RA games are matched the same way** (`resolveRaTitles()`), for `ayn`/`retro` only:
-  diacritics folded, "Zelda: X" tried as "The Legend of Zelda: X", RA's `~Hack~ `-style
-  prefixes stripped as a fallback that never beats an exact title. `RA_TITLE_MAP` holds only
-  renames no rule can derive (999); don't grow it into an allow-list, because any retro game
-  missing from an allow-list silently never syncs. A `playing`/`ongoing`
-  retro game that still doesn't match is named in the sync log.
-  Playtime is skipped for any app currently being idled for trading cards, since idling inflates
-  Steam's own counters; achievements are unaffected and still sync. **Past idling is
-  subtracted too:** the hub's `/asf/farm-ledger` (built from ASF's own log, per appid per
-  day) is taken out of `playtime_forever` for `actualHours`, out of `playtime_2weeks` for the
-  play check, and a last-played day ASF spent idling with no real play left in the window
-  doesn't move `lastPlayed`. Idling from before the ledger existed can't be known, so older
-  farmed games may still carry some. If the hub is down the sync logs it and uses raw playtime
-  for that run.
-- **Play check**, same run. `buildPlayCheck()` compares status against real recent play and
-  writes `play-check.json` plus a section on the workflow's run summary: each tracked game's
-  Steam minutes over the last 14 days (`playtime_2weeks`), tracked games played in that window
-  that aren't `playing`/`ongoing`, and Steam (60+ min) or RA games played that aren't in the
-  tracker at all. `index.html` shows the recent hours on Now Playing cards and a note under
-  them only when there's a mismatch. It does **not** re-flag idle Now Playing games; the page's
-  "dormant" pill already does that. ASF-idled appids are excluded, as are background apps in
-  `PLAY_CHECK_IGNORE` (e.g. Bongo Cat), and titles match across
-  every platform, so a game tracked as `switch` but played on Steam isn't called untracked.
-- `backfill-covers.yml` — daily, **and on every push to main that touches `games.json`**, so a
-  game added by a direct commit (no Worker dispatch) gets art and an estimate within minutes.
-  Bot pushes
-  use `GITHUB_TOKEN`, which never re-triggers a workflow, so it can't loop on itself.
-  **Steam/Steam Deck games ask the Steam store first** (exact name -> appid -> the store's
-  header image, `STEAM_NAME_ALIASES` shared with the sync): a store page exists months before
-  release, while SteamGridDB often has nothing until launch. Everything else, and any Steam
-  miss, goes to SteamGridDB. It declines
-  uncertain matches rather than guessing, so some titles stay uncovered on purpose; the pages
-  fall back to a coloured platform glyph. Matching folds diacritics (the catalogue writes
-  "Pokémon", this library writes "Pokemon") and tries a few derived search terms — the
-  catalogue's "The Legend of Zelda: X" for a "Zelda: X" tag, and known fan-port suffixes
-  like `(2S2H)` dropped. A parenthetical that marks a *different edition* — `(2019)`,
-  `(PICO-8)` — is deliberately kept, since those have their own art. Titles it still can't
-  place are listed on the workflow's run summary alongside what the catalogue offered, so
-  the fix is an `SGDB_TITLE_ALIASES` entry.
-  The same workflow runs **`backfill-hltb.mjs`**, which fills a blank `h` (main story, else
-  main + extras, never completionist) and a blank `y` from HowLongToBeat for
-  `playing`/`queue`/`soon`/`done` games. Exact normalized title only; same-named games are
-  told apart by the record's `y` or declined. HLTB has no public API and renames its search
-  endpoint every few months (`/api/find` -> `/api/bleed` -> `/api/search/site`); on a 404 the
-  script reads the new name out of the site's own JS. The init response's field names move
-  too (a 200 can arrive without `hpKey`/`hpVal`), so `parseInit()` takes `token`
-  plus any field named like `*key*`/`*val*`, and on failure logs the field names it got. If no lookup succeeds at all, the run
-  goes red (covers still commit) rather than quietly filling nothing. An unreleased game
-  matches with no times yet and is simply retried the next day.
-- `fetch-gotm.mjs` — daily, alongside the Steam sync. Refreshes `gotm.json` from the club's
-  newest post, read from **Arctic Shift** (a free Reddit archive, no key) rather than Reddit.
-  Reddit is a dead end here: unauthenticated requests are refused from cloud IP ranges, which
-  is where Actions runners live, and since late 2025 every new OAuth app needs manual
-  pre-approval that personal scripts rarely get. **It looks up the host's recent posts
-  first** (`GOTM_HOSTS`, an indexed `author=` filter) and matches titles locally; the
-  full-text title searches ("Game of the Month", "GotM") are only a fallback for a new
-  host. From an Actions runner the host lookup answers in ~1s, while the title searches take
-  5-8s and intermittently hit Arctic Shift's "Timeout. Maybe slow down a bit" 422, with or
-  without a date range. A pick
-  older than the newest known month is refused, so an incomplete fallback search can't
-  move "current" backwards.
-  **Picks are merged, never rebuilt:** the host-presented months carry no "Previous Games
-  of the Month" list, so gotm.json's known picks are kept and the post only adds or
-  updates months. A failed or unparseable
-  fetch keeps the last known picks, records the error, and then fails the step on purpose — a
-  red run is the notification that the club list has gone stale.
-- Adding a game through `add.html` triggers the sync and cover workflows immediately,
-  best-effort — a failed trigger never fails the add, it just means waiting for the schedule.
+## Korok.js contract
+
+`korok.js` is **byte-identical** to the hub's `KOROK_SRC` twin in home-hub's `status_server.py`
+(its health check emails when they drift), and **Steph's TV log loads it live** from this site, so
+a merged change reaches her page: don't edit it casually, and keep the `data-repo` / `data-total` /
+`data-spots="id:left[:top],..."` tag contract working. Finds live under one localStorage key,
+`korok:all`, as `repo/id`, shared with her page. There are **12 spots: 10 here (index 3, owl 3,
+wrapped 2, add 2) + 2 on her log**; every tag says `data-total="12"`, so add a spot and bump it
+everywhere. `retired.js` runs before it on every page and deletes the retired `korok:all:skin`
+and `gt_mask` keys (korok.js can still paint a skin named there).
 
 ## Tests
 
-No test runner, no dependencies — each suite is a plain Node script that prints `N/N passing`
-and exits non-zero on failure.
+No runner, no dependencies: each suite is a plain Node script that prints `N/N passing` and exits
+non-zero on failure.
 
 ```
-node scripts/sync-apis.test.mjs        # 44
-node scripts/backfill-covers.test.mjs  # 18
-node scripts/backfill-hltb.test.mjs    # 14
-node scripts/validate-games.test.mjs   # 10
-node scripts/fetch-gotm.test.mjs       # 26
-node scripts/pick.test.mjs             # 35
-node scripts/wrapped.test.mjs          # 32
-node scripts/ledger.test.mjs           # 15
-node scripts/usage.test.mjs            # 29
-node scripts/freeze-wrapped.test.mjs   # 3
-node scripts/owl-pick.test.mjs         # 12
-node scripts/korok.test.mjs            # 44
-node scripts/hearts.test.mjs           # 13
-node scripts/graveyard.test.mjs        # 12
-node scripts/rupees.test.mjs           # 18
-node scripts/theme.test.mjs            # 18
-node scripts/sw.test.mjs               # 13 (also run by the smoke test)
-node scripts/library-meta.test.mjs     # 4
-node scripts/library-hltb.test.mjs     # 8
-cd worker && node index.test.mjs       # 47
+for f in scripts/*.test.mjs; do node "$f" || echo "FAILED $f"; done
+cd worker && node index.test.mjs
 ```
 
-`tests.yml` runs all nineteen on every pull request and on pushes to `main`. They need no
-install step, no secrets and no network, so that job is just checkout, Node 20, and the
-nineteen commands above.
+`tests.yml` discovers every `scripts/*.test.mjs` plus `worker/index.test.mjs` (no hand-kept list),
+names each failing suite, and fails if it finds no suites; a new suite runs the day it is added.
+The suites need no install, secrets or network. `fetch-gotm.test.mjs` runs against a captured club
+post and checks that the 12-month rule reproduces every RETIRED / LAST CHANCE marker the host wrote
+by hand. The Worker tests run against a stubbed GitHub contents API.
 
 A second job runs **`scripts/smoke.browser.mjs`**: `index.html`, `add.html`, `owl.html` and
-`wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails
-on sideways scroll, page errors, or a broken picker/triage/play-check/share-image flow, plus the
-service worker (network-first, offline fallback, other origins untouched), the Someday/Archive
-search, and "nothing keeps animating under reduced motion" on every page. The
-Worker is stubbed inside the test (writes are recorded, never sent), and every other off-site
-request is aborted except web fonts, which are let through because the phone header only
-overflowed once Syne loaded. Locally: `npm i --no-save playwright@1.56.1 && npx playwright
-install chromium`, then `node scripts/smoke.browser.mjs`.
-
-`fetch-gotm.test.mjs` runs against a captured club post. Its strongest assertion is that the
-12-month rule, applied from scratch, reproduces every RETIRED / LAST CHANCE marker the host
-wrote by hand — so the derived eligibility is checked against the club's own bookkeeping
-rather than against itself.
-
-The Worker tests run against a stubbed GitHub contents API, including its sha-conflict retry,
-so they need no token and no network.
-
-Beyond the smoke test, page changes are verified by driving them in a headless browser.
-That has caught real bugs that reading the code did not — a date defaulting on form load rather
-than on status change, and focus being lost when a button disabled itself mid-list.
+`wrapped.html` in headless Chromium at 390px and 1280px against the committed JSON. It fails on
+sideways scroll, page errors, anything animating under reduced motion, or a broken
+picker/triage/play-check/share-image flow, plus the service worker. The Worker is stubbed inside
+the test (writes are recorded, never sent) and every other off-site request is aborted except web
+fonts (the phone header only overflowed once Syne loaded). Locally:
+`npm i --no-save playwright@1.56.1 && npx playwright install chromium`, then
+`node scripts/smoke.browser.mjs` (`PLAYWRIGHT_MODULE` and `CHROMIUM_PATH` override the import and
+the browser). Beyond the smoke test, verify page changes by driving them in a headless browser:
+that has caught real bugs reading the code did not.
