@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 const ctx = {};
 vm.createContext(ctx);
 vm.runInContext(await readFile(new URL("../hearts.js", import.meta.url), "utf8"), ctx);
-const { heartMath, countDone, celebration, check, SEEN_KEY } = ctx.GTHearts;
+const { heartMath, heartLayout, MAX_ROW, countDone, celebration, check, SEEN_KEY } = ctx.GTHearts;
 
 let pass = 0, fail = 0;
 const test = async (name, fn) => {
@@ -79,6 +79,44 @@ await test("garbage in storage counts as a first visit", () => {
 await test("blocked or throwing storage is harmless", () => {
   const bad = { getItem() { throw new Error("denied"); }, setItem() { throw new Error("full"); } };
   assert.equal(check(bad, [{ id: 1, s: "done" }]), "none");
+});
+
+await test("layout: a few hearts that fit are one row", () => {
+  const l = heartLayout(16, 358); // 4 containers
+  assert.equal(l.mode, "row"); assert.equal(l.total, 4);
+});
+await test("layout: 64 finishes (16 containers) beside the wallet on a 390px phone is compact, not a wrapped row", () => {
+  const l = heartLayout(64, 358 - 110 - 8 - 20); // 390 minus gutters, the wallet pill, the gap and the pill's padding
+  assert.equal(l.mode, "compact"); assert.equal(l.containers, 16); assert.equal(l.text, "\u00d716");
+});
+await test("layout: the same 64 finishes on a wide screen (or alone on a line) stay in one row", () => {
+  assert.equal(heartLayout(64, 1200).mode, "row");
+  assert.equal(heartLayout(64, 338).mode, "row"); // 16 x 16px + gaps = 286
+});
+await test("layout: never more than 20 in a row, however wide", () => {
+  assert.equal(heartLayout(80, 5000).mode, "row"); // exactly 20 containers
+  assert.equal(heartLayout(84, 5000).mode, "compact"); // 21
+  assert.equal(heartLayout(1, 5000).cap, MAX_ROW);
+});
+await test("layout: a partial heart counts as one more heart in the row", () => {
+  assert.equal(heartLayout(79, 5000).total, 20); assert.equal(heartLayout(79, 5000).mode, "row");
+  assert.equal(heartLayout(81, 5000).total, 21); assert.equal(heartLayout(81, 5000).mode, "compact");
+});
+await test("layout: the exact width that fits is a row, one pixel less is compact", () => {
+  const need = 10 * 16 + 9 * 2; // ten hearts
+  assert.equal(heartLayout(40, need).mode, "row");
+  assert.equal(heartLayout(40, need - 1).mode, "compact");
+});
+await test("layout: compact text carries the partial heart; zero finishes is an empty row", () => {
+  assert.equal(heartLayout(59, 10).text, "\u00d714 +3/4");
+  const z = heartLayout(0, 300); assert.equal(z.mode, "row"); assert.equal(z.total, 0);
+});
+await test("layout: an unusable width falls back to compact rather than wrapping", () => {
+  for (const w of [NaN, 0, -5, undefined, null]) assert.equal(heartLayout(40, w).mode, "compact");
+  assert.equal(heartLayout(0, NaN).mode, "row"); // nothing to draw is never compact
+});
+await test("layout: the label is unchanged by layout", () => {
+  assert.equal(heartLayout(59, 10).label, heartMath(59).label);
 });
 
 console.log(`\n${pass}/${pass + fail} passing`);
