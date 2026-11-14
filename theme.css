@@ -2,7 +2,11 @@
    "Hyrule map" parchment follows prefers-color-scheme: light, or <html data-theme="light"> to
    force it (data-theme="dark" forces dark). Pages use these tokens and never a literal colour,
    except the platform colours in index.html and the owl's own art. scripts/theme.test.mjs
-   checks the contrast of every pair below, in both modes. */
+   checks the contrast of every pair below, in both modes. Headings are Cinzel, labels DM Mono,
+   body Syne. Platform colours (index.html's PC / .p-*) are mixed toward black on parchment via
+   --plat-pct. The Korok Forest sets its own brighter leaf palette through each page's
+   data-forest attribute (korok.js is untouched) and pins the status colours to their dark set
+   below; wrapped.html's story slides are always dark (.story). */
 :root{
   --bg:#14261a;--surface:#1c3323;--surface2:#234029;
   --border:#2f4a34;--border2:#3f6246;
@@ -61,7 +65,7 @@ body h1::after{content:"";display:inline-block;width:0.5em;height:0.45em;margin-
 /* Section dividers fade from gold into the border colour. */
 .cr{border-image:linear-gradient(90deg,color-mix(in srgb,var(--accent) 60%,var(--border)),var(--border) 50%) 1;}
 
-/* Korok Forest (korok.js adds the class and its own palette) and its Hestu skins are always dark
+/* Korok Forest (korok.js adds the class and its own palette) is always dark
    and leafy, so the status colours switch to their dark set there even in parchment mode. */
 :root.korok-forest{
   --playing:#c9f0b4;--playing-bg:#2c5a2a;--done:#f3dc84;--done-bg:#4a3e12;--dropped:#f2a49c;--dropped-bg:#4a1f1c;

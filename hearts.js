@@ -1,6 +1,9 @@
 // Heart Containers: every finished game (s:"done") is one Heart Piece, four make a container.
 // Pure and DOM-free so it runs in Node too (scripts/hearts.test.mjs); index.html loads it as a
 // plain script and reads globalThis.GTHearts. Only "done" counts -- ongoing and dropped never do.
+// index.html draws the pixel hearts under the title and plays a "Heart Piece!" moment when the
+// finished count rises past what this browser last saw (localStorage `gt_hearts_seen`); a first
+// visit seeds that silently, so nobody gets a celebration for a backlog they already had.
 (function (root) {
   const PER = 4;
   const SEEN_KEY = 'gt_hearts_seen';

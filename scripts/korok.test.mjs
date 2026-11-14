@@ -61,7 +61,7 @@ t("game-tracker holds 10 spots (Steph's log holds the other 2)", spots === 10);
 
 // Forest skins and the Blood Moon gate (known full moons: 2000-01-21, 2024-01-25, 2025-10-07).
 const noon = (iso) => new Date(iso + "T12:00:00");
-t("skins: three, with the names the shop sells", JSON.stringify(Object.keys(K.SKINS).sort()) === JSON.stringify(["autumn", "bloodmoon", "lostwoods"]));
+t("skins: korok.js knows three names (no page sells or wears them any more)", JSON.stringify(Object.keys(K.SKINS).sort()) === JSON.stringify(["autumn", "bloodmoon", "lostwoods"]));
 t("moon: full on real full-moon dates", ["2000-01-21", "2024-01-25", "2025-10-07"].every(d => K.isFullMoon(noon(d))));
 t("moon: not full on new, quarter or random days", ["2024-01-11", "2024-01-18", "2024-02-02", "2026-10-19"].every(d => !K.isFullMoon(noon(d))));
 t("moon: a full-moon stretch is only two or three days a month", Array.from({ length: 60 }, (_, i) => K.isFullMoon(new Date(2026, 0, 1 + i, 12))).filter(Boolean).length <= 6);

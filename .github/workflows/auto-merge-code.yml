@@ -13,6 +13,10 @@ name: Auto-merge code PRs
 #       worker/     the Worker is deployed by hand with wrangler, and the page must never get
 #                   ahead of the Worker it talks to;
 #       .github/    workflow changes (including this file) keep a human in the loop;
+#       scripts/    every script except *.test.mjs and smoke.browser.mjs, plus pick.js: the
+#                   scheduled workflows (sync-games, backfill-covers) execute these with the API
+#                   keys and a token that can push to main, so a change to one waits for a person.
+#                   Test files and page code (html, theme, hearts, rupees...) still auto-merge;
 #       games.json  mixed with code: data-only edits go through auto-merge-data.yml and its
 #                   validator; a PR mixing the two waits for a person.
 # Anything else is left alone; this never fails a PR for being out of scope.
@@ -77,6 +81,12 @@ jobs:
           echo "Changed files:"; echo "$files"
           [ "$files" = "games.json" ] && skip "#$pr is data-only; auto-merge-data.yml handles it."
           grep -qE '^(worker/|\.github/)' <<<"$files" && skip "#$pr touches worker/ or .github/, which need a person."
+          # Code the scheduled workflows run with the API keys and a write token: everything under
+          # scripts/ except the test suites and the browser smoke test (a new script is covered the
+          # day it is added), plus pick.js, which owl-pick.mjs and library-hltb.mjs load and run.
+          held=$(grep -E '^(scripts/.*\.(mjs|cjs|js|sh|py)|pick\.js)$' <<<"$files" \
+                 | grep -vE '^scripts/.*\.test\.mjs$|^scripts/smoke\.browser\.mjs$' || true)
+          [ -z "$held" ] || skip "#$pr changes code the scheduled workflows run with secrets ($(tr '\n' ' ' <<<"$held" | sed 's/ $//')), so it waits for a person."
           grep -qx 'games.json' <<<"$files" && skip "#$pr mixes games.json with code, so it waits for a person."
 
           # The Tests run for exactly this head must have passed (the workflow_run that woke us

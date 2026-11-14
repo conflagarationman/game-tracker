@@ -8,6 +8,24 @@
 // owl.html (Kaepora Gaebora) asks for more: `someday: true` lets the Someday pile in, and
 // owlLineup() mixes in wildcards from outside the tracker: the Steam library, half-finished
 // RetroAchievements games, unclaimed club picks and retro-canon.json's must-plays.
+//
+// Rules worth knowing (all enforced by scripts/pick.test.mjs):
+//   - index.html's picker ranks Now Playing + Up Next (plus Ongoing for a 30-minute session, and
+//     Someday games whose club pick has 3 months or less left) by time left to the credits (`h`
+//     minus `actualHours`), recent real play, Up Next position and GOTM deadline, filtered by the
+//     device. "Start" there sets s:"playing". Every mode also names a game 1-5 achievements from
+//     100% (`achLeft`, never for `casual` games).
+//   - `mood` (MOODS: chill / deep / finish) is used only by owl.html; with no mood the ranking is
+//     unchanged. Moods match the free-text genre by keyword, so a new genre may need adding to
+//     CHILL_G / HARD_G / INTENSE_G / DEEP_G.
+//   - owlLineup() = tracked + Someday, with a wildcard every third pick, and in the lead when
+//     nothing tracked fits the mood. Each result carries `fits` (matches the mood?) and the owl
+//     says so when his best doesn't. wildcards() are: Steam favourites (15h+ after idling, not
+//     played in 45 days), never-started Steam games with Metacritic 80+, RA games 5-90% done,
+//     unclaimed club picks, and retro-canon.json (anything tracked or with RA progress is skipped,
+//     so the canon never needs pruning). Steam wildcards go to PC/Deck (Deck skips "unsupported"),
+//     retro ones to the Thor. library-hltb.json's lengths score them like tracked games' `h`.
+//   - The DEVICES map below is the one device-to-platform table.
 (function (root) {
   // Which tracker platforms each device can play. Steam games count as playable on the Deck;
   // "retro" is RetroAchievements emulation, which lives on the Thor.

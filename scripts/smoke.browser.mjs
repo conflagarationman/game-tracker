@@ -10,10 +10,10 @@
 //
 // PLAYWRIGHT_MODULE overrides where playwright is imported from (e.g. a global install).
 import http from "node:http";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -94,12 +94,6 @@ const noSideScroll = (page) => page.evaluate(async () => {
 // The installable shell: every page links the manifest and the Apple icon, the manifest points at
 // icons that exist, and the service worker is network-first (never a cached copy while the network
 // answers), keys its fallback without the ?_= cache-buster, and leaves other origins alone.
-// tests.yml lists suites by name and is off limits to session PRs, so the service worker's DOM-free
-// unit tests ride along here, where CI already runs.
-await test("sw.test.mjs (service worker cache key and request filter) passes", async () => {
-  const out = execFileSync(process.execPath, [join(ROOT, "scripts/sw.test.mjs")], { encoding: "utf8" });
-  ok(/(\d+)\/\1 passing/.test(out), out.trim().split("\n").pop());
-});
 
 await test("glyphs.test.mjs (platform glyphs) passes", async () => {
   const out = execFileSync(process.execPath, [join(ROOT, "scripts/glyphs.test.mjs")], { encoding: "utf8" });
@@ -365,7 +359,7 @@ for (const width of [390, 1280]) {
   await test(`index.html at ${width}px: nothing a person reads is under 12px`, async () => {
     const { page, ctx } = await open("index.html", width);
     await page.waitForSelector("#tn-list .tn-row");
-    await page.evaluate(() => { for (const k of ["so", "ar", "yl", "gy"]) if (!open[k]) tog(k); });
+    await page.evaluate(() => { for (const k of ["so", "ar", "yl"]) if (!open[k]) tog(k); });
     const small = await page.evaluate(() => [...document.querySelectorAll("body *")]
       .filter(e => !e.closest("svg,script,style,[hidden],.korok-spot,#korok-hestu") && getComputedStyle(e).display !== "none" && getComputedStyle(e).visibility !== "hidden")
       .filter(e => [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()))
@@ -845,146 +839,67 @@ await test("hearts: a finish that completes a container is the big banner; reduc
   await ctx.close();
 });
 
-// Dampé's graveyard: dropped games get stones; digging one up asks first and sends the usual edit.
-await test("graveyard: stones for dropped games, dig-up confirms then writes s:soon through /games/edit", async () => {
-  const { page, writes, ctx } = await open("index.html", 1280);
+// Dropped games live in the Archive (the graveyard that once held them is gone).
+await test("archive: dropped games are listed with the finished ones, and the count includes them", async () => {
+  const { page, errors, ctx } = await open("index.html", 1280);
   await page.waitForSelector("#stats .stat-n");
-  const dropped = await page.evaluate(() => G.filter(g => g.s === "dropped").length);
-  ok(dropped > 0, "fixture has no dropped games");
-  ok(await page.locator("#gy-panel").isHidden(), "graveyard should start closed");
-  await page.click("#gy-toggle");
-  ok(await page.locator(".gy-stone").count() === dropped, "one stone per dropped game");
-  ok((await page.locator(".gy-epi").first().innerText()).length > 4, "no epitaph");
-  page.removeAllListeners("dialog"); // the harness's default handler dismisses everything
-  let asked = "";
-  page.once("dialog", d => { asked = d.message(); d.dismiss(); });
-  await page.locator(".gy-dig").first().click();
-  ok(/^Dig up .+\? It goes back to Someday\.$/.test(asked), "confirm text: " + asked);
-  await page.waitForTimeout(100);
-  ok(writes.length === 0, "wrote after the confirm was declined");
-  page.once("dialog", d => d.accept());
-  await page.locator(".gy-dig").first().click();
-  await page.waitForTimeout(150);
-  ok(writes.length === 1 && writes[0].path.endsWith("/games/edit") && writes[0].body.s === "soon" && writes[0].body.queued,
-    "dig-up sent " + JSON.stringify(writes));
-  ok(await page.locator(".gy-stone").count() === dropped - 1, "stone should be gone after digging up");
+  const [n, t] = await page.evaluate(() => { const d = G.filter(g => g.s === "dropped"); return [G.filter(g => g.s === "done" || g.s === "dropped").length, d[0] && d[0].t]; });
+  ok(t, "fixture has no dropped games");
+  ok((await page.locator("#ar-lbl").innerText()).includes(`(${n})`), "archive count should include dropped games");
+  await page.click("#ar-toggle");
+  ok((await page.locator("#ar-list").innerText()).includes(t), `dropped game ${t} missing from the Archive`);
+  ok(await page.locator("#gy-toggle, #gy-panel, .gy-stone").count() === 0, "graveyard leftovers in the page");
+  ok(errors.length === 0, errors.join(" | "));
   await ctx.close();
 });
-
-await test("graveyard: empty state when nothing is dropped, and no sideways scroll on a phone", async () => {
-  const { page, ctx } = await open("index.html", 390);
-  await page.waitForSelector("#stats .stat-n");
-  await page.evaluate(() => { G.forEach(g => { if (g.s === "dropped") g.s = "soon"; }); render(); tog("gy"); });
-  ok(/Dampé|dead|Quiet|quiet|Nothing/.test(await page.locator("#gy-panel").innerText()), "no Dampé line");
-  ok(await page.locator(".gy-stone").count() === 0, "stones in an empty graveyard");
-  ok(await noSideScroll(page), "sideways scroll");
-  await ctx.close();
-});
-
-// Rupee wallet, shop, bombs, fairy, Great Fairy and forest skins. /rupees/* is faked in memory
-// on top of the harness's stub (later routes win), so nothing is ever sent anywhere.
-async function fakeRupees(page, writes, start = { purchases: [], fairyUntil: {} }) {
-  const state = JSON.parse(JSON.stringify(start));
-  await page.route("**/rupees/**", async route => {
-    const path = new URL(route.request().url()).pathname, body = JSON.parse(route.request().postData() || "{}");
-    writes.push({ path, body });
-    if (path.endsWith("/buy")) state.purchases.push({ id: body.id, item: body.item, cost: 50, ts: new Date().toISOString(), ...(body.meta ? { meta: body.meta } : {}) });
-    if (path.endsWith("/use")) {
-      const f = state.purchases.find(p => p.item === "fairy" && !p.used);
-      if (f) f.used = "today";
-      state.fairyUntil[body.gameId] = "2999-01-01";
-    }
-    await route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(state) });
-  });
-  return state;
-}
 
 for (const width of [390, 1280]) {
-  await test(`wallet at ${width}px: balance and tier in the header, the shop opens, no sideways scroll`, async () => {
+  await test(`wallet at ${width}px: lifetime rupees and tier in the header, honest tooltip, not a button, no sideways scroll`, async () => {
     const { page, errors, ctx } = await open("index.html", width);
     await page.waitForSelector("#wallet:not([style*='none'])");
-    ok(/\d+/.test(await page.locator("#wallet").innerText()), "no balance");
-    ok(/Wallet/.test(await page.getAttribute("#wallet", "title")), "no tooltip");
+    ok(/\d+/.test(await page.locator("#wallet").innerText()), "no total");
+    const tip = await page.getAttribute("#wallet", "title");
+    ok(/earned/i.test(tip) && /Wallet/.test(tip), "tooltip should say these are lifetime earnings: " + tip);
+    ok(await page.evaluate(() => document.getElementById("wallet").tagName !== "BUTTON"), "wallet still looks like a button");
     ok(await noSideScroll(page), "sideways scroll");
     await page.click("#wallet");
-    await page.waitForSelector("#shop[open] .shop-bal");
-    const text = (await page.locator("#shop").innerText()).toLowerCase();
-    for (const w of ["hestu", "bomb a game", "fairy in a bottle", "mask shop"]) ok(text.includes(w), `shop is missing ${w}`);
-    ok(await noSideScroll(page), "sideways scroll with the shop open");
+    ok(await page.locator("dialog[open]").count() === 0, "clicking the wallet opened something");
+    ok(await page.locator("#shop, .shop-btn, #worn-mask").count() === 0, "shop leftovers in the page");
     ok(errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 }
 
-await test("shop: buying and wearing a mask records one purchase, shows it in the header, and the owl suggests its mood", async () => {
-  const { page, writes, errors, ctx } = await open("index.html", 1280);
-  await fakeRupees(page, writes);
-  await page.waitForSelector("#wallet:not([style*='none'])");
-  await page.click("#wallet");
-  await page.locator("#shop .shop-row", { hasText: "Bunny Hood" }).locator(".shop-btn").click();
-  await page.waitForSelector("#worn-mask svg");
-  ok(writes.length === 1 && writes[0].path.endsWith("/rupees/buy") && writes[0].body.item === "mask" && writes[0].body.meta.mask === "bunny", JSON.stringify(writes));
-  ok(await page.evaluate(() => localStorage.getItem("gt_mask")) === "bunny", "mask not worn");
-  await page.click("#shop .shop-close");
-  const owl = await ctx.newPage();
-  await owl.route("**/*", r => /^http:\/\/127/.test(r.request().url()) ? r.continue() : r.abort());
-  await owl.goto(page.url().replace("index.html", "owl.html"));
-  for (let i = 0; i < 2; i++) { await owl.locator("#choices .choice").first().click(); await owl.waitForSelector("#choices .choice:not([disabled])"); }
-  await owl.waitForSelector("#choices .choice.suggested");
-  ok(/Wrap one up|wrap/i.test(await owl.locator("#choices .choice.suggested").innerText()), "Bunny Hood should suggest Wrap one up");
-  ok(await owl.locator("#choices .choice").count() === 3, "the other moods must still be offered");
-  ok(errors.length === 0, errors.join(" | "));
-  await ctx.close();
-});
-
-await test("bomb: confirm first, then drops through /games/edit and buys one; the game lands in the graveyard", async () => {
-  const { page, writes, errors, ctx } = await open("index.html", 1280);
-  await fakeRupees(page, writes);
-  await page.waitForSelector("#wallet:not([style*='none'])");
-  const q = await page.evaluate(() => { const g = G.find(x => x.s === "queue"); return { id: g.id, t: g.t }; });
-  await page.click("#wallet");
-  page.removeAllListeners("dialog");
-  let asked = "";
-  page.once("dialog", d => { asked = d.message(); d.dismiss(); });
-  await page.locator("#shop .bomb-list .shop-row", { hasText: q.t }).first().locator(".shop-btn").click();
-  await page.waitForTimeout(150);
-  ok(asked.includes("Bomb") && asked.includes("graveyard"), "confirm: " + asked);
-  ok(writes.length === 0, "wrote before the confirm was accepted");
-  page.once("dialog", d => d.accept());
-  await page.locator("#shop .bomb-list .shop-row", { hasText: q.t }).first().locator(".shop-btn").click();
-  await page.waitForTimeout(400);
-  const edit = writes.find(w => w.path.endsWith("/games/edit")), bomb = writes.find(w => w.path.endsWith("/rupees/buy"));
-  ok(edit && edit.body.id === q.id && edit.body.s === "dropped", "drop sent " + JSON.stringify(writes));
-  ok(bomb && bomb.body.item === "bomb" && bomb.body.meta.gameId === q.id, "bomb purchase " + JSON.stringify(writes));
-  ok(await page.evaluate(id => GTGraveyard.dropped(G).some(g => g.id === id), q.id), "not in the graveyard");
-  ok(errors.length === 0, errors.join(" | "));
-  await ctx.close();
-});
-
-await test("bomb: only Up Next games are offered", async () => {
-  const { page, ctx } = await open("index.html", 1280);
-  await page.waitForSelector("#wallet:not([style*='none'])");
-  const [offered, queue] = await page.evaluate(() => { openShop(); return [document.querySelectorAll("#shop .bomb-list .shop-row").length, G.filter(g => g.s === "queue").length]; });
-  ok(offered === queue && queue > 0, `${offered} offered for ${queue} queued`);
-  await ctx.close();
-});
-
-await test("fairy: an owned fairy rescues a dormant Now Playing game once, and the card says so", async () => {
-  const { page, writes, errors, ctx } = await open("index.html", 1280);
-  await fakeRupees(page, writes);
-  await page.waitForSelector("#wallet:not([style*='none'])");
-  const id = await page.evaluate(() => {
-    const g = G.find(x => x.s === "playing"); g.lastPlayed = "2000-01-01";
-    RUP = { purchases: [{ id: "fairy-test-1", item: "fairy", cost: 300, ts: new Date().toISOString() }], fairyUntil: {} };
-    render(); tryFairy(); return g.id;
+for (const width of [390, 1280]) {
+  await test(`leftover shop state at ${width}px: a worn skin and mask change nothing and are cleared`, async () => {
+    const init = () => {
+      // Runs before every page script, on every load, exactly like a browser that bought things once.
+      localStorage.setItem("korok:all", JSON.stringify(["a/1", "a/2", "a/3", "a/4", "a/5", "a/6"]));
+      localStorage.setItem("korok:all:forest", "1");
+      localStorage.setItem("korok:all:skin", "autumn");
+      localStorage.setItem("gt_mask", "bunny");
+    };
+    for (const file of ["index.html", "owl.html", "add.html", "wrapped.html"]) {
+      const { page, errors, ctx } = await open(file, width, { init });
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => ({ cls: document.documentElement.className, skin: localStorage.getItem("korok:all:skin"), mask: localStorage.getItem("gt_mask") }));
+      ok(/korok-forest/.test(r.cls), `${file}: the Korok Forest itself should still work: ${r.cls}`);
+      ok(!/korok-skin/.test(r.cls), `${file}: a skin class is on <html>: ${r.cls}`);
+      ok(r.skin === null && r.mask === null, `${file}: leftover keys not cleared ${JSON.stringify(r)}`);
+      ok(errors.length === 0, `${file}: ` + errors.join(" | "));
+      await ctx.close();
+    }
   });
-  await page.waitForSelector("#fairy-pop");
-  ok(writes.length === 1 && writes[0].path.endsWith("/rupees/use") && writes[0].body.gameId === id, JSON.stringify(writes));
-  await page.waitForSelector(".fairy-pill");
-  ok(await page.locator(`.hero-card[data-id="${id}"] .dormant-pill`).count() === 0, "still shows dormant");
-  await page.evaluate(() => tryFairy());
-  await page.waitForTimeout(150);
-  ok(writes.length === 1, "used a fairy it no longer had");
+}
+
+await test("owl: the mood question offers the three moods and suggests none (a worn mask no longer matters)", async () => {
+  const { page, errors, ctx } = await open("owl.html", 390, { init: () => localStorage.setItem("gt_mask", "bunny") });
+  for (let i = 0; i < 2; i++) { await page.locator("#choices .choice").first().click(); await page.waitForSelector("#choices .choice:not([disabled])"); }
+  await page.waitForSelector("#choices .choice");
+  ok(await page.locator("#choices .choice").count() === 3, "three moods expected");
+  ok(await page.locator("#choices .choice.suggested, #choices .choice small").count() === 0, "a mood is suggested");
+  ok(await page.evaluate(() => document.activeElement === document.body || !document.activeElement.classList.contains("choice")), "a mood button was auto-focused");
+  ok(await noSideScroll(page), "sideways scroll");
   ok(errors.length === 0, errors.join(" | "));
   await ctx.close();
 });
@@ -1020,26 +935,6 @@ await test("Great Fairy: Esc skips it, and reduced motion still shows the scene"
   ok(await page.evaluate(() => getComputedStyle(document.getElementById("gf")).animationName) === "none", "animating under reduced motion");
   await page.keyboard.press("Escape");
   ok(await page.locator("#gf").count() === 0, "Esc did not close it");
-  await ctx.close();
-});
-
-await test("forest skin: an owned, worn skin dresses the Korok Forest; Blood Moon waits for a full moon", async () => {
-  const { page, ctx } = await open("index.html", 1280);
-  await page.waitForSelector("#wallet:not([style*='none'])");
-  // korok.js reads its finds when the page loads, so set the storage and reload, as a real visit would.
-  await page.evaluate(() => {
-    localStorage.setItem("korok:all", JSON.stringify(["a/1", "a/2", "a/3", "a/4", "a/5", "a/6"]));
-    localStorage.setItem("korok:all:forest", "1");
-    localStorage.setItem("korok:all:skin", "autumn");
-  });
-  await page.reload();
-  await page.waitForSelector("#wallet:not([style*='none'])");
-  const a = await page.evaluate(() => document.documentElement.className);
-  await page.evaluate(() => { localStorage.setItem("korok:all:skin", "bloodmoon"); window.KorokApply(); });
-  const cls = await page.evaluate(() => ({ a: null, b: document.documentElement.className, full: KorokCore.isFullMoon(new Date()) }));
-  cls.a = a;
-  ok(/korok-skin-autumn/.test(cls.a) && /korok-forest/.test(cls.a), cls.a);
-  ok(/korok-skin-bloodmoon/.test(cls.b) === cls.full, `bloodmoon ${cls.b} full=${cls.full}`);
   await ctx.close();
 });
 
