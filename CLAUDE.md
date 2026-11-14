@@ -33,17 +33,16 @@ Bot-written files are overwritten wholesale on each run. Anything a human needs 
 | `library-meta.json`, `library-hltb.json` | bot: genres/Metacritic/Deck rating and HLTB lengths for the owl's wildcards; a title already answered is never asked again (delete its entry to retry) |
 | `owl-pick.json` | bot (`owl-pick.mjs`): runs the real `pick.js` for the Home Hub's owl, so the hub never re-implements the ranking |
 | `owl-skips.json` | **Worker only** (`/owl/skip`, `/owl/restore`). Never touches `games.json`; keep human edits out |
-| `rupees.json` | **Worker only, dormant**: see "Dormant leftovers" |
+| `rupees.json` | nobody: a leftover of the removed shop |
 | `retro-canon.json`, `worker-config.js` | you (hand-curated retro must-plays; the Worker URL) |
 | `worker/` | you, **deployed by hand with wrangler**. The pages must never call something the deployed Worker lacks, so a page change that needs a Worker change waits for the deploy |
 
 `scripts/*.mjs` are run by Actions, not by the pages. `pick.js`, `hearts.js`, `rupees.js`,
 `wrapped-stats.js` and `usage.js` are DOM-free plain scripts that Node tests load directly.
 
-**Dormant leftovers.** The rupee shop was removed. The Worker's `/rupees/buy|refund|use`
-endpoints and `rupees.json` still exist but no page uses them. `rupees.js` keeps its four price
-constants only because `worker/index.test.mjs` compares the Worker's copy with them. The wallet
-pill is just lifetime rupees earned from `achievements-log.json` by rarity.
+**Rupees.** The shop is gone from the pages and the Worker. `rupees.json` is a leftover that
+nothing reads or writes. The wallet pill is just lifetime rupees earned from
+`achievements-log.json` by rarity.
 
 ## Updating the tracker from a session
 
