@@ -2,9 +2,15 @@
   "windowDays": 14,
   "recent": {
     "531": {
-      "mins": 249
+      "mins": 134
     }
   },
   "offList": [],
-  "untracked": []
+  "untracked": [
+    {
+      "title": "~Homebrew~ Goodboy Galaxy",
+      "source": "ra",
+      "lastPlayed": "2026-11-17"
+    }
+  ]
 }
