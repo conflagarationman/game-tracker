@@ -82,6 +82,16 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
   outline:2px dashed var(--accent);outline-offset:6px;border-radius:8px;background:color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .move-picked{outline:2px solid var(--accent);outline-offset:2px;opacity:0.6;border-radius:10px;}
+/* Edit mode shows that something changed: a one-line how-to under the header and a dashed outline
+   on every card that can move. Before, only the toggle's label changed. */
+.edit-hint{display:none;font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--accent);border:1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  background:color-mix(in srgb, var(--accent) 7%, transparent);border-radius:8px;padding:0.55rem 0.75rem;margin-bottom:1rem;line-height:1.5;}
+body.edit-mode .edit-hint{display:block;}
+.edit-hint .hint-mouse{display:none;}
+@media (hover:hover) and (pointer:fine){ .edit-hint .hint-touch{display:none;} .edit-hint .hint-mouse{display:inline;} }
+body.edit-mode #now .hero-card,body.edit-mode #queue .card,body.edit-mode #soon .card,body.edit-mode #ongoing .card{outline:1px dashed color-mix(in srgb, var(--accent) 55%, transparent);outline-offset:3px;}
+/* The page couldn't load: hide the empty sections so the error banner is the whole story. */
+body.load-failed section,body.load-failed .stats-row,body.load-failed .meters{display:none;}
 
 /* Mobile tap-to-move bar: fixed to the bottom, matches the phone-first safe-area handling
    already used on <body>. Sits above everything (z-index) since it's a modal-ish "you're in
@@ -133,8 +143,7 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
 .gotm-row.urgent .gotm-left{color:var(--dropped);}
 .gotm-row.soonish .gotm-left{color:var(--warn);}
 .gotm-row:not(.urgent):not(.soonish) .gotm-left{color:var(--muted);}
-.gotm-name{flex:1;font-size:0.8rem;font-weight:600;min-width:0;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap;}
+.gotm-name{flex:1;font-size:0.8rem;font-weight:600;min-width:0;line-height:1.3;overflow-wrap:anywhere;}
 .gotm-name a{color:inherit;text-decoration:none;}
 .gotm-name a:hover{text-decoration:underline;}
 /* Bumped from 0.58rem/--muted, which measured 9.3px at 3.52:1 against the chip's own
@@ -227,6 +236,9 @@ section:first-of-type .slabel{margin-top:0;}
 .hero-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;}
 .hero-bg-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3rem;}
 .hero-top{position:absolute;top:8px;right:8px;z-index:2;}
+/* The platform tag sits on cover art, so it gets an opaque backing: the parchment theme's darkened
+   tag colours vanished into dark art ("Switch 2" read as "witch 2"). */
+.hero-top .plat{background:color-mix(in srgb, var(--surface) 88%, transparent);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
 .hero-content{padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
 /* Two lines rather than one ellipsised line: hero cards have the vertical room, and a
    single nowrap line was truncating real titles ("Castlevania: Symphony of the Night").
@@ -250,13 +262,20 @@ section:first-of-type .slabel{margin-top:0;}
 .row2{display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;}
 .row3{padding-top:2px;}
 .row-note{min-width:0;display:flex;}
-/* Up Next and Someday: one fixed card height so the grid never goes ragged. The note is a single
-   truncated line (full text in its title) and the achievement bar sits at the bottom. */
-.queue-grid .card{height:7.75rem;}
+/* Up Next and Someday: every card the same height so the grid never goes ragged. grid-auto-rows:1fr
+   makes every row as tall as the tallest card, so a two-line title grows all of them together
+   instead of being cut off. The note stays a single truncated line here (full text in its title)
+   and the achievement bar sits at the bottom. */
+.queue-grid{grid-auto-rows:1fr;}
+.queue-grid .card{min-height:7.75rem;}
+.queue-grid .note-pill{display:block;white-space:nowrap;text-overflow:ellipsis;border-radius:99px;}
 .queue-grid .card-content{min-height:0;}
 .queue-grid .card .row3{margin-top:auto;}
 .qnum{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);min-width:18px;text-align:center;flex-shrink:0;}
-.gtitle{flex:1;font-size:0.9rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Up to two lines, never a one-line ellipsis: at 390px a single line cut real titles to
+   "Final Fantasy VII R…". The platform pill moved down to row2 to give the title the width. */
+.gtitle{flex:1;font-size:0.9rem;font-weight:600;min-width:0;line-height:1.25;overflow:hidden;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 
 @media(max-width:400px){
   .thumb{width:72px;min-width:72px;height:54px;}
@@ -289,7 +308,8 @@ section:first-of-type .slabel{margin-top:0;}
 .rating{font-family:'DM Mono',monospace;font-size:0.75rem;font-weight:600;color:var(--accent);}
 .gotm{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 9%, transparent);color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
 .dropped-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:var(--dropped-bg);color:var(--dropped);border:1px solid color-mix(in srgb, var(--dropped) 35%, transparent);white-space:nowrap;}
-.note-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:#a06bff18;color:color-mix(in srgb,#a06bff var(--plat-pct),black);border:1px solid #a06bff30;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.note-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:8px;background:#a06bff18;color:color-mix(in srgb,#a06bff var(--plat-pct),black);border:1px solid #a06bff30;max-width:100%;line-height:1.45;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;}
 .dormant-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 9%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 19%, transparent);white-space:nowrap;}
 .replay-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 69%, transparent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
 .casual-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--info) 6%, transparent);color:color-mix(in srgb, var(--info) 50%, transparent);border:1px solid color-mix(in srgb, var(--info) 13%, transparent);white-space:nowrap;}
@@ -342,14 +362,15 @@ section:first-of-type .slabel{margin-top:0;}
 .yg{margin-bottom:1.5rem;}
 .yhead{font-size:1rem;font-weight:700;color:var(--accent);margin-bottom:0.75rem;display:flex;align-items:baseline;gap:0.75rem;}
 .ysub{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);font-weight:400;}
-.ystats{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;margin-bottom:1rem;}
+.ystats{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-bottom:1rem;}
 .ys{background:var(--surface2);border-radius:6px;padding:8px 10px;text-align:center;}
-.ys-n{font-size:1.1rem;font-weight:800;}
+.ys-n{font-size:1.1rem;font-weight:800;white-space:nowrap;}
+.ys-u{font-size:0.7em;font-weight:700;opacity:0.75;}
 .ys-l{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:2px;text-transform:uppercase;}
 .bsec{margin-bottom:0.75rem;}
 .blbl{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;}
 .brow{display:flex;align-items:center;gap:8px;margin:3px 0;}
-.bname{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.bname{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);width:130px;overflow-wrap:anywhere;line-height:1.3;flex-shrink:0;}
 .btrack{flex:1;background:var(--surface2);border-radius:2px;height:4px;}
 .bfill{height:4px;border-radius:2px;}
 .bval{font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--dim);min-width:14px;text-align:right;}
@@ -382,9 +403,9 @@ section:first-of-type .slabel{margin-top:0;}
 .tn-row .thumb,.tn-row .thumb-placeholder{width:64px;min-width:64px;height:30px;margin:0;font-size:1rem;}
 .tn-rank{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--dim);min-width:12px;text-align:center;}
 .tn-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
-.tn-title{font-size:0.85rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);text-decoration:none;}
+.tn-title{font-size:0.85rem;font-weight:700;line-height:1.3;overflow-wrap:anywhere;color:var(--text);text-decoration:none;}
 a.tn-title:hover{text-decoration:underline;}
-.tn-why{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tn-why{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);line-height:1.8;}
 .tn-go{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.4rem 0.65rem;min-height:32px;border-radius:99px;
   border:1px solid color-mix(in srgb, var(--info) 38%, transparent);background:color-mix(in srgb, var(--info) 8%, transparent);color:var(--playing);cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .tn-go:hover{background:color-mix(in srgb, var(--info) 19%, transparent);}
@@ -455,7 +476,6 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
   .stats-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:0.4rem;}
   .stats-row .stat{padding:0.5rem 0.25rem;}
   .stat-n{font-size:1.3rem;}
-  .tn-why{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.5;}
   .tn-row .thumb,.tn-row .thumb-placeholder{width:44px;min-width:44px;height:44px;}
 }
 .hero-art.no-cover .hero-bg-fallback{font-size:1.8rem;}
@@ -513,6 +533,21 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
   @keyframes gf-hover{to{transform:translateY(-14px)}}
   @keyframes gf-rise{from{transform:translateY(105vh) scale(.6)}to{transform:translateY(-10vh) scale(1.2)}}
 }
+/* Phones: every control is at least 44px in both directions (Apple's and WCAG's thumb size).
+   Text links that sit in a line of text grow an invisible 44px hit area with padding and a matching
+   negative margin, so the layout doesn't move. scripts/visual-capture.mjs gates this. */
+@media (pointer:coarse){
+  .add-link,.edit-toggle,.gotm-toggle,.mini-btn,.chip,.tn-go,.banner-btn,.sh-sel,.toast button,.pc-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
+  .chip,.sh-chips .chip{min-width:44px;}
+  .gf button{min-height:44px;}
+  .hearts{min-height:44px;min-width:44px;}
+  .search-box{min-height:44px;}
+  .sh-close{min-width:44px;min-height:44px;}
+  .tn-owl,.ysub,.gotm-sub a,.gotm-name a{display:inline-block;padding:14px 0;margin:-14px 0;}
+  .tn-title{display:block;padding:14px 0;margin:-14px 0;}
+  .gotm-state.act.link a{min-height:44px;}
+  .gotm-state.act.link{margin:-9px 0;}
+}
 </style>
 </head>
 <body>
@@ -523,6 +558,7 @@ dialog.sheet::backdrop{background:rgba(0,0,0,0.7);}
   <button type="button" onclick="cancelMoveMode()">Cancel</button>
 </div>
 <div class="updated" id="updated-stamp">loading…</div>
+<div class="edit-hint" role="status"><span class="hint-touch">Edit mode: tap a game to pick it up, then tap the section it should move to.</span><span class="hint-mouse">Edit mode: drag a game into another section to move it.</span></div>
 <div class="banner" id="load-error" role="alert"></div>
 <div class="meters"><button type="button" class="hearts" id="hearts" style="display:none;" aria-expanded="false" onclick="toggleHeartTip()"></button><span class="wallet" id="wallet" style="display:none;" role="img"></span></div>
 <div class="hearts-tip" id="hearts-tip" role="status"></div>
@@ -851,8 +887,8 @@ function qC(g,n,showNum=true){
   return cardLink(g, `<div class="card${gfc(g)}" data-id="${g.id}"${detail?` title="${esc(detail)}"`:''}>
     ${thumbEl(g)}
     <div class="card-content">
-      <div class="row1">${num}${pb(g.p)}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
-      <div class="row2">${hltbEl(g)}${releaseEl(g)}${queuedEl(g)}</div>
+      <div class="row1">${num}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
+      <div class="row2">${pb(g.p)}${hltbEl(g)}${releaseEl(g)}${queuedEl(g)}</div>
       ${g.note?`<div class="row-note"><span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span></div>`:''}
       ${achBar(g)?`<div class="row3">${achBar(g)}</div>`:''}
     </div>
@@ -868,9 +904,9 @@ function ongC(g){
   return cardLink(g, `<div class="card ong${gfc(g)}" data-id="${g.id}">
     ${thumbEl(g)}
     <div class="card-content">
-      <div class="row1">${pb(g.p)}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
+      <div class="row1"><span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
       <div class="row2">
-        ${lastPlayedEl(g)}${isCold(g)?'<span class="dormant-pill">❄ cold</span>':''}
+        ${pb(g.p)}${lastPlayedEl(g)}${isCold(g)?'<span class="dormant-pill">❄ cold</span>':''}
         ${g.note?`<span class="note-pill" title="${esc(g.note)}">📌 ${esc(g.note)}</span>`:''}
       </div>
     </div>
@@ -883,9 +919,9 @@ function aC(g){
   return cardLink(g, `<div class="card faded${gfc(g)}">
     ${thumbEl(g)}
     <div class="card-content">
-      <div class="row1">${pb(g.p)}<span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
+      <div class="row1"><span class="gtitle" title="${esc(g.t)}">${esc(g.t)}</span></div>
       <div class="row2">
-        ${hltbEl(g)}
+        ${pb(g.p)}${hltbEl(g)}
         ${g.cm!=null?`<span class="yr">${M[g.cm]} ${g.cy}</span>`:''}
         ${g.r?`<span class="rating">${g.r}/10</span>`:''}
         ${g.g?`<span class="genre-tag">${esc(g.g)}</span>`:''}
@@ -917,7 +953,7 @@ function ystats(list){
   },0)/dwellGames.length):null;
   let h=`<div class="ystats">
     <div class="ys"><div class="ys-n" style="color:var(--done)">${done.length}</div><div class="ys-l">Done</div></div>
-    <div class="ys"><div class="ys-n" style="color:var(--accent)">${avg?avg+'/10':'—'}</div><div class="ys-l">Avg</div></div>
+    <div class="ys"><div class="ys-n" style="color:var(--accent)">${avg?`${avg}<span class="ys-u">/10</span>`:'—'}</div><div class="ys-l">Avg</div></div>
     ${totalHrs>0?`<div class="ys"><div class="ys-n" style="color:var(--info)">${Math.round(totalHrs)}h</div><div class="ys-l">Hours</div></div>`:''}
     ${mastCount>0?`<div class="ys"><div class="ys-n" style="color:var(--warn)">${mastCount}</div><div class="ys-l">Mastered</div></div>`:''}
     ${avgAge!=null?`<div class="ys"><div class="ys-n">${avgAge}yr</div><div class="ys-l">Avg gap</div></div>`:''}
@@ -1984,6 +2020,7 @@ Promise.all([
   const banner=document.getElementById('load-error');
   banner.innerHTML=`Couldn’t load game data (${esc(err.message||'network error')}). <button class="banner-btn" onclick="location.reload()">Retry</button>`;
   banner.style.display='flex';
+  document.body.classList.add('load-failed');
   document.getElementById('stats').innerHTML='';
   document.getElementById('now').innerHTML='';
   document.getElementById('queue').innerHTML='';

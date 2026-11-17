@@ -34,7 +34,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 .row{display:flex;gap:0.6rem;}
 .row > div{flex:1;}
 .check{display:flex;align-items:center;gap:0.5rem;margin-top:1rem;}
-.check input{width:auto;}
+.check input{width:auto;accent-color:var(--accent);width:20px;height:20px;flex-shrink:0;cursor:pointer;}
 .check label{margin:0;}
 button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;
   border-radius:8px;padding:0.75rem 1rem;cursor:pointer;border:1px solid transparent;}
@@ -75,7 +75,7 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
 .ro-row{display:flex;align-items:center;gap:0.5rem;background:var(--surface);border:1px solid var(--border);
   border-radius:8px;padding:0.4rem 0.5rem;touch-action:pan-y;}
 .ro-num{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--dim);min-width:1.4em;text-align:right;flex-shrink:0;}
-.ro-title{flex:1;font-size:0.82rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ro-title{flex:1;font-size:0.82rem;font-weight:600;min-width:0;line-height:1.3;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .ro-plat{font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;}
 .ro-btns{display:flex;gap:3px;flex-shrink:0;}
 /* Explicit 40px box rather than padding-derived sizing: these are the primary reorder control
@@ -94,6 +94,14 @@ button{font-family:'DM Mono',monospace;font-size:0.75rem;text-transform:uppercas
 .ro-actions{display:flex;gap:0.6rem;margin-top:0.85rem;}
 .ro-actions button{flex:1;}
 @media (prefers-reduced-motion:no-preference){.ro-row{transition:box-shadow 0.12s ease,border-color 0.12s ease;}}
+/* Phones: every control at least 44px (scripts/visual-capture.mjs gates it). The checkbox's label is
+   its target, so the label row is 44px tall. */
+@media (pointer:coarse){
+  input[type=text],input[type=number],input[type=date],input[type=month],select,textarea,button{min-height:44px;}
+  .ro-btns button{min-width:44px;min-height:44px;}
+  .check label{min-height:44px;display:flex;align-items:center;}
+  .sub a{display:inline-block;padding:15px 0;margin:-15px 0;}
+}
 </style>
 </head>
 <body>
