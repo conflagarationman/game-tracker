@@ -109,6 +109,17 @@ product made with care, closer to a game's menu screen than a spreadsheet.
   it are intended. Judge balance and legibility, not the style.
 - **Hearts and rupees** are playful meters, not data errors; "×16" style counts are intended.
 - Platform tags ("Steam", "Switch 2", "AYN Thor", "Steam Deck") use their own colors on purpose.
+- **The owl's replies (Yes / No / Not this one) are styled like Ocarina of Time's own dialogue
+  choices**: colored text lines inside the dialogue box with a small triangle cursor on the current
+  one, not pill buttons. That is the intended look. Judge their legibility, spacing and whether they
+  read as choices in a game dialogue; don't ask for them to become buttons.
+- **The owl also suggests games the person owns but doesn't track**, so with an EMPTY tracker it
+  can still offer games with hours and tags. That is real behavior, not a capture mistake.
+- **HUGE-state titles are made up** (long invented names). Judge how long titles are handled, not
+  the names themselves.
+- **Up Next cards are all the same height on purpose** (an even grid), so a card with less in it
+  has some empty space at the bottom. Their note is deliberately one line with an ellipsis. Report
+  these only if the empty space or the cut note looks broken rather than calm.
 
 ## Severity
 

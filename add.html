@@ -31,7 +31,7 @@ input[type=text],input[type=number],input[type=date],input[type=month],select,te
   color:var(--text);font-family:'Syne',sans-serif;font-size:0.9rem;padding:0.65rem 0.8rem;
 }
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
-.row{display:flex;gap:0.6rem;}
+.row{display:flex;gap:0.6rem;align-items:flex-end;} /* a label that wraps to two lines keeps the inputs level */
 .row > div{flex:1;}
 .check{display:flex;align-items:center;gap:0.5rem;margin-top:1rem;}
 .check input{width:auto;accent-color:var(--accent);width:20px;height:20px;flex-shrink:0;cursor:pointer;}

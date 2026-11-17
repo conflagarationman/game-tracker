@@ -51,6 +51,12 @@ const readJson = async (f) => JSON.parse(await readFile(join(ROOT, f), "utf8"));
 const GAMES = await readJson("games.json");
 const YEAR = new Date().getFullYear();
 const blank = (o) => ({ id: 0, t: "", p: "steam", s: "queue", g: "Action", y: 2020, h: "10h", r: 0, cy: null, cm: null, gotm: null, gotmFlair: false, mastery: null, diff: null, achPct: null, achCount: null, actualHours: null, lastPlayed: null, casual: false, note: null, start: null, queued: null, release: null, ...o });
+// Made-up long titles for the HUGE state, built from parts so every one is unique and none carries a
+// number (round 2: "89. Title" read as an id leaking into the page).
+const PARTS_A = ["Chronicles", "Legends", "Echoes", "Shadows", "Tales", "Ballad", "Saga", "Dominion", "Requiem", "Odyssey", "Covenant", "Lanterns"];
+const PARTS_B = ["the Ember Kingdom", "the Forgotten Archipelago", "the Clockwork Citadel", "the Sunken Observatory", "the Hollow Crown", "the Glass Desert", "the Last Lighthouse"];
+const PARTS_C = ["Director's Cut", "Definitive Edition", "Complete Collection", "Anniversary Remaster", "Deluxe Edition", "Game of the Year Edition"];
+const fakeTitle = (i) => `${PARTS_A[i % 12]} of ${PARTS_B[Math.floor(i / 12) % 7]}: ${PARTS_C[Math.floor(i / 84) % 6]}`;
 const LONG = [
   "The Legend of Heroes: Trails through Daybreak II (Deluxe Edition)",
   "Shin Megami Tensei V: Vengeance - Digital Deluxe Edition",
@@ -72,7 +78,7 @@ const variants = {
     const g = GAMES.map((x, i) => (["playing", "queue"].includes(x.s) && i % 2 === 0) ? { ...x, t: LONG[i % LONG.length] } : x);
     let id = Math.max(...GAMES.map(x => x.id)) + 1;
     const st = ["queue", "soon", "soon", "done", "done", "dropped"];
-    for (let i = 0; i < 420; i++) g.push(blank({ id: id++, t: `${i + 1}. ${LONG[i % LONG.length]}`, s: st[i % st.length], g: "Action RPG", h: `${10 + (i % 60)}h`, r: st[i % st.length] === "done" ? 1 + (i % 10) : 0, cy: st[i % st.length] === "done" ? YEAR - (i % 4) : null, cm: st[i % st.length] === "done" ? i % 12 : null, actualHours: st[i % st.length] === "done" ? 5 + (i % 90) : null }));
+    for (let i = 0; i < 420; i++) g.push(blank({ id: id++, t: fakeTitle(i), s: st[i % st.length], g: "Action RPG", h: `${10 + (i % 60)}h`, r: st[i % st.length] === "done" ? 1 + (i % 10) : 0, cy: st[i % st.length] === "done" ? YEAR - (i % 4) : null, cm: st[i % st.length] === "done" ? i % 12 : null, actualHours: st[i % st.length] === "done" ? 5 + (i % 90) : null }));
     return { "games.json": g };
   })(),
   // Hours unknown everywhere a game shows hours.
@@ -254,7 +260,7 @@ const states = [
 
   { name: "owl-ask", page: "owl.html", label: "Owl picker: the owl's first question", vps: BOTH, weight: "owl.html" },
   { name: "owl-flow", page: "owl.html", label: "Owl picker conversation, step", vps: BOTH, owlFlow: true },
-  { name: "owl-empty", page: "owl.html", label: "Owl picker with an EMPTY library", vps: PHONE, variant: "empty", owlFlow: true },
+  { name: "owl-empty", page: "owl.html", label: "Owl picker with an EMPTY tracker (no tracked games; the owl can still suggest games the person owns on Steam)", vps: PHONE, variant: "empty", owlFlow: true },
 
   { name: "add-default", page: "add.html", label: "Add / Edit game form, empty (adding a new game), screen by screen", vps: BOTH, slices: true, weight: "add.html" },
   { name: "add-edit", page: "add.html?id=" + (GAMES.find(g => g.s === "playing") || GAMES[0]).id, label: "Add / Edit game form editing an existing Now Playing game, screen by screen", vps: PHONE, slices: true },
@@ -328,7 +334,7 @@ for (const s of states) {
         // matching and the tap-target gate measured desktop sizes (round 1 artifact).
         Object.assign(result, await page.evaluate(measure, { phone }));
         const el = await page.$(s.element);
-        if (el) { await el.scrollIntoViewIfNeeded(); result.images.push(await shot(page, base, `${s.label}, ${vpName}`, { clip: await el.boundingBox().then(b => ({ x: 0, y: b.y, width: VIEWPORTS[vpName].width, height: Math.min(b.height, 3000) })), fullPage: true })); }
+        if (el) { await el.scrollIntoViewIfNeeded(); result.images.push(await shot(page, base, `${s.label}, ${vpName}`, { clip: await el.boundingBox().then(async b => ({ x: 0, y: b.y + await page.evaluate(() => scrollY), width: VIEWPORTS[vpName].width, height: Math.min(b.height, 3000) })), fullPage: true })); }
       } else if (s.slices) {
         const H = VIEWPORTS[vpName].height;
         const start = s.sliceFromScroll ? await page.evaluate(() => scrollY) : 0;

@@ -64,6 +64,9 @@ h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;color:var(--accent);}
    gesture. The link is a plain wrapper — all card visuals stay on the card inside it, so
    hover and drop-target styling are untouched. */
 .card-link{display:block;text-decoration:none;color:inherit;-webkit-user-drag:none;}
+/* In the Up Next / Someday grid the link is the grid item, so it carries the row's height to its card. */
+.queue-grid > .card-link{display:flex;}
+.queue-grid > .card-link > .card{flex:1;}
 .card-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:10px;}
 
 /* Edit mode: draggable cards in the three active-management sections only (never Archive/
@@ -313,7 +316,7 @@ section:first-of-type .slabel{margin-top:0;}
 .dormant-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 9%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 19%, transparent);white-space:nowrap;}
 .replay-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 69%, transparent);border:1px solid color-mix(in srgb, var(--accent) 19%, transparent);white-space:nowrap;}
 .casual-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--info) 6%, transparent);color:color-mix(in srgb, var(--info) 50%, transparent);border:1px solid color-mix(in srgb, var(--info) 13%, transparent);white-space:nowrap;}
-.start-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 44%, transparent);border:1px solid color-mix(in srgb, var(--accent) 13%, transparent);white-space:nowrap;}
+.start-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 6%, transparent);color:color-mix(in srgb, var(--accent) 70%, transparent);border:1px solid color-mix(in srgb, var(--accent) 18%, transparent);white-space:nowrap;}
 .queued-pill{font-size:0.75rem;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:99px;background:color-mix(in srgb, var(--dim) 8%, transparent);color:var(--dim);border:1px solid color-mix(in srgb, var(--dim) 15%, transparent);white-space:nowrap;}
 /* Play check (play-check.json, written by the daily sync): games with real recent play that
    aren't marked playing. Quiet by design: it renders nothing when there's nothing to say. */
