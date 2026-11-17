@@ -123,6 +123,11 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .score.sm{font-size:0.7rem;}
 .farm-list{list-style:none;display:flex;flex-direction:column;gap:5px;margin-top:0.75rem;}
 .farm-list li{display:flex;gap:0.5rem;align-items:baseline;min-width:0;}
+.empty-panel{text-align:center;padding:2.5rem 1.25rem;margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:0.75rem;}
+.empty-panel .empty-ic{font-size:2.5rem;}
+.panel.empty-panel h2{font-family:'Cinzel',Georgia,serif;font-size:1.2rem;font-weight:700;text-transform:none;letter-spacing:0.04em;color:var(--accent);margin:0;}
+.empty-panel p{color:var(--muted);font-size:0.9rem;line-height:1.5;max-width:30ch;}
+.empty-panel .btn{text-decoration:none;display:inline-flex;align-items:center;margin-top:0.5rem;}
 .empty{color:var(--dim);font-family:'DM Mono',monospace;font-size:0.8rem;padding:2rem 0;text-align:center;}
 
 /* Year of Play poster: the preview is the same drawing as the PNG, just smaller. */
@@ -184,6 +189,9 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .st-tap{position:absolute;left:0;right:0;top:0;bottom:0;z-index:1;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .st-tap.prev{right:auto;width:30%;}
 .st-tap.next{left:auto;width:70%;}
+/* On a wide screen the bars, header and footer share the card's column, so story mode reads as one
+   phone-shaped frame instead of a full-width bar over a narrow block of text. */
+.st-bars,.st-head,.st-foot{max-width:520px;width:100%;margin-left:auto;margin-right:auto;}
 .st-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;position:relative;z-index:2;}
 .st-nav{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);background:color-mix(in srgb, var(--bg) 50%, transparent);border:1px solid var(--border2);border-radius:99px;min-height:40px;padding:0 14px;cursor:pointer;}
 .st-nav:disabled{opacity:0.35;cursor:default;}
@@ -267,7 +275,7 @@ const monthSpan=(a,b)=>a===b?M[a]:`${M[a]}–${M[b]}`;
 
 function render(){
   const years=[...new Set(G.filter(g=>g.cy).map(g=>g.cy))].sort((a,b)=>b-a);
-  if(!years.length){ document.getElementById('main').innerHTML='<div class="empty">No finished games with a year yet.</div>'; return; }
+  if(!years.length){ document.getElementById('main').innerHTML='<section class="panel empty-panel"><div class="empty-ic" aria-hidden="true">🎮</div><h2>No year to wrap up yet</h2><p>Finish a game and give it a year in the tracker, and its story shows up here.</p><a class="btn" href="index.html">Back to the game log</a></section>'; return; }
   const q=parseInt(new URLSearchParams(location.search).get('year'),10);
   Y = years.includes(q) ? q : years[0];
   if(Y<new Date().getFullYear() && !(Y in FROZEN)){
@@ -603,7 +611,13 @@ function drawShareCard(){
   (d.top.length?d.top:d.done.slice(0,5)).forEach((g,i)=>{ const y=690+i*86;
     x.fillStyle='#555560'; x.font=font(500,30,'mono'); x.fillText(String(i+1),P,y);
     x.fillStyle=PC[g.p]||'#888'; x.beginPath(); x.arc(P+62,y-10,9,0,Math.PI*2); x.fill();
-    x.fillStyle='#f0f0f0'; x.font=font(700,44); x.fillText(fit(g.t,W-P*2-260),P+90,y);
+    // A long title shrinks first (44px down to 32px); only then is it cut, and at a word break, so
+    // the shared picture never ends in a half word like "Ocarina of Time (S…".
+    const tw=W-P*2-260; let ts=44; x.font=font(700,ts);
+    while(ts>32&&x.measureText(g.t).width>tw){ ts-=2; x.font=font(700,ts); }
+    let tt=g.t;
+    if(x.measureText(tt).width>tw){ const words=tt.split(' '); while(words.length>1&&x.measureText(words.join(' ')+'…').width>tw) words.pop(); tt=words.join(' ').replace(/[\s:(\-–]+$/,'')+'…'; tt=fit(tt,tw); }
+    x.fillStyle='#f0f0f0'; x.fillText(tt,P+90,y);
     if(g.r){ x.fillStyle='#e8c547'; x.font=font(700,40,'mono'); const s=`${g.r}/10`; x.fillText(s,W-P-x.measureText(s).width,y); } });
 
   const by=1150, bw=W-P*2, tot=d.done.length||1; let bx=P;

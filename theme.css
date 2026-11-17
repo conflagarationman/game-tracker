@@ -58,7 +58,7 @@
 
 /* Syne's default figures are old-style, so a lone "0" read as a lowercase "o" ("0h" looked like
    "oh" on Wrapped). Lining figures everywhere: numbers sit on the line and stand out as numbers. */
-body{font-variant-numeric:lining-nums;}
+body,input,select,textarea,button{font-variant-numeric:lining-nums;} /* form controls don't inherit it */
 /* Headings in Cinzel; labels stay DM Mono and body stays Syne (their own class rules win). */
 body h1,body h2{font-family:'Cinzel',Georgia,serif;font-weight:700;letter-spacing:0.04em;}
 /* A small Triforce after the page title, in the accent colour. Original three-triangle mark. */
