@@ -49,7 +49,8 @@ Cover art is fetched by default (read-only image GETs) because the real page sho
 | 2 | `2026-11-17T18-53-58` | 0 real (2 major reported, both rejected) | Smoke test failures fixed; calibrations added. |
 | 3 | `2026-11-17T20-40-53` | 3 major real (Wrapped) | Share image titles, empty Wrapped, laptop story frame. |
 | 4 | `2026-11-17T20-54-34` | 1 major real (tracker) | Designed empty sections. |
-| 5 | `2026-11-18T02-22-26` | (running) | |
+| 5 | `2026-11-18T02-22-26` | 1 major real (tracker) | Koroks hidden on the load-failure page; rubric tightened. |
+| 6 | `2026-11-18T02-37-39` | **none** (1 minor) | Stop rule met. Hyphenation on card titles; capture skips repeat slices. |
 
 ### Round 1
 
@@ -106,3 +107,31 @@ Rejected / artifacts:
 - Tracker critic, major: empty Now playing / Up next / Ongoing were bare sentences under their
   headings (rated minor in round 1 and nit in round 3, unchanged since). Now dashed cards with an
   icon and an in-voice line, plus "+ Add a game" under Now playing.
+
+### Round 5
+
+- Tracker, major: on the load-failure page two Koroks floated alone on the blank page (their
+  sections are hidden there). Hidden in that state with CSS in index.html; korok.js untouched.
+- Owl, major "laptop owl is a narrow column in a big empty screen" (it also said top-left, but it is
+  centered): calibrated as intended, a dialogue-window column. Whether the desktop owl should be
+  bigger is an open taste question for Jonny.
+- Owl/form and Wrapped, minors "buttons look 32-40px": false alarm, measured 44x44 in the browser.
+  The rubric now says tap sizes are measured by the gate and only crowding should be reported.
+
+### Round 6 (clean)
+
+- Wrapped: nothing. Owl/form: nothing. Tracker: one minor, a made-up 34-letter word in the HUGE
+  state broke mid-word with no hyphen; card titles now hyphenate (`hyphens:auto`).
+- Capture fix: a short page repeated its last slice on a laptop; repeat slices are skipped.
+- Noted, not a defect: Wrapped says 47 finished while the poster has 46 cartridges. The poster
+  leaves out Idle games by design (see wrapped.html's header).
+
+## Open questions for Jonny (taste calls not made alone)
+
+- Up Next notes stay one line with an ellipsis (equal card heights, pinned by the smoke test). On a
+  phone there's no hover to read the rest. Wrap them, or keep the tidy grid?
+- Lining figures site-wide changed how every number in Syne looks (old-style figures before).
+- The owl on a laptop is a centered phone-width column. Bigger desktop layout, or leave it?
+- An EMPTY tracker gives the owl only the "Any" platform chip. Show all platforms anyway?
+- Empty-section copy ("No adventure underway.", "The road ahead is clear.", "No long-running games.").
+- Form date pickers still use the browser's own calendar icon (minor).

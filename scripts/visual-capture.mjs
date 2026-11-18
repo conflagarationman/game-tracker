@@ -338,10 +338,14 @@ for (const s of states) {
       } else if (s.slices) {
         const H = VIEWPORTS[vpName].height;
         const start = s.sliceFromScroll ? await page.evaluate(() => scrollY) : 0;
-        const total = await page.evaluate(() => document.documentElement.scrollHeight);
-        const count = Math.min(s.maxSlices || 10, Math.ceil((total - start) / (H - 60)));
+        const maxY = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+        const count = Math.min(s.maxSlices || 10, Math.ceil(Math.max(0, maxY - start) / (H - 60)) + 1);
+        let lastY = -1;
         for (let i = 0; i < count; i++) {
-          await page.evaluate((y) => scrollTo(0, y), start + i * (H - 60));
+          // A short page can't scroll as far as asked; skip a slice that would repeat the last one.
+          const y = await page.evaluate((y) => { scrollTo(0, y); return scrollY; }, start + i * (H - 60));
+          if (y === lastY) break;
+          lastY = y;
           await page.waitForTimeout(250);
           await settleImages(page);
           result.images.push(await shot(page, `${base}-${String(i + 1).padStart(2, "0")}`, `${s.label}: screen ${i + 1} of ${count}, ${vpName}`));
