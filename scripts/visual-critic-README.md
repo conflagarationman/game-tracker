@@ -126,12 +126,13 @@ Rejected / artifacts:
 - Noted, not a defect: Wrapped says 47 finished while the poster has 46 cartridges. The poster
   leaves out Idle games by design (see wrapped.html's header).
 
-## Open questions for Jonny (taste calls not made alone)
+## Decisions (Jonny, 2026-11-18: "go with your recommendations")
 
-- Up Next notes stay one line with an ellipsis (equal card heights, pinned by the smoke test). On a
-  phone there's no hover to read the rest. Wrap them, or keep the tidy grid?
-- Lining figures site-wide changed how every number in Syne looks (old-style figures before).
-- The owl on a laptop is a centered phone-width column. Bigger desktop layout, or leave it?
-- An EMPTY tracker gives the owl only the "Any" platform chip. Show all platforms anyway?
-- Empty-section copy ("No adventure underway.", "The road ahead is clear.", "No long-running games.").
-- Form date pickers still use the browser's own calendar icon (minor).
+- Up Next notes stay one line with an ellipsis: equal card heights, and tapping a card opens its
+  edit page with the full note. Wrapping would make every card as tall as the longest note.
+- Lining figures site-wide stay: they fix a real misreading ("0h" as "oh").
+- The owl on a laptop stays a centered dialogue-window column.
+- An EMPTY tracker giving the owl only the "Any" platform chip stays (the owl's own logic, rare state).
+- Empty-section copy stays: "No adventure underway.", "The road ahead is clear.", "No long-running games."
+- Left alone: the form's native date-picker icons (minor), and three 404 cover URLs in the
+  bot-owned covers.json (the page falls back cleanly).
