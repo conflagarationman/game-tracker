@@ -95,6 +95,9 @@ body.edit-mode .edit-hint{display:block;}
 body.edit-mode #now .hero-card,body.edit-mode #queue .card,body.edit-mode #soon .card,body.edit-mode #ongoing .card{outline:1px dashed color-mix(in srgb, var(--accent) 55%, transparent);outline-offset:3px;}
 /* The page couldn't load: hide the empty sections so the error banner is the whole story. */
 body.load-failed section,body.load-failed .stats-row,body.load-failed .meters{display:none;}
+/* ...and the Koroks that live among those sections, which otherwise float alone in the blank page.
+   The one hanging from the header stays. (CSS only: korok.js is the hub's byte-identical twin.) */
+body.load-failed .korok-spot:not(.korok-top){display:none;}
 
 /* Mobile tap-to-move bar: fixed to the bottom, matches the phone-first safe-area handling
    already used on <body>. Sits above everything (z-index) since it's a modal-ish "you're in

@@ -47,7 +47,9 @@ Cover art is fetched by default (read-only image GETs) because the real page sho
 | Gates | `2026-11-17T18-16-20` | 1,045 gate failures, 347 distinct | Baseline. Truncated titles and notes everywhere, ~40 kinds of control under 44px. |
 | 1 | `2026-11-17T18-16-20` | 1 blocker, 4 major real (7 reported) | See below. |
 | 2 | `2026-11-17T18-53-58` | 0 real (2 major reported, both rejected) | Smoke test failures fixed; calibrations added. |
-| 3 | `2026-11-17T20-40-53` | (running) | |
+| 3 | `2026-11-17T20-40-53` | 3 major real (Wrapped) | Share image titles, empty Wrapped, laptop story frame. |
+| 4 | `2026-11-17T20-54-34` | 1 major real (tracker) | Designed empty sections. |
+| 5 | `2026-11-18T02-22-26` | (running) | |
 
 ### Round 1
 
@@ -83,3 +85,24 @@ Rejected / artifacts:
 - The smoke test caught that equal Up Next heights weren't real (the grid stretched the link, not the
   card), that the hearts pill check read 44px as a wrap, and that the owl title touched the bigger
   sound buttons. All fixed; the hearts check now looks at the hearts themselves.
+
+### Round 3
+
+- Major: the share image cut "Zelda: Ocarina of Time (SoH)" to "(S…". Titles shrink 44 to 32px
+  first, and any cut lands on a word break.
+- Major: Wrapped with no games was one line over a blank screen. Now a designed card with a way back.
+- Major: on a laptop, story mode's progress bar spanned the full width over a narrow text column.
+  Bars, header and footer now share the card's column.
+- Minor fixed: form fields don't inherit `font-variant-numeric`, so a placeholder read "e.g. 2oh".
+- Rejected: reorder arrows "under 44px" (the gate measures them at 44x44). Left as a minor: native
+  date-picker icons on the form.
+- Tracker critic: one nit (empty-state wording).
+
+### Round 4
+
+- Wrapped critic: nothing.
+- Owl/form critic: one minor, an EMPTY tracker offers only the "Any" platform chip. That is the
+  owl's logic (no tracked platforms), an open question for Jonny rather than a visual fix.
+- Tracker critic, major: empty Now playing / Up next / Ongoing were bare sentences under their
+  headings (rated minor in round 1 and nit in round 3, unchanged since). Now dashed cards with an
+  icon and an in-voice line, plus "+ Add a game" under Now playing.

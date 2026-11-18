@@ -93,8 +93,10 @@ product made with care, closer to a game's menu screen than a spreadsheet.
   should say something human or hide cleanly, not show a bare heading over nothing. A huge library
   should still be scannable. Missing cover art should show a deliberate fallback, not a broken
   image. A load failure should say what happened and offer a way out.
-- **Tap targets (phone):** anything tappable should look at least about 44 px tall or wide enough to
-  hit with a thumb, with space between neighbours.
+- **Tap targets (phone):** every control is already MEASURED at least 44x44 px by an automated gate
+  before you see it, so don't estimate tap sizes from the picture (critics guessed 36-40 px for
+  buttons that measure 44). Report only crowding: controls so close together that a thumb would hit
+  the wrong one.
 
 ## Calibration (decisions already made; don't report these)
 
@@ -117,6 +119,8 @@ product made with care, closer to a game's menu screen than a spreadsheet.
   can still offer games with hours and tags. That is real behavior, not a capture mistake.
 - **HUGE-state titles are made up** (long invented names). Judge how long titles are handled, not
   the names themselves.
+- **The owl page on a laptop is a centered column** (scene, dialogue box, answers) about as wide as
+  a game's dialogue window, with open space around it. That is intended; judge the column itself.
 - **Up Next cards are all the same height on purpose** (an even grid), so a card with less in it
   has some empty space at the bottom. Their note is deliberately one line with an ellipsis. Report
   these only if the empty space or the cut note looks broken rather than calm.
