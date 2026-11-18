@@ -398,8 +398,10 @@ for (const width of [390, 1280]) {
   await test(`index.html at ${width}px: the heart row never wraps`, async () => {
     const { page, ctx } = await open("index.html", width);
     await page.waitForSelector("#hearts svg");
-    const h = await page.locator("#hearts").evaluate(e => e.getBoundingClientRect().height);
-    ok(h < 40, `hearts pill is ${h}px tall: it wrapped`);
+    // Every heart on one line. (Not the pill's height: on a touch screen the pill is 44px tall on
+    // purpose, the thumb-size floor, so height no longer tells a wrap apart.)
+    const tops = await page.locator("#hearts svg").evaluateAll(els => [...new Set(els.map(e => Math.round(e.getBoundingClientRect().top)))]);
+    ok(tops.length === 1, `hearts sit on ${tops.length} lines: the row wrapped`);
     const wallet = await page.locator("#wallet").evaluate(e => e.getBoundingClientRect().top);
     const hearts = await page.locator("#hearts").evaluate(e => e.getBoundingClientRect().top);
     ok(Math.abs(wallet - hearts) < 12, "the wallet pill dropped to its own line");
