@@ -491,13 +491,13 @@
     "release": null
   },
   {
-    "r": 0,
+    "r": 10,
     "h": null,
-    "cy": null,
-    "cm": null,
+    "cy": 2026,
+    "cm": 10,
     "gotm": null,
     "gotmFlair": false,
-    "mastery": "in-progress",
+    "mastery": "100pct",
     "diff": null,
     "achPct": null,
     "achCount": null,
@@ -510,7 +510,7 @@
     "release": "2026-11-05",
     "t": "Zelda: Ocarina of Time (2026)",
     "p": "switch2",
-    "s": "playing",
+    "s": "done",
     "g": "Action-Adventure",
     "y": 2026,
     "id": 522
