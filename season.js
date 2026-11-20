@@ -47,7 +47,7 @@ var GTSeason = (function () {
     '.season-fx i:nth-child(6){left:61%;font-size:24px;animation-duration:25s;animation-delay:-11s}',
     '.season-fx i:nth-child(7){left:72%;font-size:15px;animation-duration:20s;animation-delay:-17s}',
     '.season-fx i:nth-child(8){left:83%;font-size:21px;animation-duration:23s;animation-delay:-6s}',
-    '.season-fx i:nth-child(9){left:93%;font-size:17px;animation-duration:26s;animation-delay:-23s}',
+    '.season-fx i:nth-child(9){left:88%;font-size:17px;animation-duration:26s;animation-delay:-23s}',
     '@keyframes season-fall{0%{transform:translate(0,0) rotate(0deg)}50%{transform:translate(28px,58vh) rotate(160deg)}100%{transform:translate(-12px,118vh) rotate(320deg)}}',
     '@keyframes season-twinkle{0%,100%{opacity:1}50%{opacity:.6}}',
     '@media (prefers-reduced-motion:reduce){.season-fx i,.season-top{animation:none!important}',
@@ -63,7 +63,7 @@ var GTSeason = (function () {
     'html[data-season="christmas"] .season-top{height:14px;background:radial-gradient(circle at 12px 8px,#ff4d5e 0 4px,transparent 5px) 0 0/96px 14px repeat-x,radial-gradient(circle at 36px 8px,#3fd47e 0 4px,transparent 5px) 0 0/96px 14px repeat-x,radial-gradient(circle at 60px 8px,#ffc94a 0 4px,transparent 5px) 0 0/96px 14px repeat-x,radial-gradient(circle at 84px 8px,#5aa8ff 0 4px,transparent 5px) 0 0/96px 14px repeat-x,linear-gradient(#2c3a2c,#2c3a2c) 0 3px/100% 1px no-repeat;filter:drop-shadow(0 0 4px rgba(255,220,120,.55));animation:season-twinkle 2.4s ease-in-out infinite}',
     'html[data-season="christmas"] .season-fx i{color:#fff;opacity:.8;text-shadow:0 0 6px rgba(160,200,255,.9)}',
     'html[data-season="christmas"] .season-fx i::before{content:"\\2744\\FE0E"}',
-    '@media (prefers-color-scheme:light){html[data-season="christmas"] .season-fx i{color:#5e9fe0;opacity:.9;text-shadow:0 0 3px rgba(255,255,255,.95)}}'
+    '@media (prefers-color-scheme:light){html[data-season="christmas"] .season-fx i{color:#3f7fc4;opacity:.95;text-shadow:0 0 3px rgba(255,255,255,.95)}}'
   ].join('\n');
 
   function apply(doc, loc, now) {
