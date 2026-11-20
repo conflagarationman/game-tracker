@@ -93,7 +93,7 @@ const variants = {
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const VIEWPORTS = { phone: { width: 390, height: 844, mobile: true }, laptop: { width: 1440, height: 900, mobile: false } };
 
-async function open(path, vpName, { variant = null, scheme = "dark", storage = null } = {}) {
+async function open(path, vpName, { variant = null, scheme = "dark", storage = null, season = "off" } = {}) {
   const vp = VIEWPORTS[vpName];
   const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 1, isMobile: vp.mobile, hasTouch: vp.mobile, colorScheme: scheme, reducedMotion: "reduce" });
   const page = await ctx.newPage();
@@ -126,7 +126,9 @@ async function open(path, vpName, { variant = null, scheme = "dark", storage = n
     return route.abort();
   });
   if (storage) await page.addInitScript((s) => { for (const [k, x] of Object.entries(s)) localStorage.setItem(k, x); }, storage);
-  await page.goto(BASE + "/" + path, { waitUntil: "load" });
+  // Seasonal looks (season.js) follow the real date, so every state pins one: "off" unless the
+  // state asks for a holiday, or the whole run would quietly change look on November 1.
+  await page.goto(BASE + "/" + path + (path.includes("?") ? "&" : "?") + "season=" + season, { waitUntil: "load" });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.waitForTimeout(600);
@@ -159,7 +161,7 @@ function measure({ phone, scope }) {
     const t = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ").slice(0, 50);
     return `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${el.classList.length ? "." + [...el.classList].join(".") : ""} "${t}"`;
   };
-  const out = { overflowX: null, clipped: [], truncated: [], badText: [], smallTargets: [], offscreen: [] };
+  const out = { overflowX: null, clipped: [], truncated: [], badText: [], smallTargets: [], offscreen: [], korokCovered: [] };
   const de = document.documentElement;
   if (phone) out.overflowX = de.scrollWidth > innerWidth + 1 ? `page is ${de.scrollWidth}px wide on a ${innerWidth}px screen` : null;
   const all = [root, ...root.querySelectorAll("*")];
@@ -212,6 +214,28 @@ function measure({ phone, scope }) {
       if (r.width < 44 || r.height < 44) out.smallTargets.push(`${label(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
     }
   }
+  // Nothing may be drawn over a Korok (the hidden-object game). Scroll each into view and hit-test
+  // its visible part with every element made hit-testable, so decorations that ignore taps
+  // (the seasonal strip, falling leaves) still count. Restores the scroll position after.
+  if (!scope) {
+    const force = document.createElement("style");
+    force.textContent = "*{pointer-events:auto !important}";
+    document.head.appendChild(force);
+    const sx = scrollX, sy = scrollY;
+    document.querySelectorAll(".korok-btn").forEach((b, i) => {
+      const spot = b.closest(".korok-spot") || b.parentElement;
+      b.scrollIntoView({ block: "center" });
+      const r = b.getBoundingClientRect(), sp = spot.getBoundingClientRect();
+      const L = Math.max(r.left, sp.left), R = Math.min(r.right, sp.right), T = Math.max(r.top, sp.top), B = Math.min(r.bottom, sp.bottom);
+      if (R - L < 4 || B - T < 4) { out.korokCovered.push(`Korok ${i + 1} has no visible area`); return; }
+      for (const fx of [0.25, 0.5, 0.75]) {
+        const hit = document.elementFromPoint(L + (R - L) * fx, T + (B - T) / 2);
+        if (!hit || !b.contains(hit)) { out.korokCovered.push(`Korok ${i + 1} is covered by ${hit ? label(hit) : "nothing visible"}`); break; }
+      }
+    });
+    force.remove();
+    scrollTo(sx, sy);
+  }
   return out;
 }
 
@@ -249,6 +273,13 @@ const states = [
   { name: "index-nocovers", page: "index.html", label: "Tracker with NO cover art available (every cover missing, fallbacks showing)", vps: PHONE, variant: "nocovers", slices: true, maxSlices: 3 },
   { name: "index-loaderror", page: "index.html", label: "Tracker when the game data fails to load (offline or the site is down)", vps: BOTH, variant: "loaderror" },
 
+  // Seasonal looks (season.js): Thanksgiving and Christmas on the two pages that carry them.
+  { name: "index-thanksgiving", page: "index.html", label: "Tracker home page wearing the THANKSGIVING look (harvest glow, ribbon along the top, falling leaves), first screens", vps: BOTH, season: "thanksgiving", slices: true, maxSlices: 2 },
+  { name: "index-christmas", page: "index.html", label: "Tracker home page wearing the CHRISTMAS look (bulb strand along the top, red and pine glow, snowflakes), first screens", vps: BOTH, season: "christmas", slices: true, maxSlices: 2 },
+  { name: "index-christmas-light", page: "index.html", label: "Tracker home page, CHRISTMAS look, light (parchment) theme, first screen", vps: PHONE, season: "christmas", scheme: "light" },
+  { name: "owl-thanksgiving", page: "owl.html", label: "Owl picker wearing the THANKSGIVING look", vps: PHONE, season: "thanksgiving" },
+  { name: "owl-christmas", page: "owl.html", label: "Owl picker wearing the CHRISTMAS look", vps: PHONE, season: "christmas" },
+
   { name: "wrapped-default", page: "wrapped.html", label: "Year in Games (Wrapped) page for this year, scrolled screen by screen from the top", vps: BOTH, slices: true, weight: "wrapped.html" },
   { name: "wrapped-light", page: "wrapped.html", label: "Year in Games page in the light (parchment) theme, first screen", vps: PHONE, scheme: "light" },
   { name: "wrapped-story", page: "wrapped.html?cards=1", label: "Wrapped story mode, card", vps: BOTH, story: true },
@@ -283,7 +314,7 @@ for (const s of states) {
   if (ONLY && !ONLY.test(s.name)) continue;
   for (const vpName of s.vps) {
     const phone = vpName === "phone";
-    const o = await open(s.page, vpName, { variant: s.variant, scheme: s.scheme || "dark", storage: s.storage });
+    const o = await open(s.page, vpName, { variant: s.variant, scheme: s.scheme || "dark", storage: s.storage, season: s.season });
     const { page } = o;
     const base = `${s.name}-${vpName}`;
     const result = { state: base, label: s.label, images: [] };
@@ -384,6 +415,7 @@ for (const g of gates) {
     m.offscreen?.forEach(e => f("off screen" + where, e));
     m.badText?.forEach(e => f("bad text" + where, e));
     m.smallTargets?.forEach(e => f("tap target < 44px" + where, e));
+    m.korokCovered?.forEach(e => f("korok covered" + where, e));
   };
   one(g);
   g.story?.forEach(c => { if (!c.fits) f(`story card ${c.card} does not fit one screen`, c.over.join(", ")); one(c, ` (card ${c.card})`); });
