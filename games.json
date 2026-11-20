@@ -547,7 +547,7 @@
     "id": 216,
     "t": "Final Fantasy VII Rebirth",
     "p": "switch2",
-    "s": "queue",
+    "s": "playing",
     "r": 0,
     "g": "Action RPG",
     "y": 2024,
@@ -564,7 +564,7 @@
     "lastPlayed": null,
     "casual": false,
     "note": "Bought on Switch 2 ($7.49 sale) to play handheld; also owned unplayed on PS5.",
-    "start": null,
+    "start": "2026-11-19",
     "queued": "2026-06-16",
     "release": null
   },
